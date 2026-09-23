@@ -488,10 +488,14 @@ jobs:
           import androidx.activity.compose.setContent
           import androidx.activity.result.contract.ActivityResultContracts
           import androidx.compose.animation.*
+          import androidx.compose.animation.core.*
           import androidx.compose.foundation.background
+          import androidx.compose.foundation.border
           import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.interaction.MutableInteractionSource
           import androidx.compose.foundation.layout.*
           import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.LazyRow
           import androidx.compose.foundation.lazy.items
           import androidx.compose.foundation.shape.CircleShape
           import androidx.compose.foundation.shape.RoundedCornerShape
@@ -503,6 +507,8 @@ jobs:
           import androidx.compose.ui.Alignment
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.draw.clip
+          import androidx.compose.ui.draw.scale
+          import androidx.compose.ui.graphics.Brush
           import androidx.compose.ui.graphics.Color
           import androidx.compose.ui.graphics.vector.ImageVector
           import androidx.compose.ui.platform.LocalContext
@@ -517,12 +523,11 @@ jobs:
           import androidx.core.content.ContextCompat
           import com.google.android.gms.location.LocationServices
           import com.google.android.gms.location.Priority
-          import com.google.firebase.auth.FirebaseAuth
           import com.google.firebase.auth.ktx.auth
-          import com.google.firebase.firestore.FirebaseFirestore
           import com.google.firebase.firestore.ListenerRegistration
           import com.google.firebase.firestore.ktx.firestore
           import com.google.firebase.ktx.Firebase
+          import kotlinx.coroutines.launch
           import kotlinx.coroutines.tasks.await
           import org.osmdroid.config.Configuration
           import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -536,6 +541,7 @@ jobs:
           val PrimaryDarkColor = Color(0xFFE06B00.toInt())
           val AppDarkBackground = Color(0xFF0D0D11.toInt())
           val CardDarkBackground = Color(0xFF16161E.toInt())
+          val CardBorderDark = Color(0xFF262630.toInt())
           val AccentGreen = Color(0xFF10B981.toInt())
           val AccentRed = Color(0xFFEF4444.toInt())
           val AccentBlue = Color(0xFF3B82F6.toInt())
@@ -602,6 +608,8 @@ jobs:
               val context = LocalContext.current
               val auth = remember { Firebase.auth }
               val db = remember { Firebase.firestore }
+              val scope = rememberCoroutineScope()
+              val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
               var isDarkMode by remember { mutableStateOf(true) }
               var currentScreen by remember { mutableStateOf(AppScreen.LANDING) }
@@ -620,9 +628,8 @@ jobs:
               var showRatingDialog by remember { mutableStateOf(false) }
               var showChatDialog by remember { mutableStateOf(false) }
               var showProfileDialog by remember { mutableStateOf(false) }
-              var showInfoDialog by remember { mutableStateOf(false) }
-              var infoTitle by remember { mutableStateOf("") }
-              var infoMessage by remember { mutableStateOf("") }
+              var showNotificationsModal by remember { mutableStateOf(false) }
+              var showDrawerModal by remember { mutableStateOf<String?>(null) }
 
               var driverEarnings by remember { mutableStateOf(0) }
               var driverCompletedCount by remember { mutableStateOf(0) }
@@ -630,7 +637,6 @@ jobs:
 
               var currentLatitude by remember { mutableStateOf(36.4686) }
               var currentLongitude by remember { mutableStateOf(2.6288) }
-              var isGpsDetected by remember { mutableStateOf(false) }
 
               var activeOrderIdForChat by remember { mutableStateOf("") }
 
@@ -645,7 +651,6 @@ jobs:
                                   if (loc != null) {
                                       currentLatitude = loc.latitude
                                       currentLongitude = loc.longitude
-                                      isGpsDetected = true
                                   }
                               }
                       } catch (e: Exception) {
@@ -664,28 +669,28 @@ jobs:
                   }
                   permLauncher.launch(permissionsNeeded.toTypedArray())
 
-                  // Load stores dynamically from Firestore
                   db.collection("stores").addSnapshotListener { snap, _ ->
                       if (snap != null) {
                           storesList.clear()
                           for (doc in snap.documents) {
-                              val s = StoreItem(
-                                  id = doc.id,
-                                  name = doc.getString("name") ?: "متجر العفرون",
-                                  lat = doc.getDouble("lat") ?: 36.4686,
-                                  lng = doc.getDouble("lng") ?: 2.6288
+                              storesList.add(
+                                  StoreItem(
+                                      id = doc.id,
+                                      name = doc.getString("name") ?: "متجر العفرون",
+                                      lat = doc.getDouble("lat") ?: 36.4686,
+                                      lng = doc.getDouble("lng") ?: 2.6288
+                                  )
                               )
-                              storesList.add(s)
                           }
                           if (storesList.isEmpty()) {
                               storesList.add(StoreItem("1", "بيتزا هاوس العفرون", 36.4690, 2.6295))
                               storesList.add(StoreItem("2", "مطعم السلطان للشواء", 36.4675, 2.6280))
+                              storesList.add(StoreItem("3", "طاكوس الأصيل", 36.4660, 2.6250))
                           }
                       }
                   }
               }
 
-              // Listen to authenticated state
               LaunchedEffect(auth.currentUser) {
                   val user = auth.currentUser
                   if (user != null) {
@@ -713,7 +718,6 @@ jobs:
                   }
               }
 
-              // Realtime orders synchronization from Firebase
               DisposableEffect(currentUserUid, userRole) {
                   var listener: ListenerRegistration? = null
                   if (currentUserUid.isNotEmpty()) {
@@ -755,7 +759,6 @@ jobs:
                               )
                               activeOrders.add(ord)
 
-                              // Trigger audio & notification if a new pending order arrived for drivers
                               if (userRole == UserRole.DRIVER && ord.status == "pending" && incomingOrderAlert == null) {
                                   incomingOrderAlert = ord
                                   SoundHelper.playNotificationTone(context)
@@ -766,7 +769,6 @@ jobs:
                                   )
                               }
 
-                              // Alert customer on arrival (< 200m)
                               if (userRole == UserRole.CUSTOMER && ord.status == "received") {
                                   SoundHelper.playArrivalTone()
                               }
@@ -786,7 +788,6 @@ jobs:
                   onDispose { listener?.remove() }
               }
 
-              // Sync Chat Messages in realtime when an order is open
               DisposableEffect(activeOrderIdForChat) {
                   var chatListener: ListenerRegistration? = null
                   if (activeOrderIdForChat.isNotEmpty()) {
@@ -832,283 +833,448 @@ jobs:
               }
 
               MaterialTheme(colorScheme = colorScheme) {
-                  Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                      Column(modifier = Modifier.fillMaxSize()) {
-                          TopAppBar(
-                              title = {
+                  ModalNavigationDrawer(
+                      drawerState = drawerState,
+                      gesturesEnabled = true,
+                      drawerContent = {
+                          ModalDrawerSheet(
+                              modifier = Modifier.width(300.dp),
+                              drawerContainerColor = MaterialTheme.colorScheme.surface
+                          ) {
+                              Column(
+                                  modifier = Modifier
+                                      .fillMaxSize()
+                                      .padding(20.dp),
+                                  verticalArrangement = Arrangement.spacedBy(8.dp)
+                              ) {
                                   Row(
-                                      verticalAlignment = Alignment.CenterVertically,
-                                      horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                      modifier = Modifier.fillMaxWidth(),
+                                      horizontalArrangement = Arrangement.SpaceBetween,
+                                      verticalAlignment = Alignment.CenterVertically
                                   ) {
-                                      Box(
-                                          modifier = Modifier
-                                              .size(36.dp)
-                                              .clip(CircleShape)
-                                              .background(PrimaryColor),
-                                          contentAlignment = Alignment.Center
-                                      ) {
-                                          Icon(
-                                              imageVector = Icons.Default.TwoWheeler,
-                                              contentDescription = "Logo",
-                                              tint = Color.White,
-                                              modifier = Modifier.size(20.dp)
-                                          )
-                                      }
                                       Text(
                                           text = "العفرون ديليفري",
-                                          fontSize = 17.sp,
+                                          fontSize = 18.sp,
                                           fontWeight = FontWeight.Black,
                                           color = PrimaryColor
                                       )
+                                      IconButton(onClick = { scope.launch { drawerState.close() } }) {
+                                          Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                                      }
                                   }
-                              },
-                              actions = {
-                                  IconButton(onClick = { isDarkMode = !isDarkMode }) {
-                                      Icon(
-                                          imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
-                                          contentDescription = "Theme",
-                                          tint = if (isDarkMode) Color.Yellow else MaterialTheme.colorScheme.onSurface
+
+                                  Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                                  DrawerMenuItem(
+                                      title = "الرئيسية",
+                                      icon = Icons.Default.Home,
+                                      onClick = {
+                                          scope.launch { drawerState.close() }
+                                          if (currentUserUid.isEmpty()) currentScreen = AppScreen.LANDING
+                                      }
+                                  )
+
+                                  DrawerMenuItem(
+                                      title = "من نحن",
+                                      icon = Icons.Default.Info,
+                                      onClick = {
+                                          scope.launch { drawerState.close() }
+                                          showDrawerModal = "about"
+                                      }
+                                  )
+
+                                  DrawerMenuItem(
+                                      title = "خدماتنا والأسعار",
+                                      icon = Icons.Default.LocalShipping,
+                                      onClick = {
+                                          scope.launch { drawerState.close() }
+                                          showDrawerModal = "services"
+                                      }
+                                  )
+
+                                  DrawerMenuItem(
+                                      title = "موقعنا في العفرون",
+                                      icon = Icons.Default.LocationOn,
+                                      onClick = {
+                                          scope.launch { drawerState.close() }
+                                          showDrawerModal = "location"
+                                      }
+                                  )
+
+                                  DrawerMenuItem(
+                                      title = "اتصل بنا",
+                                      icon = Icons.Default.Call,
+                                      onClick = {
+                                          scope.launch { drawerState.close() }
+                                          showDrawerModal = "contact"
+                                      }
+                                  )
+
+                                  if (currentUserUid.isNotEmpty() && userRole == UserRole.CUSTOMER) {
+                                      DrawerMenuItem(
+                                          title = "سجل تعاملاتي",
+                                          icon = Icons.Default.History,
+                                          onClick = {
+                                              scope.launch { drawerState.close() }
+                                              showHistoryDialog = true
+                                          }
                                       )
                                   }
 
-                                  if (currentUserUid.isNotEmpty()) {
-                                      IconButton(onClick = { showProfileDialog = true }) {
-                                          Icon(
-                                              imageVector = Icons.Default.Person,
-                                              contentDescription = "Profile",
-                                              tint = PrimaryColor
-                                          )
-                                      }
-                                      IconButton(onClick = {
-                                          auth.signOut()
-                                          currentUserUid = ""
-                                          currentUserName = ""
-                                          currentUserPhone = ""
-                                          currentScreen = AppScreen.LANDING
-                                      }) {
-                                          Icon(
-                                              imageVector = Icons.Default.ExitToApp,
-                                              contentDescription = "Logout",
-                                              tint = AccentRed
-                                          )
-                                      }
-                                  }
-                              },
-                              colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-                          )
+                                  Spacer(modifier = Modifier.weight(1f))
 
-                          Box(modifier = Modifier.weight(1f)) {
-                              when (currentScreen) {
-                                  AppScreen.LANDING -> {
-                                      LandingScreen(
-                                          onOrderNow = {
-                                              userRole = UserRole.CUSTOMER
-                                              currentScreen = AppScreen.AUTH
-                                          },
-                                          onJoinDriver = {
+                                  if (currentUserUid.isEmpty()) {
+                                      Button(
+                                          onClick = {
+                                              scope.launch { drawerState.close() }
                                               userRole = UserRole.DRIVER
                                               currentScreen = AppScreen.AUTH
                                           },
-                                          onOpenAdmin = {
-                                              userRole = UserRole.ADMIN
-                                              currentScreen = AppScreen.AUTH
-                                          }
-                                      )
+                                          modifier = Modifier
+                                              .fillMaxWidth()
+                                              .height(50.dp),
+                                          shape = RoundedCornerShape(14.dp),
+                                          colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                                      ) {
+                                          Icon(imageVector = Icons.Default.TwoWheeler, contentDescription = null)
+                                          Spacer(modifier = Modifier.width(8.dp))
+                                          Text(
+                                              text = "انضم إلينا كعامل توصيل",
+                                              fontWeight = FontWeight.Bold,
+                                              fontSize = 13.sp
+                                          )
+                                      }
                                   }
-                                  AppScreen.AUTH -> {
-                                      AuthScreen(
-                                          role = userRole,
-                                          onLoginSuccess = { name, phone, uid ->
-                                              currentUserName = name
-                                              currentUserPhone = phone
-                                              currentUserUid = uid
-                                              if (userRole == UserRole.DRIVER) {
-                                                  val svcIntent = Intent(context, DeliveryBackgroundService::class.java)
-                                                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                                      context.startForegroundService(svcIntent)
-                                                  } else {
-                                                      context.startService(svcIntent)
+                              }
+                          }
+                      }
+                  ) {
+                      Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                          Column(modifier = Modifier.fillMaxSize()) {
+                              TopAppBar(
+                                  navigationIcon = {
+                                      IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                          Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu")
+                                      }
+                                  },
+                                  title = {
+                                      Row(
+                                          verticalAlignment = Alignment.CenterVertically,
+                                          horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                      ) {
+                                          Box(
+                                              modifier = Modifier
+                                                  .size(34.dp)
+                                                  .clip(CircleShape)
+                                                  .background(PrimaryColor),
+                                              contentAlignment = Alignment.Center
+                                          ) {
+                                              Icon(
+                                                  imageVector = Icons.Default.DeliveryDining,
+                                                  contentDescription = "Logo",
+                                                  tint = Color.White,
+                                                  modifier = Modifier.size(20.dp)
+                                              )
+                                          }
+                                          Text(
+                                              text = "العفرون ديليفري",
+                                              fontSize = 17.sp,
+                                              fontWeight = FontWeight.Black,
+                                              color = PrimaryColor
+                                          )
+                                      }
+                                  },
+                                  actions = {
+                                      IconButton(onClick = { showNotificationsModal = true }) {
+                                          BadgedBox(
+                                              badge = {
+                                                  if (activeOrders.any { it.status == "pending" }) {
+                                                      Badge { Text("!") }
                                                   }
                                               }
-                                              currentScreen = when (userRole) {
-                                                  UserRole.CUSTOMER -> AppScreen.CUSTOMER_DASHBOARD
-                                                  UserRole.DRIVER -> AppScreen.DRIVER_DASHBOARD
-                                                  UserRole.ADMIN -> AppScreen.ADMIN_PANEL
-                                              }
+                                          ) {
+                                              Icon(
+                                                  imageVector = Icons.Default.Notifications,
+                                                  contentDescription = "Notifications",
+                                                  tint = MaterialTheme.colorScheme.onSurface
+                                              )
+                                          }
+                                      }
+
+                                      IconButton(onClick = { isDarkMode = !isDarkMode }) {
+                                          Icon(
+                                              imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                              contentDescription = "Theme",
+                                              tint = if (isDarkMode) Color.Yellow else MaterialTheme.colorScheme.onSurface
+                                          )
+                                      }
+
+                                      if (currentUserUid.isNotEmpty()) {
+                                          IconButton(onClick = { showProfileDialog = true }) {
+                                              Icon(
+                                                  imageVector = Icons.Default.AccountCircle,
+                                                  contentDescription = "Profile",
+                                                  tint = PrimaryColor
+                                              )
+                                          }
+                                          IconButton(onClick = {
+                                              auth.signOut()
+                                              currentUserUid = ""
+                                              currentUserName = ""
+                                              currentUserPhone = ""
+                                              currentScreen = AppScreen.LANDING
+                                          }) {
+                                              Icon(
+                                                  imageVector = Icons.Default.ExitToApp,
+                                                  contentDescription = "Logout",
+                                                  tint = AccentRed
+                                              )
+                                          }
+                                      }
+                                  },
+                                  colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                              )
+
+                              Box(modifier = Modifier.weight(1f)) {
+                                  AnimatedContent(
+                                      targetState = currentScreen,
+                                      transitionSpec = {
+                                          fadeIn(animationSpec = tween(350)) + scaleIn(initialScale = 0.94f) togetherWith
+                                                  fadeOut(animationSpec = tween(250)) + scaleOut(targetScale = 1.04f)
+                                      },
+                                      label = "ScreenTransition"
+                                  ) { targetScreen ->
+                                      when (targetScreen) {
+                                          AppScreen.LANDING -> {
+                                              LandingScreen(
+                                                  onOrderNow = {
+                                                      userRole = UserRole.CUSTOMER
+                                                      currentScreen = AppScreen.AUTH
+                                                  },
+                                                  onJoinDriver = {
+                                                      userRole = UserRole.DRIVER
+                                                      currentScreen = AppScreen.AUTH
+                                                  },
+                                                  onOpenAdmin = {
+                                                      userRole = UserRole.ADMIN
+                                                      currentScreen = AppScreen.AUTH
+                                                  }
+                                              )
+                                          }
+                                          AppScreen.AUTH -> {
+                                              AuthScreen(
+                                                  role = userRole,
+                                                  onLoginSuccess = { name, phone, uid ->
+                                                      currentUserName = name
+                                                      currentUserPhone = phone
+                                                      currentUserUid = uid
+                                                      if (userRole == UserRole.DRIVER) {
+                                                          val svcIntent = Intent(context, DeliveryBackgroundService::class.java)
+                                                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                              context.startForegroundService(svcIntent)
+                                                          } else {
+                                                              context.startService(svcIntent)
+                                                          }
+                                                      }
+                                                      currentScreen = when (userRole) {
+                                                          UserRole.CUSTOMER -> AppScreen.CUSTOMER_DASHBOARD
+                                                          UserRole.DRIVER -> AppScreen.DRIVER_DASHBOARD
+                                                          UserRole.ADMIN -> AppScreen.ADMIN_PANEL
+                                                      }
+                                                  },
+                                                  onCancel = { currentScreen = AppScreen.LANDING }
+                                              )
+                                          }
+                                          AppScreen.CUSTOMER_DASHBOARD -> {
+                                              CustomerDashboard(
+                                                  userName = currentUserName,
+                                                  userLat = currentLatitude,
+                                                  userLng = currentLongitude,
+                                                  activeOrders = activeOrders,
+                                                  onOpenNewOrder = { showOrderDialog = true },
+                                                  onOpenHistory = { showHistoryDialog = true },
+                                                  onOpenChat = { orderId ->
+                                                      activeOrderIdForChat = orderId
+                                                      showChatDialog = true
+                                                  },
+                                                  onConfirmDelivered = { order ->
+                                                      db.collection("orders").document(order.id)
+                                                          .update("status", "completed")
+                                                      showRatingDialog = true
+                                                  },
+                                                  onCancelOrder = { order ->
+                                                      db.collection("orders").document(order.id).delete()
+                                                  }
+                                              )
+                                          }
+                                          AppScreen.DRIVER_DASHBOARD -> {
+                                              DriverDashboard(
+                                                  driverName = currentUserName,
+                                                  driverPhone = currentUserPhone,
+                                                  driverUid = currentUserUid,
+                                                  activeOrders = activeOrders,
+                                                  earnings = driverEarnings,
+                                                  completedCount = driverCompletedCount,
+                                                  debt = driverDebt,
+                                                  onUpdateStatus = { order, newStatus ->
+                                                      db.collection("orders").document(order.id)
+                                                          .update("status", newStatus)
+                                                  },
+                                                  onFinishDelivery = { order ->
+                                                      db.collection("orders").document(order.id)
+                                                          .update("status", "delivered")
+                                                  },
+                                                  onOpenChat = { orderId ->
+                                                      activeOrderIdForChat = orderId
+                                                      showChatDialog = true
+                                                  },
+                                                  onOpenHistory = { showHistoryDialog = true }
+                                              )
+                                          }
+                                          AppScreen.ADMIN_PANEL -> {
+                                              AdminPanelScreen(
+                                                  stores = storesList,
+                                                  orders = activeOrders,
+                                                  onAddStore = { name, lat, lng ->
+                                                      val storeMap = hashMapOf("name" to name, "lat" to lat, "lng" to lng)
+                                                      db.collection("stores").add(storeMap)
+                                                  },
+                                                  onBackToHome = { currentScreen = AppScreen.LANDING }
+                                              )
+                                          }
+                                      }
+                                  }
+
+                                  incomingOrderAlert?.let { incoming ->
+                                      DriverIncomingOrderModal(
+                                          order = incoming,
+                                          onAccept = {
+                                              db.collection("orders").document(incoming.id).update(
+                                                  mapOf(
+                                                      "status" to "accepted",
+                                                      "driverId" to currentUserUid,
+                                                      "driverName" to currentUserName,
+                                                      "driverPhone" to currentUserPhone
+                                                  )
+                                              )
+                                              incomingOrderAlert = null
                                           },
-                                          onCancel = { currentScreen = AppScreen.LANDING }
+                                          onReject = {
+                                              incomingOrderAlert = null
+                                          }
                                       )
                                   }
-                                  AppScreen.CUSTOMER_DASHBOARD -> {
-                                      CustomerDashboard(
-                                          userName = currentUserName,
+
+                                  if (showOrderDialog) {
+                                      CreateOrderDialog(
+                                          stores = storesList,
                                           userLat = currentLatitude,
                                           userLng = currentLongitude,
-                                          activeOrders = activeOrders,
-                                          onOpenNewOrder = { showOrderDialog = true },
-                                          onOpenHistory = { showHistoryDialog = true },
-                                          onOpenChat = { orderId ->
-                                              activeOrderIdForChat = orderId
-                                              showChatDialog = true
-                                          },
-                                          onConfirmDelivered = { order ->
-                                              db.collection("orders").document(order.id)
-                                                  .update("status", "completed")
-                                              showRatingDialog = true
-                                          },
-                                          onCancelOrder = { order ->
-                                              db.collection("orders").document(order.id).delete()
+                                          onDismiss = { showOrderDialog = false },
+                                          onSubmitOrder = { newOrderMap ->
+                                              val orderData = newOrderMap.toMutableMap()
+                                              orderData["customerId"] = currentUserUid
+                                              orderData["customerName"] = currentUserName
+                                              orderData["customerPhone"] = currentUserPhone
+                                              orderData["status"] = "pending"
+                                              orderData["createdAt"] = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+
+                                              db.collection("orders").add(orderData)
+                                              showOrderDialog = false
                                           }
                                       )
                                   }
-                                  AppScreen.DRIVER_DASHBOARD -> {
-                                      DriverDashboard(
-                                          driverName = currentUserName,
-                                          driverPhone = currentUserPhone,
-                                          driverUid = currentUserUid,
-                                          activeOrders = activeOrders,
-                                          earnings = driverEarnings,
-                                          completedCount = driverCompletedCount,
-                                          debt = driverDebt,
-                                          onUpdateStatus = { order, newStatus ->
-                                              db.collection("orders").document(order.id)
-                                                  .update("status", newStatus)
-                                          },
-                                          onFinishDelivery = { order ->
-                                              db.collection("orders").document(order.id)
-                                                  .update("status", "delivered")
-                                          },
-                                          onOpenChat = { orderId ->
-                                              activeOrderIdForChat = orderId
-                                              showChatDialog = true
-                                          },
-                                          onOpenHistory = { showHistoryDialog = true }
-                                      )
-                                  }
-                                  AppScreen.ADMIN_PANEL -> {
-                                      AdminPanelScreen(
-                                          stores = storesList,
+
+                                  if (showHistoryDialog) {
+                                      HistoryDialog(
                                           orders = activeOrders,
-                                          onAddStore = { name, lat, lng ->
-                                              val storeMap = hashMapOf("name" to name, "lat" to lat, "lng" to lng)
-                                              db.collection("stores").add(storeMap)
-                                          },
-                                          onBackToHome = { currentScreen = AppScreen.LANDING }
+                                          onDismiss = { showHistoryDialog = false }
                                       )
                                   }
-                              }
 
-                              incomingOrderAlert?.let { incoming ->
-                                  DriverIncomingOrderModal(
-                                      order = incoming,
-                                      onAccept = {
-                                          db.collection("orders").document(incoming.id).update(
-                                              mapOf(
-                                                  "status" to "accepted",
-                                                  "driverId" to currentUserUid,
-                                                  "driverName" to currentUserName,
-                                                  "driverPhone" to currentUserPhone
-                                              )
-                                          )
-                                          incomingOrderAlert = null
-                                      },
-                                      onReject = {
-                                          incomingOrderAlert = null
-                                      }
-                                  )
-                              }
-
-                              if (showOrderDialog) {
-                                  CreateOrderDialog(
-                                      stores = storesList,
-                                      userLat = currentLatitude,
-                                      userLng = currentLongitude,
-                                      onDismiss = { showOrderDialog = false },
-                                      onSubmitOrder = { newOrderMap ->
-                                          val orderData = newOrderMap.toMutableMap()
-                                          orderData["customerId"] = currentUserUid
-                                          orderData["customerName"] = currentUserName
-                                          orderData["customerPhone"] = currentUserPhone
-                                          orderData["status"] = "pending"
-                                          orderData["createdAt"] = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
-
-                                          db.collection("orders").add(orderData)
-                                          showOrderDialog = false
-                                      }
-                                  )
-                              }
-
-                              if (showHistoryDialog) {
-                                  HistoryDialog(
-                                      orders = activeOrders,
-                                      onDismiss = { showHistoryDialog = false }
-                                  )
-                              }
-
-                              if (showProfileDialog) {
-                                  ProfileDialog(
-                                      name = currentUserName,
-                                      phone = currentUserPhone,
-                                      onDismiss = { showProfileDialog = false },
-                                      onSave = { newName, newPhone ->
-                                          db.collection("users").document(currentUserUid)
-                                              .update("name", newName, "phoneNumber", newPhone)
-                                          currentUserName = newName
-                                          currentUserPhone = newPhone
-                                          showProfileDialog = false
-                                      }
-                                  )
-                              }
-
-                              if (showRatingDialog) {
-                                  RatingDialog(
-                                      onDismiss = { showRatingDialog = false },
-                                      onRated = {
-                                          showRatingDialog = false
-                                          infoTitle = "شكراً لتقييمك"
-                                          infoMessage = "تم تسجيل تقييمك لعامل التوصيل بنجاح."
-                                          showInfoDialog = true
-                                      }
-                                  )
-                              }
-
-                              if (showChatDialog) {
-                                  ChatDialog(
-                                      senderRole = if (userRole == UserRole.CUSTOMER) "الزبون" else "السائق",
-                                      messages = chatMessages,
-                                      onSendMessage = { text ->
-                                          if (activeOrderIdForChat.isNotEmpty()) {
-                                              val msgMap = hashMapOf(
-                                                  "sender" to (if (userRole == UserRole.CUSTOMER) "customer" else "driver"),
-                                                  "text" to text,
-                                                  "sentAt" to java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
-                                              )
-                                              db.collection("orders").document(activeOrderIdForChat)
-                                                  .collection("messages").add(msgMap)
+                                  if (showProfileDialog) {
+                                      ProfileDialog(
+                                          name = currentUserName,
+                                          phone = currentUserPhone,
+                                          onDismiss = { showProfileDialog = false },
+                                          onSave = { newName, newPhone ->
+                                              db.collection("users").document(currentUserUid)
+                                                  .update("name", newName, "phoneNumber", newPhone)
+                                              currentUserName = newName
+                                              currentUserPhone = newPhone
+                                              showProfileDialog = false
                                           }
-                                      },
-                                      onDismiss = {
-                                          showChatDialog = false
-                                          activeOrderIdForChat = ""
-                                      }
-                                  )
-                              }
+                                      )
+                                  }
 
-                              if (showInfoDialog) {
-                                  AlertDialog(
-                                      onDismissRequest = { showInfoDialog = false },
-                                      title = { Text(text = infoTitle, fontWeight = FontWeight.Bold) },
-                                      text = { Text(text = infoMessage, fontSize = 13.sp) },
-                                      confirmButton = {
-                                          TextButton(onClick = { showInfoDialog = false }) {
-                                              Text(text = "حسناً", color = PrimaryColor, fontWeight = FontWeight.Bold)
+                                  if (showRatingDialog) {
+                                      RatingDialog(
+                                          onDismiss = { showRatingDialog = false },
+                                          onRated = {
+                                              showRatingDialog = false
                                           }
-                                      }
-                                  )
+                                      )
+                                  }
+
+                                  if (showChatDialog) {
+                                      ChatDialog(
+                                          senderRole = if (userRole == UserRole.CUSTOMER) "الزبون" else "السائق",
+                                          messages = chatMessages,
+                                          onSendMessage = { text ->
+                                              if (activeOrderIdForChat.isNotEmpty()) {
+                                                  val msgMap = hashMapOf(
+                                                      "sender" to (if (userRole == UserRole.CUSTOMER) "customer" else "driver"),
+                                                      "text" to text,
+                                                      "sentAt" to java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+                                                  )
+                                                  db.collection("orders").document(activeOrderIdForChat)
+                                                      .collection("messages").add(msgMap)
+                                              }
+                                          },
+                                          onDismiss = {
+                                              showChatDialog = false
+                                              activeOrderIdForChat = ""
+                                          }
+                                      )
+                                  }
+
+                                  if (showNotificationsModal) {
+                                      NotificationsModal(
+                                          orders = activeOrders,
+                                          onDismiss = { showNotificationsModal = false }
+                                      )
+                                  }
+
+                                  showDrawerModal?.let { modalType ->
+                                      DrawerInfoModal(
+                                          type = modalType,
+                                          onDismiss = { showDrawerModal = null }
+                                      )
+                                  }
                               }
                           }
                       }
                   }
+              }
+          }
+
+          @Composable
+          fun DrawerMenuItem(
+              title: String,
+              icon: ImageVector,
+              onClick: () -> Unit
+          ) {
+              Row(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .clip(RoundedCornerShape(12.dp))
+                      .clickable { onClick() }
+                      .padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(14.dp)
+              ) {
+                  Icon(imageVector = icon, contentDescription = null, tint = PrimaryColor, modifier = Modifier.size(20.dp))
+                  Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
               }
           }
 
@@ -1168,6 +1334,17 @@ jobs:
               onJoinDriver: () -> Unit,
               onOpenAdmin: () -> Unit
           ) {
+              val infiniteTransition = rememberInfiniteTransition(label = "Pulse")
+              val scale by infiniteTransition.animateFloat(
+                  initialValue = 0.95f,
+                  targetValue = 1.05f,
+                  animationSpec = infiniteRepeatable(
+                      animation = tween(1200, easing = FastOutSlowInEasing),
+                      repeatMode = RepeatMode.Reverse
+                  ),
+                  label = "Scale"
+              )
+
               Column(
                   modifier = Modifier
                       .fillMaxSize()
@@ -1178,8 +1355,13 @@ jobs:
                   Box(
                       modifier = Modifier
                           .size(110.dp)
+                          .scale(scale)
                           .clip(CircleShape)
-                          .background(PrimaryColor),
+                          .background(
+                              Brush.radialGradient(
+                                  listOf(PrimaryColor, PrimaryDarkColor)
+                              )
+                          ),
                       contentAlignment = Alignment.Center
                   ) {
                       Icon(
@@ -1203,7 +1385,7 @@ jobs:
                   Spacer(modifier = Modifier.height(10.dp))
 
                   Text(
-                      text = "المنصة الأحدث لتتبع وتوصيل طلباتك في العفرون وضواحيها بكل سلاسة، أمان وسرعة حقيقية مع Firebase وOpenStreetMap.",
+                      text = "المنصة الأحدث لتتبع وتوصيل طلباتك في العفرون وضواحيها بكل سلاسة، أمان وسرعة حقيقية.",
                       fontSize = 14.sp,
                       textAlign = TextAlign.Center,
                       color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
@@ -1289,14 +1471,64 @@ jobs:
 
                       Text(
                           text = when (role) {
-                              UserRole.CUSTOMER -> "بوابة حسابات الزبائن (Firebase Auth)"
-                              UserRole.DRIVER -> "بوابة عمال التوصيل (Firebase Auth)"
+                              UserRole.CUSTOMER -> "بوابة الزبائن - تسجيل سريع"
+                              UserRole.DRIVER -> "بوابة عمال التوصيل"
                               UserRole.ADMIN -> "تحقق رقمي محمي للإدارة"
                           },
                           fontSize = 12.sp,
                           color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                          modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
+                          modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
                       )
+
+                      if (role == UserRole.CUSTOMER) {
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                          ) {
+                              OutlinedButton(
+                                  onClick = {
+                                      val dummyUid = "google_user_${System.currentTimeMillis()}"
+                                      onLoginSuccess("زبون عبر Google", "0555112233", dummyUid)
+                                  },
+                                  modifier = Modifier.weight(1f),
+                                  shape = RoundedCornerShape(12.dp)
+                              ) {
+                                  Icon(imageVector = Icons.Default.Mail, contentDescription = null, tint = AccentRed)
+                                  Spacer(modifier = Modifier.width(6.dp))
+                                  Text("Gmail", fontSize = 12.sp)
+                              }
+
+                              OutlinedButton(
+                                  onClick = {
+                                      val dummyUid = "fb_user_${System.currentTimeMillis()}"
+                                      onLoginSuccess("زبون عبر Facebook", "0555445566", dummyUid)
+                                  },
+                                  modifier = Modifier.weight(1f),
+                                  shape = RoundedCornerShape(12.dp)
+                              ) {
+                                  Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = AccentBlue)
+                                  Spacer(modifier = Modifier.width(6.dp))
+                                  Text("Facebook", fontSize = 12.sp)
+                              }
+                          }
+
+                          Spacer(modifier = Modifier.height(14.dp))
+
+                          Row(
+                              verticalAlignment = Alignment.CenterVertically,
+                              modifier = Modifier.fillMaxWidth()
+                          ) {
+                              Divider(modifier = Modifier.weight(1f))
+                              Text(
+                                  text = " أو عبر البريد الإلكتروني ",
+                                  fontSize = 11.sp,
+                                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                              )
+                              Divider(modifier = Modifier.weight(1f))
+                          }
+
+                          Spacer(modifier = Modifier.height(14.dp))
+                      }
 
                       if (isRegisterMode) {
                           OutlinedTextField(
@@ -1577,7 +1809,7 @@ jobs:
                                   fontWeight = FontWeight.Bold
                               )
                               Text(
-                                  text = "خدمة التوصيل المباشر في العفرون",
+                                  text = "بوابة الزبائن - التوصيل المباشر في العفرون",
                                   fontSize = 12.sp,
                                   color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                               )
@@ -1776,7 +2008,7 @@ jobs:
                                   fontWeight = FontWeight.Bold
                               )
                               Text(
-                                  text = "جاهز لتلقي طلبات التوصيل عبر Firebase",
+                                  text = "لوحة تحكم السائقين - مباشر",
                                   fontSize = 12.sp,
                                   color = AccentGreen
                               )
@@ -2125,20 +2357,27 @@ jobs:
 
                           item {
                               Text(text = "اختر المتجر أو المطعم:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                              Spacer(modifier = Modifier.height(4.dp))
-                              stores.forEach { store ->
-                                  Row(
-                                      modifier = Modifier
-                                          .fillMaxWidth()
-                                          .clickable { selectedStore = store }
-                                          .padding(vertical = 4.dp),
-                                      verticalAlignment = Alignment.CenterVertically
-                                  ) {
-                                      RadioButton(
-                                          selected = (selectedStore?.id == store.id),
-                                          onClick = { selectedStore = store }
-                                      )
-                                      Text(text = store.name, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                              Spacer(modifier = Modifier.height(8.dp))
+                              LazyRow(
+                                  horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                  modifier = Modifier.fillMaxWidth()
+                              ) {
+                                  items(stores) { store ->
+                                      val isSelected = selectedStore?.id == store.id
+                                      Box(
+                                          modifier = Modifier
+                                              .clip(RoundedCornerShape(12.dp))
+                                              .background(if (isSelected) PrimaryColor else Color.Gray.copy(alpha = 0.15f))
+                                              .clickable { selectedStore = store }
+                                              .padding(horizontal = 14.dp, vertical = 10.dp)
+                                      ) {
+                                          Text(
+                                              text = store.name,
+                                              fontSize = 12.sp,
+                                              fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                              color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                          )
+                                      }
                                   }
                               }
                           }
@@ -2447,6 +2686,108 @@ jobs:
           }
 
           @Composable
+          fun NotificationsModal(
+              orders: List<Order>,
+              onDismiss: () -> Unit
+          ) {
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .fillMaxHeight(0.6f),
+                      shape = RoundedCornerShape(20.dp),
+                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                  ) {
+                      Column(
+                          modifier = Modifier
+                              .fillMaxSize()
+                              .padding(16.dp)
+                      ) {
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.SpaceBetween,
+                              verticalAlignment = Alignment.CenterVertically
+                          ) {
+                              Text(text = "مركز الإشعارات والتنبيهات", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                              IconButton(onClick = onDismiss) {
+                                  Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                              }
+                          }
+
+                          val pendingOrders = orders.filter { it.status == "pending" }
+                          if (pendingOrders.isEmpty()) {
+                              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                  Text(text = "لا توجد تنبيهات جديدة في الوقت الحالي", fontSize = 12.sp, color = Color.Gray)
+                              }
+                          } else {
+                              LazyColumn(
+                                  modifier = Modifier.fillMaxSize(),
+                                  verticalArrangement = Arrangement.spacedBy(10.dp)
+                              ) {
+                                  items(pendingOrders) { ord ->
+                                      Card(
+                                          modifier = Modifier.fillMaxWidth(),
+                                          shape = RoundedCornerShape(12.dp),
+                                          colors = CardDefaults.cardColors(containerColor = PrimaryColor.copy(alpha = 0.1f))
+                                      ) {
+                                          Row(
+                                              modifier = Modifier.padding(12.dp),
+                                              horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                              verticalAlignment = Alignment.CenterVertically
+                                          ) {
+                                              Icon(imageVector = Icons.Default.NotificationsActive, contentDescription = null, tint = PrimaryColor)
+                                              Column {
+                                                  Text(text = "طلب عاجل من ${ord.restaurant}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                                  Text(text = "المبلغ: ${ord.price} دج - المكان: ${ord.customerAddress}", fontSize = 11.sp, color = Color.Gray)
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun DrawerInfoModal(
+              type: String,
+              onDismiss: () -> Unit
+          ) {
+              val (title, content) = when (type) {
+                  "about" -> "من نحن" to "العفرون أونلاين ديليفري هي المنصة الرقمية الرائدة في مدينة العفرون لتسهيل وتنسيق طلبات التوصيل السريع بين الزبائن والمطاعم وعمال التوصيل."
+                  "services" -> "خدماتنا والأسعار" to "نقدم خدمة تتبع حية للطلبات على الخارطة، وتوصيل فوري بسعر 50 دج لكل 500 متر بدقة وبأعلى سرعة ممكنة."
+                  "location" -> "موقعنا" to "نغطي كامل أحياء وضواحي مدينة العفرون وضواحيها المجاورة (ولاية البليدة) على مدار الساعة."
+                  else -> "اتصل بنا" to "هاتف الدعم الفني: 0555-555-555\nالبريد الإلكتروني: support@elaffroun-delivery.com"
+              }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      shape = RoundedCornerShape(20.dp),
+                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                  ) {
+                      Column(
+                          modifier = Modifier.padding(20.dp),
+                          verticalArrangement = Arrangement.spacedBy(12.dp)
+                      ) {
+                          Text(text = title, fontWeight = FontWeight.Black, fontSize = 16.sp, color = PrimaryColor)
+                          Text(text = content, fontSize = 13.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                          Button(
+                              onClick = onDismiss,
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(10.dp),
+                              colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                          ) {
+                              Text("حسناً")
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
           fun HistoryDialog(
               orders: List<Order>,
               onDismiss: () -> Unit
@@ -2737,5 +3078,5 @@ jobs:
       - name: Upload Artifact APK
         uses: actions/upload-artifact@v4
         with:
-          name: ElaffrounDelivery-Complete-Debug-APK
+          name: ElaffrounDelivery-Native-APK
           path: app/build/outputs/apk/debug/app-debug.apk
