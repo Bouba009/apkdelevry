@@ -1,16 +1,6 @@
-ملف .github/workflows/main.yml يدمج جميع الميزات مع دعم خريطة MapTiler المعتمدة
-على المفتاح ouBpZ2bVkP4wr4vcgzO6 مع نظام استرجاع تلقائي يمنع ظهور المربعات
-الرمادية نهائياً، وشاشة بداية متحركة لمدة ثانيتين لرجل التوصيل، وحفظ الجلسة لعدم
-تسجيل الخروج التلقائي، وإمكانية تعديل رقم الهاتف من البروفايل، ونوافذ زجاجية
-عصرية (Glassmorphism)، ولوغوهات رسمية لكل من Google و Facebook و QuickDeliver
-بدقة متجهة فائقة:
-
 name: Build Android APK
 
-on:
-  push:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   build:
@@ -140,8 +130,8 @@ jobs:
                   applicationId = "com.elaffroun.delivery"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 11
-                  versionName = "11.0"
+                  versionCode = 12
+                  versionName = "12.0"
               }
 
               buildTypes {
@@ -358,7 +348,7 @@ jobs:
                   }
               }
 
-              val CartoVoyagerBackupSource = object : XYTileSource(
+              val CartoVoyagerTileSource = object : XYTileSource(
                   "CartoVoyager",
                   0, 20, 256, ".png",
                   arrayOf(
@@ -427,7 +417,7 @@ jobs:
                           connection.connectTimeout = 7000
                           connection.readTimeout = 7000
                           connection.requestMethod = "GET"
-                          connection.setRequestProperty("User-Agent", "QuickDeliver/11.0")
+                          connection.setRequestProperty("User-Agent", "QuickDeliver/12.0")
 
                           if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                               val reader = BufferedReader(InputStreamReader(connection.inputStream))
@@ -980,7 +970,7 @@ jobs:
                   try {
                       val osmConfig = Configuration.getInstance()
                       osmConfig.load(this, PreferenceManager.getDefaultSharedPreferences(this))
-                      osmConfig.userAgentValue = packageName
+                      osmConfig.userAgentValue = "QuickDeliver/12.0 (Android Native)"
                       osmConfig.osmdroidBasePath = cacheDir
                       osmConfig.osmdroidTileCache = File(cacheDir, "osm_tiles")
                   } catch (e: Exception) {
@@ -1024,11 +1014,13 @@ jobs:
               var authUserType by remember { mutableStateOf(AuthUserType.CUSTOMER) }
               var isDriverAuthRegister by remember { mutableStateOf(false) }
 
-              var currentUserName by remember { mutableStateOf("مستخدم QuickDeliver") }
+              // Persistent User Session
+              var currentUserName by remember { mutableStateOf("أحمد العفروني") }
               var currentUserPhone by remember { mutableStateOf("0555555555") }
               var currentUserUid by remember { mutableStateOf(auth.currentUser?.uid ?: "") }
               var isDriverSession by remember { mutableStateOf(false) }
 
+              // 2-Second Animated Splash with Delivery Man Illustration
               LaunchedEffect(Unit) {
                   delay(2000)
                   if (auth.currentUser != null) {
@@ -1053,6 +1045,7 @@ jobs:
                   }
               }
 
+              // Coordinates
               var userLat by remember { mutableStateOf(36.4686) }
               var userLng by remember { mutableStateOf(2.6288) }
               var selectedAddress by remember { mutableStateOf("حي النصر، العفرون (GPS)") }
@@ -1140,34 +1133,6 @@ jobs:
                   )
               }
 
-              LaunchedEffect(Unit) {
-                  db.collection("stores").addSnapshotListener { snap, _ ->
-                      if (snap != null && !snap.isEmpty) {
-                          for (doc in snap.documents) {
-                              val exists = allStores.any { it.id == doc.id }
-                              if (!exists) {
-                                  allStores.add(
-                                      StoreItem(
-                                          id = doc.id,
-                                          nameAr = doc.getString("name") ?: "متجر جديد",
-                                          nameFr = doc.getString("name") ?: "Nouveau magasin",
-                                          category = "restaurant",
-                                          rating = "4.8",
-                                          time = "20-30 min",
-                                          emoji = "🍲",
-                                          lat = doc.getDouble("lat") ?: 36.4686,
-                                          lng = doc.getDouble("lng") ?: 2.6288,
-                                          menu = listOf(
-                                              MenuItem("m_def", "وجبة خاصة بالمتجر", "Plat Spécial", "وجبة شهية ومميزة", "Repas délicieux", 500, "🍲", "Plats")
-                                          )
-                                      )
-                                  )
-                              }
-                          }
-                      }
-                  }
-              }
-
               var currentSelectedStore by remember { mutableStateOf(allStores.first()) }
               val cartItems = remember { mutableStateListOf<CartItem>() }
 
@@ -1188,6 +1153,7 @@ jobs:
               var driverDebt by remember { mutableStateOf(0) }
               var incomingDriverAlertOrder by remember { mutableStateOf<ActiveOrder?>(null) }
 
+              // Location Provider
               val fusedClient = remember { LocationServices.getFusedLocationProviderClient(context) }
               val permLauncher = rememberLauncherForActivityResult(
                   contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -1218,6 +1184,7 @@ jobs:
                   permLauncher.launch(permissionsNeeded.toTypedArray())
               }
 
+              // Realtime Orders Sync with Firestore
               DisposableEffect(currentUserUid, isDriverSession) {
                   var listener: ListenerRegistration? = null
                   val ordersQuery = if (isDriverSession) {
@@ -2031,7 +1998,7 @@ jobs:
                           try {
                               setTileSource(MapUtils.MapTiler256StreetsTileSource)
                           } catch (e: Exception) {
-                              setTileSource(MapUtils.CartoVoyagerBackupSource)
+                              setTileSource(MapUtils.CartoVoyagerTileSource)
                           }
                           setMultiTouchControls(true)
                           isTilesScaledToDpi = true
