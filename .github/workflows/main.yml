@@ -53,7 +53,7 @@ jobs:
                   mavenCentral()
               }
           }
-          rootProject.name = "QuickDeliver"
+          rootProject.name = "elaffroundelevry"
           include(":app")
           EOF
 
@@ -69,7 +69,7 @@ jobs:
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <string name="app_name">QuickDeliver - العفرون</string>
+              <string name="app_name">el affroun delevry</string>
               <string name="default_web_client_id">703541527613-webclient.apps.googleusercontent.com</string>
           </resources>
           EOF
@@ -77,12 +77,65 @@ jobs:
           cat << 'EOF' > app/src/main/res/values/themes.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <style name="Theme.QuickDeliver" parent="android:Theme.Material.Light.NoActionBar">
-                  <item name="android:statusBarColor">#FFFFFF</item>
-                  <item name="android:windowLightStatusBar">true</item>
+              <style name="Theme.ElaffrounDelevry" parent="android:Theme.Material.Light.NoActionBar">
+                  <item name="android:statusBarColor">#FF5E00</item>
+                  <item name="android:windowLightStatusBar">false</item>
                   <item name="android:navigationBarColor">#FFFFFF</item>
               </style>
           </resources>
+          EOF
+
+          mkdir -p app/src/main/res/drawable
+          cat << 'EOF' > app/src/main/res/drawable/ic_delivery_logo.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path
+                  android:fillColor="#FF5E00"
+                  android:pathData="M0,0h108v108h-108z"/>
+              <!-- White Outer Ring -->
+              <path
+                  android:fillColor="#00000000"
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="4"
+                  android:pathData="M54,12 A42,42 0 1,1 53.9,12"/>
+              <!-- Delivery Box / Parcel on Back -->
+              <path
+                  android:fillColor="#FFCC00"
+                  android:pathData="M30,42 h16 v16 h-16 z"/>
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="2"
+                  android:pathData="M30,50 h16 M38,42 v16"/>
+              <!-- Driver Helmet -->
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M52,36 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0"/>
+              <!-- Motorcycle Frame and Rider Body -->
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="4"
+                  android:strokeCap="round"
+                  android:pathData="M44,54 L56,44 L64,54 L76,54 M56,44 L68,44"/>
+              <!-- Wheels -->
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="4"
+                  android:fillColor="#00000000"
+                  android:pathData="M36,70 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0 M68,70 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0"/>
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M46,70 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 M78,70 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"/>
+              <!-- Speed Lines -->
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="3"
+                  android:strokeCap="round"
+                  android:pathData="M18,48 h8 M14,56 h10 M20,64 h6"/>
+          </vector>
           EOF
 
           cat << 'EOF' > app/google-services.json
@@ -132,8 +185,8 @@ jobs:
                   applicationId = "com.elaffroun.delivery"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 5
-                  versionName = "5.0"
+                  versionCode = 6
+                  versionName = "6.0"
               }
 
               buildTypes {
@@ -208,31 +261,199 @@ jobs:
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
               <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+              <uses-permission android:name="android.permission.VIBRATE" />
               <uses-permission android:name="android.permission.CALL_PHONE" />
 
               <application
                   android:allowBackup="true"
-                  android:icon="@android:drawable/sym_def_app_icon"
+                  android:icon="@drawable/ic_delivery_logo"
                   android:label="@string/app_name"
-                  android:roundIcon="@android:drawable/sym_def_app_icon"
+                  android:roundIcon="@drawable/ic_delivery_logo"
                   android:supportsRtl="true"
-                  android:theme="@style/Theme.QuickDeliver">
+                  android:theme="@style/Theme.ElaffrounDelevry">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
                       android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
-                      android:theme="@style/Theme.QuickDeliver">
+                      android:theme="@style/Theme.ElaffrounDelevry">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+
+                  <service
+                      android:name=".DeliveryBackgroundService"
+                      android:exported="false"
+                      android:foregroundServiceType="location" />
               </application>
 
           </manifest>
           EOF
 
           mkdir -p app/src/main/java/com/elaffroun/delivery
+          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/DeliveryNotificationHelper.kt
+          package com.elaffroun.delivery
+
+          import android.app.NotificationChannel
+          import android.app.NotificationManager
+          import android.app.PendingIntent
+          import android.content.Context
+          import android.content.Intent
+          import android.media.AudioAttributes
+          import android.media.RingtoneManager
+          import android.os.Build
+          import androidx.core.app.NotificationCompat
+
+          object DeliveryNotificationHelper {
+              const val CHANNEL_ORDERS_ID = "elaffroun_orders_channel"
+              const val CHANNEL_STATUS_ID = "elaffroun_status_channel"
+
+              fun initChannels(context: Context) {
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                      val audioAttr = AudioAttributes.Builder()
+                          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                          .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                          .build()
+
+                      val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+                      val orderChannel = NotificationChannel(
+                          CHANNEL_ORDERS_ID,
+                          "تنبيهات طلبات التوصيل العاجلة",
+                          NotificationManager.IMPORTANCE_HIGH
+                      ).apply {
+                          description = "إشعار فوري صوتي واهتزاز عند ورود طلب توصيل جديد"
+                          enableVibration(true)
+                          vibrationPattern = longArrayOf(0, 500, 200, 500)
+                          setSound(soundUri, audioAttr)
+                      }
+
+                      val statusChannel = NotificationChannel(
+                          CHANNEL_STATUS_ID,
+                          "حالة التوصيل والمراقبة الحية",
+                          NotificationManager.IMPORTANCE_HIGH
+                      ).apply {
+                          description = "إشعارات تحديث مسار ووصول السائق للزبون"
+                          enableVibration(true)
+                          setSound(soundUri, audioAttr)
+                      }
+
+                      manager.createNotificationChannel(orderChannel)
+                      manager.createNotificationChannel(statusChannel)
+                  }
+              }
+
+              fun sendOrderAlert(context: Context, title: String, message: String, notificationId: Int = 1001) {
+                  val intent = Intent(context, MainActivity::class.java).apply {
+                      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                  }
+                  val pendingIntent = PendingIntent.getActivity(
+                      context, 0, intent,
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+
+                  val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                  val notification = NotificationCompat.Builder(context, CHANNEL_ORDERS_ID)
+                      .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                      .setContentTitle(title)
+                      .setContentText(message)
+                      .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+                      .setPriority(NotificationCompat.PRIORITY_MAX)
+                      .setCategory(NotificationCompat.CATEGORY_ALARM)
+                      .setSound(soundUri)
+                      .setVibrate(longArrayOf(0, 500, 200, 500))
+                      .setAutoCancel(true)
+                      .setContentIntent(pendingIntent)
+                      .build()
+
+                  val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                  manager.notify(notificationId, notification)
+              }
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/DeliveryBackgroundService.kt
+          package com.elaffroun.delivery
+
+          import android.app.Notification
+          import android.app.PendingIntent
+          import android.app.Service
+          import android.content.Intent
+          import android.os.IBinder
+          import androidx.core.app.NotificationCompat
+          import com.google.firebase.auth.ktx.auth
+          import com.google.firebase.firestore.DocumentChange
+          import com.google.firebase.firestore.ListenerRegistration
+          import com.google.firebase.firestore.ktx.firestore
+          import com.google.firebase.ktx.Firebase
+
+          class DeliveryBackgroundService : Service() {
+              private var ordersListener: ListenerRegistration? = null
+
+              override fun onBind(intent: Intent?): IBinder? = null
+
+              override fun onCreate() {
+                  super.onCreate()
+                  DeliveryNotificationHelper.initChannels(this)
+              }
+
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+                  val notification = createServiceNotification()
+                  startForeground(999, notification)
+                  startListeningToOrders()
+                  return START_STICKY
+              }
+
+              private fun createServiceNotification(): Notification {
+                  val intent = Intent(this, MainActivity::class.java)
+                  val pendingIntent = PendingIntent.getActivity(
+                      this, 0, intent,
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+
+                  return NotificationCompat.Builder(this, DeliveryNotificationHelper.CHANNEL_STATUS_ID)
+                      .setContentTitle("el affroun delevry قيد التشغيل")
+                      .setContentText("المراقبة الحية للطلبات والمسارات نشطة في الخلفية")
+                      .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                      .setContentIntent(pendingIntent)
+                      .setOngoing(true)
+                      .build()
+              }
+
+              private fun startListeningToOrders() {
+                  val db = Firebase.firestore
+
+                  ordersListener?.remove()
+                  ordersListener = db.collection("orders")
+                      .whereEqualTo("status", "pending")
+                      .addSnapshotListener { snapshots, e ->
+                          if (e != null || snapshots == null) return@addSnapshotListener
+                          for (dc in snapshots.documentChanges) {
+                              if (dc.type == DocumentChange.Type.ADDED) {
+                                  val restaurant = dc.document.getString("restaurant") ?: "متجر"
+                                  val price = dc.document.getLong("price") ?: 0L
+                                  DeliveryNotificationHelper.sendOrderAlert(
+                                      this,
+                                      "طلب جديد وارد الآن! 🛵",
+                                      "من: $restaurant - التوصيل: $price دج. اضغط للموافقة!"
+                                  )
+                                  SoundHelper.playNotificationTone()
+                              }
+                          }
+                      }
+              }
+
+              override fun onDestroy() {
+                  ordersListener?.remove()
+                  super.onDestroy()
+              }
+          }
+          EOF
+
           cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/SoundHelper.kt
           package com.elaffroun.delivery
 
@@ -385,7 +606,7 @@ jobs:
                           connection.connectTimeout = 7000
                           connection.readTimeout = 7000
                           connection.requestMethod = "GET"
-                          connection.setRequestProperty("User-Agent", "QuickDeliver/5.0")
+                          connection.setRequestProperty("User-Agent", "elaffroundelevry/6.0")
 
                           if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                               val reader = BufferedReader(InputStreamReader(connection.inputStream))
@@ -437,50 +658,93 @@ jobs:
           import androidx.compose.ui.unit.dp
 
           @Composable
-          fun QuickDeliverLogoGraphic(size: Dp = 90.dp) {
+          fun GoogleOfficialIcon(size: Dp = 22.dp) {
               Canvas(modifier = Modifier.size(size)) {
                   val w = this.size.width
                   val h = this.size.height
-                  val primaryOrange = Color(0xFFFF5E00.toInt())
+                  val center = Offset(w / 2f, h / 2f)
+                  val radius = w * 0.44f
+
+                  val red = Color(0xFFEA4335.toInt())
+                  val blue = Color(0xFF4285F4.toInt())
+                  val green = Color(0xFF34A853.toInt())
+                  val yellow = Color(0xFFFBBC05.toInt())
+
+                  drawArc(
+                      color = red,
+                      startAngle = 180f,
+                      sweepAngle = 90f,
+                      useCenter = true,
+                      size = Size(radius * 2f, radius * 2f),
+                      topLeft = Offset(center.x - radius, center.y - radius)
+                  )
+                  drawArc(
+                      color = yellow,
+                      startAngle = 90f,
+                      sweepAngle = 90f,
+                      useCenter = true,
+                      size = Size(radius * 2f, radius * 2f),
+                      topLeft = Offset(center.x - radius, center.y - radius)
+                  )
+                  drawArc(
+                      color = green,
+                      startAngle = 0f,
+                      sweepAngle = 90f,
+                      useCenter = true,
+                      size = Size(radius * 2f, radius * 2f),
+                      topLeft = Offset(center.x - radius, center.y - radius)
+                  )
+                  drawArc(
+                      color = blue,
+                      startAngle = 270f,
+                      sweepAngle = 90f,
+                      useCenter = true,
+                      size = Size(radius * 2f, radius * 2f),
+                      topLeft = Offset(center.x - radius, center.y - radius)
+                  )
 
                   drawCircle(
-                      color = primaryOrange,
-                      radius = w * 0.45f,
-                      center = Offset(w * 0.55f, h * 0.48f)
+                      color = Color.White,
+                      radius = radius * 0.58f,
+                      center = center
                   )
 
-                  drawRoundRect(
-                      color = primaryOrange,
-                      topLeft = Offset(w * 0.05f, h * 0.32f),
-                      size = Size(w * 0.22f, h * 0.06f)
+                  drawRect(
+                      color = blue,
+                      topLeft = Offset(center.x, center.y - (radius * 0.22f)),
+                      size = Size(radius * 0.95f, radius * 0.44f)
                   )
-                  drawRoundRect(
-                      color = primaryOrange,
-                      topLeft = Offset(w * 0.02f, h * 0.45f),
-                      size = Size(w * 0.25f, h * 0.06f)
-                  )
-                  drawRoundRect(
-                      color = primaryOrange,
-                      topLeft = Offset(w * 0.08f, h * 0.58f),
-                      size = Size(w * 0.19f, h * 0.06f)
-                  )
+              }
+          }
 
-                  val p = Path().apply {
-                      addOval(Rect(w * 0.52f, h * 0.24f, w * 0.64f, h * 0.36f))
-                  }
-                  drawPath(p, Color.White, style = Fill)
+          @Composable
+          fun FacebookOfficialIcon(size: Dp = 22.dp) {
+              Canvas(modifier = Modifier.size(size)) {
+                  val w = this.size.width
+                  val h = this.size.height
+                  val blue = Color(0xFF1877F2.toInt())
+                  val white = Color.White
 
-                  drawCircle(color = Color.White, radius = w * 0.09f, center = Offset(w * 0.42f, h * 0.65f))
-                  drawCircle(color = Color.White, radius = w * 0.09f, center = Offset(w * 0.72f, h * 0.65f))
+                  drawCircle(color = blue, radius = w / 2f)
 
-                  val bodyPath = Path().apply {
-                      moveTo(w * 0.42f, h * 0.65f)
-                      lineTo(w * 0.54f, h * 0.48f)
-                      lineTo(w * 0.66f, h * 0.48f)
-                      lineTo(w * 0.72f, h * 0.65f)
+                  val path = Path().apply {
+                      moveTo(w * 0.58f, h * 0.90f)
+                      lineTo(w * 0.58f, h * 0.54f)
+                      lineTo(w * 0.70f, h * 0.54f)
+                      lineTo(w * 0.72f, h * 0.40f)
+                      lineTo(w * 0.58f, h * 0.40f)
+                      lineTo(w * 0.58f, h * 0.31f)
+                      cubicTo(w * 0.58f, h * 0.24f, w * 0.61f, h * 0.20f, w * 0.72f, h * 0.20f)
+                      lineTo(w * 0.72f, h * 0.08f)
+                      cubicTo(w * 0.64f, h * 0.07f, w * 0.54f, h * 0.07f, w * 0.47f, h * 0.14f)
+                      cubicTo(w * 0.40f, h * 0.20f, w * 0.42f, h * 0.29f, w * 0.42f, h * 0.40f)
+                      lineTo(w * 0.32f, h * 0.40f)
+                      lineTo(w * 0.32f, h * 0.54f)
+                      lineTo(w * 0.42f, h * 0.54f)
+                      lineTo(w * 0.42f, h * 0.90f)
                       close()
                   }
-                  drawPath(bodyPath, Color.White, style = Fill)
+                  drawPath(path = path, color = white, style = Fill)
               }
           }
           EOF
@@ -489,6 +753,7 @@ jobs:
           package com.elaffroun.delivery
 
           import android.Manifest
+          import android.app.Activity
           import android.content.Context
           import android.content.Intent
           import android.content.pm.PackageManager
@@ -532,8 +797,13 @@ jobs:
           import androidx.compose.ui.viewinterop.AndroidView
           import androidx.compose.ui.window.Dialog
           import androidx.core.content.ContextCompat
+          import com.google.android.gms.auth.api.signin.GoogleSignIn
+          import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+          import com.google.android.gms.common.api.ApiException
           import com.google.android.gms.location.LocationServices
           import com.google.android.gms.location.Priority
+          import com.google.firebase.auth.GoogleAuthProvider
+          import com.google.firebase.auth.OAuthProvider
           import com.google.firebase.auth.ktx.auth
           import com.google.firebase.firestore.ListenerRegistration
           import com.google.firebase.firestore.ktx.firestore
@@ -548,6 +818,7 @@ jobs:
           import kotlin.math.*
 
           val QdOrange = Color(0xFFFF5E00.toInt())
+          val QdOrangeDark = Color(0xFFE05000.toInt())
           val QdOrangeSoft = Color(0xFFFFF0E8.toInt())
           val QdBackground = Color(0xFFF9F9FA.toInt())
           val QdCard = Color.White
@@ -557,22 +828,16 @@ jobs:
           val QdGreen = Color(0xFF22C55E.toInt())
           val QdRed = Color(0xFFEF4444.toInt())
 
-          data class RestaurantItem(
-              val id: String,
-              val name: String,
-              val rating: String,
-              val time: String,
-              val emoji: String,
-              val lat: Double,
-              val lng: Double
-          )
-
-          data class MarketItem(
-              val id: String,
-              val name: String,
-              val time: String,
-              val isPharmacy: Boolean,
-              val emoji: String
+          data class StoreModel(
+              val id: String = "",
+              val name: String = "",
+              val category: String = "مطاعم", // مطاعم, بقالة, صيدليات, سلع وبضائع
+              val rating: String = "4.8",
+              val time: String = "20-30 min",
+              val emoji: String = "🍲",
+              val lat: Double = 36.4690,
+              val lng: Double = 2.6295,
+              val basePrice: Int = 50
           )
 
           data class OrderProduct(val name: String, val qty: Int)
@@ -580,6 +845,7 @@ jobs:
           data class ActiveOrder(
               val id: String = "",
               val restaurant: String = "",
+              val category: String = "مطاعم",
               val address: String = "",
               val price: Int = 50,
               val status: String = "pending", // pending, accepted, to_store, received, delivered, completed
@@ -649,12 +915,14 @@ jobs:
               val context = LocalContext.current
               val auth = remember { Firebase.auth }
               val db = remember { Firebase.firestore }
+              val scope = rememberCoroutineScope()
+              val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
               var currentScreen by remember { mutableStateOf(AppScreen.SPLASH_ONBOARDING) }
               var authUserType by remember { mutableStateOf(AuthUserType.CUSTOMER) }
 
               // User Info Session
-              var currentUserName by remember { mutableStateOf("أحمد محمد") }
+              var currentUserName by remember { mutableStateOf("زبون العفرون") }
               var currentUserPhone by remember { mutableStateOf("0555555555") }
               var currentUserUid by remember { mutableStateOf(auth.currentUser?.uid ?: "") }
               var isDriverSession by remember { mutableStateOf(false) }
@@ -664,20 +932,27 @@ jobs:
               var userLng by remember { mutableStateOf(2.6288) }
               var selectedAddress by remember { mutableStateOf("حي النصر، العفرون (GPS)") }
 
+              // Search & Dynamic Category filter
+              var searchQuery by remember { mutableStateOf("") }
+              var selectedCategoryFilter by remember { mutableStateOf("الكل") }
+
               // Dynamic Stores from Firestore
               val availableStores = remember {
                   mutableStateListOf(
-                      RestaurantItem("1", "Pizza House العفرون", "4.8", "20-35 min", "🍕", 36.4690, 2.6295),
-                      RestaurantItem("2", "مطعم السلطان للشواء", "4.6", "25-45 min", "🍔", 36.4675, 2.6280),
-                      RestaurantItem("3", "طاكوس الأصيل", "4.5", "15-30 min", "🍟", 36.4660, 2.6250)
+                      StoreModel("1", "Pizza House العفرون", "مطاعم", "4.8", "20-35 min", "🍕", 36.4690, 2.6295, 50),
+                      StoreModel("2", "مطعم السلطان للشواء", "مطاعم", "4.6", "25-45 min", "🍔", 36.4675, 2.6280, 50),
+                      StoreModel("3", "طاكوس الأصيل", "مطاعم", "4.5", "15-30 min", "🍟", 36.4660, 2.6250, 50),
+                      StoreModel("4", "سوبرماركت النصر", "بقالة", "4.7", "15-30 min", "🧺", 36.4680, 2.6270, 50),
+                      StoreModel("5", "صيدلية الصحة المركزية", "صيدليات", "4.9", "10-20 min", "💊", 36.4688, 2.6290, 50),
+                      StoreModel("6", "خدمة شحن ونقل السلع والبضائع", "سلع وبضائع", "4.9", "فوري", "📦", 36.4700, 2.6300, 100)
                   )
               }
 
-              // Realtime Orders synchronized with Firestore
+              // Realtime Orders
               val activeOrders = remember { mutableStateListOf<ActiveOrder>() }
               val chatMessages = remember { mutableStateListOf<ChatMessage>() }
 
-              var selectedRestaurant by remember {
+              var selectedStore by remember {
                   mutableStateOf(availableStores.first())
               }
 
@@ -730,20 +1005,22 @@ jobs:
                   }
                   permLauncher.launch(permissionsNeeded.toTypedArray())
 
-                  // Load dynamic stores from Firestore if available
+                  // Load stores dynamically from Firestore
                   db.collection("stores").addSnapshotListener { snap, _ ->
                       if (snap != null && !snap.isEmpty) {
                           availableStores.clear()
                           for (doc in snap.documents) {
                               availableStores.add(
-                                  RestaurantItem(
+                                  StoreModel(
                                       id = doc.id,
                                       name = doc.getString("name") ?: "متجر العفرون",
-                                      rating = "4.8",
-                                      time = "20-30 min",
-                                      emoji = "🍲",
+                                      category = doc.getString("category") ?: "مطاعم",
+                                      rating = doc.getString("rating") ?: "4.8",
+                                      time = doc.getString("time") ?: "20-30 min",
+                                      emoji = doc.getString("emoji") ?: "🍲",
                                       lat = doc.getDouble("lat") ?: 36.4686,
-                                      lng = doc.getDouble("lng") ?: 2.6288
+                                      lng = doc.getDouble("lng") ?: 2.6288,
+                                      basePrice = doc.getLong("basePrice")?.toInt() ?: 50
                                   )
                               )
                           }
@@ -751,7 +1028,7 @@ jobs:
                   }
               }
 
-              // Sync Active Orders Realtime from Firestore
+              // Realtime orders synchronization from Firestore
               DisposableEffect(currentUserUid, isDriverSession) {
                   var listener: ListenerRegistration? = null
                   val ordersQuery = if (isDriverSession) {
@@ -776,6 +1053,7 @@ jobs:
                           val order = ActiveOrder(
                               id = doc.id,
                               restaurant = doc.getString("restaurant") ?: "",
+                              category = doc.getString("category") ?: "مطاعم",
                               address = doc.getString("customerAddress") ?: "",
                               price = doc.getLong("price")?.toInt() ?: 50,
                               status = doc.getString("status") ?: "pending",
@@ -793,7 +1071,6 @@ jobs:
                           )
                           activeOrders.add(order)
 
-                          // Trigger chimes / notifications
                           if (isDriverSession && order.status == "pending" && incomingDriverAlertOrder == null) {
                               incomingDriverAlertOrder = order
                               SoundHelper.playNotificationTone()
@@ -825,332 +1102,485 @@ jobs:
                       onSurface = QdTextDark
                   )
               ) {
-                  Scaffold(
-                      containerColor = QdBackground,
-                      bottomBar = {
-                          if (currentScreen in listOf(AppScreen.HOME_EXPLORE, AppScreen.ORDERS_LIST, AppScreen.PROFILE, AppScreen.DRIVER_DASHBOARD)) {
-                              NavigationBar(
-                                  containerColor = Color.White,
-                                  tonalElevation = 6.dp,
-                                  modifier = Modifier.border(1.dp, QdBorder, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                  ModalNavigationDrawer(
+                      drawerState = drawerState,
+                      drawerContent = {
+                          ModalDrawerSheet(
+                              modifier = Modifier.width(300.dp),
+                              drawerContainerColor = Color.White
+                          ) {
+                              Column(
+                                  modifier = Modifier
+                                      .fillMaxSize()
+                                      .padding(20.dp),
+                                  verticalArrangement = Arrangement.spacedBy(8.dp)
                               ) {
-                                  NavigationBarItem(
-                                      selected = (currentScreen == AppScreen.HOME_EXPLORE),
-                                      onClick = { currentScreen = AppScreen.HOME_EXPLORE },
-                                      icon = { Icon(Icons.Default.Home, contentDescription = "Accueil") },
-                                      label = { Text("Accueil", fontSize = 11.sp) },
-                                      colors = NavigationBarItemDefaults.colors(
-                                          selectedIconColor = QdOrange,
-                                          selectedTextColor = QdOrange,
-                                          unselectedIconColor = QdTextMuted,
-                                          unselectedTextColor = QdTextMuted,
-                                          indicatorColor = Color.Transparent
-                                      )
-                                  )
-                                  NavigationBarItem(
-                                      selected = (currentScreen == AppScreen.ORDERS_LIST),
-                                      onClick = { currentScreen = AppScreen.ORDERS_LIST },
-                                      icon = { Icon(Icons.Default.ReceiptLong, contentDescription = "Commandes") },
-                                      label = { Text("Commandes", fontSize = 11.sp) },
-                                      colors = NavigationBarItemDefaults.colors(
-                                          selectedIconColor = QdOrange,
-                                          selectedTextColor = QdOrange,
-                                          unselectedIconColor = QdTextMuted,
-                                          unselectedTextColor = QdTextMuted,
-                                          indicatorColor = Color.Transparent
-                                      )
-                                  )
-                                  NavigationBarItem(
-                                      selected = (currentScreen == AppScreen.ORDER_TRACKING),
-                                      onClick = { currentScreen = AppScreen.ORDER_TRACKING },
-                                      icon = { Icon(Icons.Default.LocationOn, contentDescription = "Carte") },
-                                      label = { Text("Carte", fontSize = 11.sp) },
-                                      colors = NavigationBarItemDefaults.colors(
-                                          selectedIconColor = QdOrange,
-                                          selectedTextColor = QdOrange,
-                                          unselectedIconColor = QdTextMuted,
-                                          unselectedTextColor = QdTextMuted,
-                                          indicatorColor = Color.Transparent
-                                      )
-                                  )
-                                  NavigationBarItem(
-                                      selected = (currentScreen == AppScreen.PROFILE || currentScreen == AppScreen.DRIVER_DASHBOARD),
-                                      onClick = {
-                                          currentScreen = if (isDriverSession) AppScreen.DRIVER_DASHBOARD else AppScreen.PROFILE
-                                      },
-                                      icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
-                                      label = { Text(if (isDriverSession) "Livreur" else "Profil", fontSize = 11.sp) },
-                                      colors = NavigationBarItemDefaults.colors(
-                                          selectedIconColor = QdOrange,
-                                          selectedTextColor = QdOrange,
-                                          unselectedIconColor = QdTextMuted,
-                                          unselectedTextColor = QdTextMuted,
-                                          indicatorColor = Color.Transparent
-                                      )
-                                  )
+                                  Row(
+                                      modifier = Modifier.fillMaxWidth(),
+                                      horizontalArrangement = Arrangement.SpaceBetween,
+                                      verticalAlignment = Alignment.CenterVertically
+                                  ) {
+                                      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                          Icon(imageVector = Icons.Default.TwoWheeler, contentDescription = null, tint = QdOrange, modifier = Modifier.size(28.dp))
+                                          Text("el affroun delevry", fontWeight = FontWeight.Black, fontSize = 16.sp, color = QdOrange)
+                                      }
+                                      IconButton(onClick = { scope.launch { drawerState.close() } }) {
+                                          Icon(imageVector = Icons.Default.Close, contentDescription = "Fermer")
+                                      }
+                                  }
+
+                                  Divider(color = QdBorder, modifier = Modifier.padding(vertical = 8.dp))
+
+                                  DrawerMenuItem(title = "الرئيسية", icon = Icons.Default.Home, onClick = {
+                                      scope.launch { drawerState.close() }
+                                      currentScreen = AppScreen.HOME_EXPLORE
+                                  })
+
+                                  DrawerMenuItem(title = "من نحن", icon = Icons.Default.Info, onClick = {
+                                      scope.launch { drawerState.close() }
+                                      showPolicyModal = "about"
+                                  })
+
+                                  DrawerMenuItem(title = "خدماتنا وتوصيل البضائع", icon = Icons.Default.LocalShipping, onClick = {
+                                      scope.launch { drawerState.close() }
+                                      showPolicyModal = "shipping"
+                                  })
+
+                                  DrawerMenuItem(title = "سياسة الخصوصية", icon = Icons.Default.VerifiedUser, onClick = {
+                                      scope.launch { drawerState.close() }
+                                      showPolicyModal = "privacy"
+                                  })
+
+                                  DrawerMenuItem(title = "اتصل بنا", icon = Icons.Default.Call, onClick = {
+                                      scope.launch { drawerState.close() }
+                                      showPolicyModal = "contact"
+                                  })
+
+                                  DrawerMenuItem(title = "الإبلاغ عن مشكلة", icon = Icons.Default.ReportProblem, onClick = {
+                                      scope.launch { drawerState.close() }
+                                      showReportModal = true
+                                  })
+
+                                  Spacer(modifier = Modifier.weight(1f))
+
+                                  // الانضمام كعامل توصيل من داخل القائمة الجانبية حصراً
+                                  if (!isDriverSession) {
+                                      Button(
+                                          onClick = {
+                                              scope.launch { drawerState.close() }
+                                              currentScreen = AppScreen.BECOME_DRIVER
+                                          },
+                                          modifier = Modifier
+                                              .fillMaxWidth()
+                                              .height(52.dp),
+                                          shape = RoundedCornerShape(14.dp),
+                                          colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
+                                      ) {
+                                          Icon(imageVector = Icons.Default.TwoWheeler, contentDescription = null)
+                                          Spacer(modifier = Modifier.width(8.dp))
+                                          Text("انضم كعامل توصيل", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                      }
+                                  }
                               }
                           }
                       }
-                  ) { padding ->
-                      Box(
-                          modifier = Modifier
-                              .fillMaxSize()
-                              .padding(padding)
-                      ) {
-                          when (currentScreen) {
-                              AppScreen.SPLASH_ONBOARDING -> {
-                                  SplashScreen(
-                                      onStart = {
-                                          authUserType = AuthUserType.CUSTOMER
-                                          currentScreen = AppScreen.AUTH_FLOW
+                  ) {
+                      Scaffold(
+                          containerColor = QdBackground,
+                          topBar = {
+                              if (currentScreen in listOf(AppScreen.HOME_EXPLORE, AppScreen.ORDERS_LIST, AppScreen.PROFILE, AppScreen.DRIVER_DASHBOARD)) {
+                                  // الشريط العلوي باللون البرتقالي الصريح المطلوب
+                                  TopAppBar(
+                                      navigationIcon = {
+                                          IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                              Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
+                                          }
                                       },
-                                      onLogin = {
-                                          authUserType = AuthUserType.CUSTOMER
-                                          currentScreen = AppScreen.AUTH_FLOW
-                                      }
-                                  )
-                              }
-                              AppScreen.AUTH_FLOW -> {
-                                  AuthScreen(
-                                      userType = authUserType,
-                                      onSuccess = { name, phone, uid, isDriver ->
-                                          currentUserName = name
-                                          currentUserPhone = phone
-                                          currentUserUid = uid
-                                          isDriverSession = isDriver
-                                          currentScreen = if (isDriver) AppScreen.DRIVER_DASHBOARD else AppScreen.HOME_EXPLORE
+                                      title = {
+                                          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                              Box(
+                                                  modifier = Modifier
+                                                      .size(34.dp)
+                                                      .clip(CircleShape)
+                                                      .background(Color.White),
+                                                  contentAlignment = Alignment.Center
+                                              ) {
+                                                  Icon(Icons.Default.DeliveryDining, contentDescription = null, tint = QdOrange, modifier = Modifier.size(22.dp))
+                                              }
+                                              Text(
+                                                  text = "el affroun delevry",
+                                                  color = Color.White,
+                                                  fontWeight = FontWeight.Black,
+                                                  fontSize = 17.sp
+                                              )
+                                          }
                                       },
-                                      onCancel = { currentScreen = AppScreen.SPLASH_ONBOARDING }
-                                  )
-                              }
-                              AppScreen.HOME_EXPLORE -> {
-                                  HomeScreen(
-                                      selectedCity = "العفرون (Blida)",
-                                      stores = availableStores,
-                                      onSelectRestaurant = { rest ->
-                                          selectedRestaurant = rest
-                                          currentScreen = AppScreen.CONFIRM_ORDER
+                                      actions = {
+                                          IconButton(onClick = { currentScreen = AppScreen.CHOOSE_ADDRESS }) {
+                                              Icon(Icons.Default.LocationOn, contentDescription = "Location", tint = Color.White)
+                                          }
+                                          IconButton(onClick = {
+                                              if (isDriverSession) {
+                                                  isDriverSession = false
+                                                  currentScreen = AppScreen.HOME_EXPLORE
+                                              } else {
+                                                  currentScreen = AppScreen.PROFILE
+                                              }
+                                          }) {
+                                              Icon(Icons.Default.AccountCircle, contentDescription = "Account", tint = Color.White)
+                                          }
                                       },
-                                      onOrderBannerClick = { currentScreen = AppScreen.CONFIRM_ORDER }
+                                      colors = TopAppBarDefaults.topAppBarColors(containerColor = QdOrange)
                                   )
                               }
-                              AppScreen.CONFIRM_ORDER -> {
-                                  ConfirmOrderScreen(
-                                      restaurant = selectedRestaurant,
-                                      address = selectedAddress,
-                                      meals = orderedMeals,
-                                      userLat = userLat,
-                                      userLng = userLng,
-                                      onAddMeal = { showAddMealDialog = true },
-                                      onChangeAddress = { currentScreen = AppScreen.CHOOSE_ADDRESS },
-                                      onBack = { currentScreen = AppScreen.HOME_EXPLORE },
-                                      onConfirmOrder = { deliveryFee, note ->
-                                          SoundHelper.playNotificationTone()
-                                          val orderMap = hashMapOf(
-                                              "restaurant" to selectedRestaurant.name,
-                                              "customerAddress" to selectedAddress,
-                                              "price" to (deliveryFee + 450),
-                                              "status" to "pending",
-                                              "customerId" to currentUserUid,
-                                              "customerName" to currentUserName,
-                                              "customerPhone" to currentUserPhone,
-                                              "storeLat" to selectedRestaurant.lat,
-                                              "storeLng" to selectedRestaurant.lng,
-                                              "lat" to userLat,
-                                              "lng" to userLng,
-                                              "note" to note,
-                                              "items" to orderedMeals.map { mapOf("name" to it.name, "qty" to it.qty) },
-                                              "createdAt" to java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
-                                          )
-                                          db.collection("orders").add(orderMap)
-                                          currentScreen = AppScreen.ORDER_TRACKING
-                                      }
-                                  )
+                          },
+                          bottomBar = {
+                              if (currentScreen in listOf(AppScreen.HOME_EXPLORE, AppScreen.ORDERS_LIST, AppScreen.PROFILE, AppScreen.DRIVER_DASHBOARD)) {
+                                  NavigationBar(
+                                      containerColor = Color.White,
+                                      tonalElevation = 6.dp,
+                                      modifier = Modifier.border(1.dp, QdBorder, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                                  ) {
+                                      NavigationBarItem(
+                                          selected = (currentScreen == AppScreen.HOME_EXPLORE),
+                                          onClick = { currentScreen = AppScreen.HOME_EXPLORE },
+                                          icon = { Icon(Icons.Default.Home, contentDescription = "Accueil") },
+                                          label = { Text("Accueil", fontSize = 11.sp) },
+                                          colors = NavigationBarItemDefaults.colors(selectedIconColor = QdOrange, selectedTextColor = QdOrange)
+                                      )
+                                      NavigationBarItem(
+                                          selected = (currentScreen == AppScreen.ORDERS_LIST),
+                                          onClick = { currentScreen = AppScreen.ORDERS_LIST },
+                                          icon = { Icon(Icons.Default.ReceiptLong, contentDescription = "Commandes") },
+                                          label = { Text("Commandes", fontSize = 11.sp) },
+                                          colors = NavigationBarItemDefaults.colors(selectedIconColor = QdOrange, selectedTextColor = QdOrange)
+                                      )
+                                      NavigationBarItem(
+                                          selected = (currentScreen == AppScreen.ORDER_TRACKING),
+                                          onClick = { currentScreen = AppScreen.ORDER_TRACKING },
+                                          icon = { Icon(Icons.Default.LocationOn, contentDescription = "Carte") },
+                                          label = { Text("Carte", fontSize = 11.sp) },
+                                          colors = NavigationBarItemDefaults.colors(selectedIconColor = QdOrange, selectedTextColor = QdOrange)
+                                      )
+                                      NavigationBarItem(
+                                          selected = (currentScreen == AppScreen.PROFILE || currentScreen == AppScreen.DRIVER_DASHBOARD),
+                                          onClick = {
+                                              currentScreen = if (isDriverSession) AppScreen.DRIVER_DASHBOARD else AppScreen.PROFILE
+                                          },
+                                          icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
+                                          label = { Text(if (isDriverSession) "Livreur" else "Profil", fontSize = 11.sp) },
+                                          colors = NavigationBarItemDefaults.colors(selectedIconColor = QdOrange, selectedTextColor = QdOrange)
+                                      )
+                                  }
                               }
-                              AppScreen.ORDER_TRACKING -> {
-                                  val runningOrder = activeOrders.lastOrNull {
-                                      it.status in listOf("pending", "accepted", "to_store", "received", "delivered")
-                                  } ?: activeOrders.firstOrNull() ?: ActiveOrder(
-                                      id = "1001",
-                                      restaurant = selectedRestaurant.name,
-                                      address = selectedAddress,
-                                      price = 250,
-                                      status = "En livraison",
-                                      driverName = "عامل توصيل العفرون",
-                                      driverPhone = "0555123456",
-                                      storeLat = selectedRestaurant.lat,
-                                      storeLng = selectedRestaurant.lng,
-                                      custLat = userLat,
-                                      custLng = userLng
-                                  )
+                          }
+                      ) { padding ->
+                          Box(
+                              modifier = Modifier
+                                  .fillMaxSize()
+                                  .padding(padding)
+                          ) {
+                              when (currentScreen) {
+                                  AppScreen.SPLASH_ONBOARDING -> {
+                                      SplashScreen(
+                                          onStart = {
+                                              authUserType = AuthUserType.CUSTOMER
+                                              currentScreen = AppScreen.AUTH_FLOW
+                                          },
+                                          onLogin = {
+                                              authUserType = AuthUserType.CUSTOMER
+                                              currentScreen = AppScreen.AUTH_FLOW
+                                          }
+                                      )
+                                  }
+                                  AppScreen.AUTH_FLOW -> {
+                                      AuthScreen(
+                                          userType = authUserType,
+                                          onSuccess = { name, phone, uid, isDriver ->
+                                              currentUserName = name
+                                              currentUserPhone = phone
+                                              currentUserUid = uid
+                                              isDriverSession = isDriver
+                                              if (isDriver) {
+                                                  val svcIntent = Intent(context, DeliveryBackgroundService::class.java)
+                                                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                      context.startForegroundService(svcIntent)
+                                                  } else {
+                                                      context.startService(svcIntent)
+                                                  }
+                                              }
+                                              currentScreen = if (isDriver) AppScreen.DRIVER_DASHBOARD else AppScreen.HOME_EXPLORE
+                                          },
+                                          onCancel = { currentScreen = AppScreen.SPLASH_ONBOARDING }
+                                      )
+                                  }
+                                  AppScreen.HOME_EXPLORE -> {
+                                      HomeScreen(
+                                          selectedCity = "العفرون (Blida)",
+                                          stores = availableStores,
+                                          searchQuery = searchQuery,
+                                          onSearchChange = { searchQuery = it },
+                                          selectedCategory = selectedCategoryFilter,
+                                          onSelectCategory = { selectedCategoryFilter = it },
+                                          onSelectStore = { store ->
+                                              selectedStore = store
+                                              currentScreen = AppScreen.CONFIRM_ORDER
+                                          },
+                                          onOrderBannerClick = { currentScreen = AppScreen.CONFIRM_ORDER }
+                                      )
+                                  }
+                                  AppScreen.CONFIRM_ORDER -> {
+                                      ConfirmOrderScreen(
+                                          store = selectedStore,
+                                          address = selectedAddress,
+                                          meals = orderedMeals,
+                                          userLat = userLat,
+                                          userLng = userLng,
+                                          onAddMeal = { showAddMealDialog = true },
+                                          onChangeAddress = { currentScreen = AppScreen.CHOOSE_ADDRESS },
+                                          onBack = { currentScreen = AppScreen.HOME_EXPLORE },
+                                          onConfirmOrder = { deliveryFee, note ->
+                                              SoundHelper.playNotificationTone()
+                                              val orderMap = hashMapOf(
+                                                  "restaurant" to selectedStore.name,
+                                                  "category" to selectedStore.category,
+                                                  "customerAddress" to selectedAddress,
+                                                  "price" to (deliveryFee + 450),
+                                                  "status" to "pending",
+                                                  "customerId" to currentUserUid,
+                                                  "customerName" to currentUserName,
+                                                  "customerPhone" to currentUserPhone,
+                                                  "storeLat" to selectedStore.lat,
+                                                  "storeLng" to selectedStore.lng,
+                                                  "lat" to userLat,
+                                                  "lng" to userLng,
+                                                  "note" to note,
+                                                  "items" to orderedMeals.map { mapOf("name" to it.name, "qty" to it.qty) },
+                                                  "createdAt" to java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+                                              )
+                                              db.collection("orders").add(orderMap)
+                                              currentScreen = AppScreen.ORDER_TRACKING
+                                          }
+                                      )
+                                  }
+                                  AppScreen.ORDER_TRACKING -> {
+                                      val runningOrder = activeOrders.lastOrNull {
+                                          it.status in listOf("pending", "accepted", "to_store", "received", "delivered")
+                                      } ?: activeOrders.firstOrNull() ?: ActiveOrder(
+                                          id = "1001",
+                                          restaurant = selectedStore.name,
+                                          category = selectedStore.category,
+                                          address = selectedAddress,
+                                          price = 250,
+                                          status = "pending",
+                                          driverName = "",
+                                          driverPhone = "",
+                                          storeLat = selectedStore.lat,
+                                          storeLng = selectedStore.lng,
+                                          custLat = userLat,
+                                          custLng = userLng
+                                      )
 
-                                  OrderTrackingScreen(
-                                      order = runningOrder,
-                                      userLat = userLat,
-                                      userLng = userLng,
-                                      onBack = { currentScreen = AppScreen.HOME_EXPLORE },
-                                      onOpenChat = { showChatModal = true },
-                                      onConfirmDelivered = {
-                                          db.collection("orders").document(runningOrder.id)
-                                              .update("status", "completed")
-                                          SoundHelper.playArrivalTone()
-                                          showRatingModal = true
-                                      },
-                                      onCancelOrder = {
-                                          db.collection("orders").document(runningOrder.id).delete()
-                                          currentScreen = AppScreen.HOME_EXPLORE
-                                      }
-                                  )
-                              }
-                              AppScreen.ORDERS_LIST -> {
-                                  OrdersListScreen(
-                                      orders = activeOrders,
-                                      onSelectOrder = { currentScreen = AppScreen.ORDER_TRACKING }
-                                  )
-                              }
-                              AppScreen.CHOOSE_ADDRESS -> {
-                                  ChooseAddressScreen(
-                                      currentSelected = selectedAddress,
-                                      onSelect = {
+                                      OrderTrackingScreen(
+                                          order = runningOrder,
+                                          userLat = userLat,
+                                          userLng = userLng,
+                                          onBack = { currentScreen = AppScreen.HOME_EXPLORE },
+                                          onOpenChat = { showChatModal = true },
+                                          onConfirmDelivered = {
+                                              db.collection("orders").document(runningOrder.id)
+                                                  .update("status", "completed")
+                                              SoundHelper.playArrivalTone()
+                                              showRatingModal = true
+                                          },
+                                          onCancelOrder = {
+                                              db.collection("orders").document(runningOrder.id).delete()
+                                              currentScreen = AppScreen.HOME_EXPLORE
+                                          }
+                                      )
+                                  }
+                                  AppScreen.ORDERS_LIST -> {
+                                      OrdersListScreen(
+                                          orders = activeOrders,
+                                          onSelectOrder = { currentScreen = AppScreen.ORDER_TRACKING }
+                                      )
+                                  }
+                                  AppScreen.CHOOSE_ADDRESS -> {
+                                      ChooseAddressScreen(
+                                          currentSelected = selectedAddress,
+                                          onSelect = {
                                           selectedAddress = it
-                                          currentScreen = AppScreen.CONFIRM_ORDER
-                                      },
-                                      onBack = { currentScreen = AppScreen.CONFIRM_ORDER }
-                                  )
+                                              currentScreen = AppScreen.CONFIRM_ORDER
+                                          },
+                                          onBack = { currentScreen = AppScreen.CONFIRM_ORDER }
+                                      )
+                                  }
+                                  AppScreen.PROFILE -> {
+                                      ProfileScreen(
+                                          name = currentUserName,
+                                          phone = currentUserPhone,
+                                          onBecomeDriver = { currentScreen = AppScreen.BECOME_DRIVER },
+                                          onOpenPolicy = { policyType -> showPolicyModal = policyType },
+                                          onOpenReport = { showReportModal = true },
+                                          onOpenAdmin = { currentScreen = AppScreen.ADMIN_PANEL },
+                                          onLogout = {
+                                              auth.signOut()
+                                              currentUserUid = ""
+                                              isDriverSession = false
+                                              currentScreen = AppScreen.SPLASH_ONBOARDING
+                                          }
+                                      )
+                                  }
+                                  AppScreen.BECOME_DRIVER -> {
+                                      BecomeDriverScreen(
+                                          onBack = { currentScreen = AppScreen.PROFILE },
+                                          onRegisterDriver = {
+                                              authUserType = AuthUserType.DRIVER
+                                              currentScreen = AppScreen.AUTH_FLOW
+                                          }
+                                      )
+                                  }
+                                  AppScreen.DRIVER_DASHBOARD -> {
+                                      DriverDashboardScreen(
+                                          driverName = currentUserName,
+                                          earnings = driverEarnings,
+                                          completedCount = driverCompletedCount,
+                                          debt = driverDebt,
+                                          activeOrders = activeOrders,
+                                          onUpdateStatus = { ord, status ->
+                                              db.collection("orders").document(ord.id).update("status", status)
+                                          },
+                                          onFinishOrder = { ord ->
+                                              db.collection("orders").document(ord.id).update("status", "delivered")
+                                              SoundHelper.playArrivalTone()
+                                          },
+                                          onOpenChat = { showChatModal = true },
+                                          onSwitchToCustomer = {
+                                              isDriverSession = false
+                                              currentScreen = AppScreen.HOME_EXPLORE
+                                          }
+                                      )
+                                  }
+                                  AppScreen.ADMIN_PANEL -> {
+                                      AdminPanelScreen(
+                                          stores = availableStores,
+                                          orders = activeOrders,
+                                          onAddStore = { sModel ->
+                                              val sMap = hashMapOf(
+                                                  "name" to sModel.name,
+                                                  "category" to sModel.category,
+                                                  "rating" to sModel.rating,
+                                                  "time" to sModel.time,
+                                                  "emoji" to sModel.emoji,
+                                                  "lat" to sModel.lat,
+                                                  "lng" to sModel.lng,
+                                                  "basePrice" to sModel.basePrice
+                                              )
+                                              db.collection("stores").add(sMap)
+                                          },
+                                          onDeleteStore = { sId ->
+                                              db.collection("stores").document(sId).delete()
+                                          },
+                                          onBack = { currentScreen = AppScreen.PROFILE }
+                                      )
+                                  }
                               }
-                              AppScreen.PROFILE -> {
-                                  ProfileScreen(
-                                      name = currentUserName,
-                                      phone = currentUserPhone,
-                                      onBecomeDriver = { currentScreen = AppScreen.BECOME_DRIVER },
-                                      onOpenPolicy = { policyType -> showPolicyModal = policyType },
-                                      onOpenReport = { showReportModal = true },
-                                      onOpenAdmin = { currentScreen = AppScreen.ADMIN_PANEL },
-                                      onLogout = {
-                                          auth.signOut()
-                                          currentUserUid = ""
-                                          isDriverSession = false
-                                          currentScreen = AppScreen.SPLASH_ONBOARDING
-                                      }
-                                  )
-                              }
-                              AppScreen.BECOME_DRIVER -> {
-                                  BecomeDriverScreen(
-                                      onBack = { currentScreen = AppScreen.PROFILE },
-                                      onRegisterDriver = {
-                                          authUserType = AuthUserType.DRIVER
-                                          currentScreen = AppScreen.AUTH_FLOW
-                                      }
-                                  )
-                              }
-                              AppScreen.DRIVER_DASHBOARD -> {
-                                  DriverDashboardScreen(
-                                      driverName = currentUserName,
-                                      earnings = driverEarnings,
-                                      completedCount = driverCompletedCount,
-                                      debt = driverDebt,
-                                      activeOrders = activeOrders,
-                                      onUpdateStatus = { ord, status ->
-                                          db.collection("orders").document(ord.id).update("status", status)
-                                      },
-                                      onFinishOrder = { ord ->
-                                          db.collection("orders").document(ord.id).update("status", "delivered")
-                                          SoundHelper.playArrivalTone()
-                                      },
-                                      onOpenChat = { showChatModal = true },
-                                      onSwitchToCustomer = {
-                                          isDriverSession = false
-                                          currentScreen = AppScreen.HOME_EXPLORE
-                                      }
-                                  )
-                              }
-                              AppScreen.ADMIN_PANEL -> {
-                                  AdminPanelScreen(
-                                      stores = availableStores,
-                                      orders = activeOrders,
-                                      onAddStore = { storeName, lat, lng ->
-                                          val sMap = hashMapOf("name" to storeName, "lat" to lat, "lng" to lng)
-                                          db.collection("stores").add(sMap)
-                                      },
-                                      onBack = { currentScreen = AppScreen.PROFILE }
-                                  )
-                              }
-                          }
 
-                          // Incoming Delivery Call Overlay Modal for Drivers
-                          incomingDriverAlertOrder?.let { incOrder ->
-                              DriverIncomingOrderDialog(
-                                  order = incOrder,
-                                  onAccept = {
-                                      db.collection("orders").document(incOrder.id).update(
-                                          mapOf(
-                                              "status" to "accepted",
-                                              "driverName" to currentUserName,
-                                              "driverPhone" to currentUserPhone
+                              // Modal alert for pending order to drivers
+                              incomingDriverAlertOrder?.let { incOrder ->
+                                  DriverIncomingOrderDialog(
+                                      order = incOrder,
+                                      onAccept = {
+                                          db.collection("orders").document(incOrder.id).update(
+                                              mapOf(
+                                                  "status" to "accepted",
+                                                  "driverName" to currentUserName,
+                                                  "driverPhone" to currentUserPhone
+                                              )
                                           )
-                                      )
-                                      incomingDriverAlertOrder = null
-                                  },
-                                  onReject = {
-                                      incomingDriverAlertOrder = null
-                                  }
-                              )
-                          }
+                                          incomingDriverAlertOrder = null
+                                      },
+                                      onReject = {
+                                          incomingDriverAlertOrder = null
+                                      }
+                                  )
+                              }
 
-                          if (showChatModal) {
-                              ChatModalDialog(
-                                  messages = chatMessages,
-                                  onSendMessage = { text ->
-                                      chatMessages.add(ChatMessage(if (isDriverSession) "driver" else "customer", text, "الآن"))
-                                  },
-                                  onDismiss = { showChatModal = false }
-                              )
-                          }
+                              if (showChatModal) {
+                                  ChatModalDialog(
+                                      messages = chatMessages,
+                                      onSendMessage = { text ->
+                                          chatMessages.add(ChatMessage(if (isDriverSession) "driver" else "customer", text, "الآن"))
+                                      },
+                                      onDismiss = { showChatModal = false }
+                                  )
+                              }
 
-                          if (showRatingModal) {
-                              RatingModalDialog(
-                                  onDismiss = { showRatingModal = false },
-                                  onRated = {
-                                      showRatingModal = false
-                                      currentScreen = AppScreen.ORDERS_LIST
-                                  }
-                              )
-                          }
+                              if (showRatingModal) {
+                                  RatingModalDialog(
+                                      onDismiss = { showRatingModal = false },
+                                      onRated = {
+                                          showRatingModal = false
+                                          currentScreen = AppScreen.ORDERS_LIST
+                                      }
+                                  )
+                              }
 
-                          if (showAddMealDialog) {
-                              AddMealModalDialog(
-                                  onDismiss = { showAddMealDialog = false },
-                                  onAddMeal = { mealName, qty ->
-                                      orderedMeals.add(OrderProduct(mealName, qty))
-                                      showAddMealDialog = false
-                                  }
-                              )
-                          }
+                              if (showAddMealDialog) {
+                                  AddMealModalDialog(
+                                      onDismiss = { showAddMealDialog = false },
+                                      onAddMeal = { mealName, qty ->
+                                          orderedMeals.add(OrderProduct(mealName, qty))
+                                          showAddMealDialog = false
+                                      }
+                                  )
+                              }
 
-                          if (showReportModal) {
-                              ReportIncidentDialog(
-                                  onDismiss = { showReportModal = false },
-                                  onSubmit = { reason ->
-                                      val repMap = hashMapOf(
-                                          "reporter" to currentUserName,
-                                          "phone" to currentUserPhone,
-                                          "reason" to reason,
-                                          "date" to java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
-                                      )
-                                      db.collection("reports").add(repMap)
-                                      showReportModal = false
-                                  }
-                              )
-                          }
+                              if (showReportModal) {
+                                  ReportIncidentDialog(
+                                      onDismiss = { showReportModal = false },
+                                      onSubmit = { reason ->
+                                          val repMap = hashMapOf(
+                                              "reporter" to currentUserName,
+                                              "phone" to currentUserPhone,
+                                              "reason" to reason,
+                                              "date" to java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+                                          )
+                                          db.collection("reports").add(repMap)
+                                          showReportModal = false
+                                      }
+                                  )
+                              }
 
-                          showPolicyModal?.let { pType ->
-                              PolicyInfoDialog(
-                                  type = pType,
-                                  onDismiss = { showPolicyModal = null }
-                              )
+                              showPolicyModal?.let { pType ->
+                                  PolicyInfoDialog(
+                                      type = pType,
+                                      onDismiss = { showPolicyModal = null }
+                                  )
+                              }
                           }
                       }
                   }
+              }
+          }
+
+          @Composable
+          fun DrawerMenuItem(
+              title: String,
+              icon: ImageVector,
+              onClick: () -> Unit
+          ) {
+              Row(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .clip(RoundedCornerShape(12.dp))
+                      .clickable { onClick() }
+                      .padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(14.dp)
+              ) {
+                  Icon(imageVector = icon, contentDescription = null, tint = QdOrange, modifier = Modifier.size(22.dp))
+                  Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = QdTextDark)
               }
           }
 
@@ -1173,33 +1603,41 @@ jobs:
                   Spacer(modifier = Modifier.height(20.dp))
 
                   Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                      QuickDeliverLogoGraphic(size = 110.dp)
+                      Box(
+                          modifier = Modifier
+                              .size(110.dp)
+                              .clip(CircleShape)
+                              .background(QdOrange),
+                          contentAlignment = Alignment.Center
+                      ) {
+                          Icon(imageVector = Icons.Default.TwoWheeler, contentDescription = null, tint = Color.White, modifier = Modifier.size(60.dp))
+                      }
                       Spacer(modifier = Modifier.height(18.dp))
                       Text(
-                          text = "QuickDeliver",
-                          fontSize = 32.sp,
+                          text = "el affroun delevry",
+                          fontSize = 28.sp,
                           fontWeight = FontWeight.Black,
                           color = QdOrange
                       )
                       Spacer(modifier = Modifier.height(6.dp))
                       Text(
-                          text = "Vos commandes,\nnotre priorité !",
-                          fontSize = 17.sp,
+                          text = "منصتك الأسرع لتوصيل الطعام، الأدوية، والسلع\nفي العفرون وضواحيها",
+                          fontSize = 14.sp,
                           fontWeight = FontWeight.Medium,
                           textAlign = TextAlign.Center,
                           color = QdTextDark,
-                          lineHeight = 24.sp
+                          lineHeight = 22.sp
                       )
                   }
 
                   Box(
                       modifier = Modifier
-                          .size(240.dp)
+                          .size(230.dp)
                           .clip(CircleShape)
                           .background(Color(0xFFFFF6F0.toInt())),
                       contentAlignment = Alignment.Center
                   ) {
-                      Text(text = "🛵", fontSize = 110.sp)
+                      Text(text = "🛵", fontSize = 100.sp)
                   }
 
                   Column(
@@ -1214,11 +1652,11 @@ jobs:
                           shape = RoundedCornerShape(16.dp),
                           colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
                       ) {
-                          Text(text = "Commencer", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                          Text(text = "Commencer / ابدأ الآن", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
                       }
                       Spacer(modifier = Modifier.height(14.dp))
                       Text(
-                          text = "Se connecter",
+                          text = "Se connecter / تسجيل الدخول",
                           fontSize = 14.sp,
                           fontWeight = FontWeight.SemiBold,
                           color = QdTextDark,
@@ -1231,7 +1669,7 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 2. SCREEN: AUTH FLOW (Email, Google, Facebook & Driver Verification)
+          // 2. SCREEN: AUTH FLOW (REAL GOOGLE & FACEBOOK LOGIN)
           // -------------------------------------------------------------
           @Composable
           fun AuthScreen(
@@ -1239,6 +1677,7 @@ jobs:
               onSuccess: (name: String, phone: String, uid: String, isDriver: Boolean) -> Unit,
               onCancel: () -> Unit
           ) {
+              val context = LocalContext.current
               val auth = Firebase.auth
               val db = Firebase.firestore
 
@@ -1251,6 +1690,46 @@ jobs:
               var ageAccepted by remember { mutableStateOf(false) }
               var errorMessage by remember { mutableStateOf("") }
               var isLoading by remember { mutableStateOf(false) }
+
+              // Genuine Google Sign-In with real Firebase credential verification
+              val googleSignInLauncher = rememberLauncherForActivityResult(
+                  contract = ActivityResultContracts.StartActivityForResult()
+              ) { result ->
+                  if (result.resultCode == Activity.RESULT_OK) {
+                      val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                      try {
+                          val account = task.getResult(ApiException::class.java)
+                          val idToken = account.idToken
+                          if (idToken != null) {
+                              isLoading = true
+                              val credential = GoogleAuthProvider.getCredential(idToken, null)
+                              auth.signInWithCredential(credential)
+                                  .addOnSuccessListener { authResult ->
+                                      val user = authResult.user
+                                      val uid = user?.uid ?: ""
+                                      val userMap = hashMapOf(
+                                          "name" to (account.displayName ?: "زبون Google"),
+                                          "email" to (account.email ?: ""),
+                                          "phoneNumber" to "",
+                                          "role" to "customer",
+                                          "debt" to 0
+                                      )
+                                      db.collection("users").document(uid).set(userMap)
+                                          .addOnSuccessListener {
+                                              isLoading = false
+                                              onSuccess(account.displayName ?: "زبون Google", "", uid, false)
+                                          }
+                                  }
+                                  .addOnFailureListener { e ->
+                                      isLoading = false
+                                      errorMessage = e.localizedMessage ?: "فشل تسجيل الدخول عبر Google"
+                                  }
+                          }
+                      } catch (e: Exception) {
+                          errorMessage = "فشل التحقق من حساب Google"
+                      }
+                  }
+              }
 
               LazyColumn(
                   modifier = Modifier
@@ -1270,9 +1749,9 @@ jobs:
 
                       Text(
                           text = when (userType) {
-                              AuthUserType.DRIVER -> "Espace Livreur - El Affroun (50 DA / 500m)"
-                              AuthUserType.ADMIN -> "Portail Administration Sécurisé"
-                              AuthUserType.CUSTOMER -> "Commandez rapidement vos plats et courses"
+                              AuthUserType.DRIVER -> "بوابة عمال التوصيل - العفرون"
+                              AuthUserType.ADMIN -> "بوابة الإدارة المركزية"
+                              AuthUserType.CUSTOMER -> "تسجيل دخول حقيقي وآمن"
                           },
                           fontSize = 12.sp,
                           color = QdTextMuted,
@@ -1284,23 +1763,54 @@ jobs:
                               modifier = Modifier.fillMaxWidth(),
                               horizontalArrangement = Arrangement.spacedBy(10.dp)
                           ) {
-                              OutlinedButton(
+                              // Real Google Button with Official Multi-Color Logo
+                              Button(
                                   onClick = {
-                                      onSuccess("زبون عبر Google", "0555123456", "google_dummy_uid", false)
+                                      val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                          .requestIdToken(context.getString(R.string.default_web_client_id))
+                                          .requestEmail()
+                                          .build()
+                                      val client = GoogleSignIn.getClient(context, gso)
+                                      googleSignInLauncher.launch(client.signInIntent)
                                   },
-                                  modifier = Modifier.weight(1f),
-                                  shape = RoundedCornerShape(12.dp)
+                                  modifier = Modifier
+                                      .weight(1f)
+                                      .height(48.dp)
+                                      .border(1.dp, QdBorder, RoundedCornerShape(12.dp)),
+                                  shape = RoundedCornerShape(12.dp),
+                                  colors = ButtonDefaults.buttonColors(containerColor = Color.White)
                               ) {
-                                  Text("Google", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                  GoogleOfficialIcon(size = 20.dp)
+                                  Spacer(modifier = Modifier.width(8.dp))
+                                  Text("Google", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = QdTextDark)
                               }
-                              OutlinedButton(
+
+                              // Real Facebook Button with Official Brand Logo
+                              Button(
                                   onClick = {
-                                      onSuccess("زبون عبر Facebook", "0555654321", "fb_dummy_uid", false)
+                                      val provider = OAuthProvider.newBuilder("facebook.com")
+                                      val activity = context as Activity
+                                      auth.startActivityForSignInWithProvider(activity, provider.build())
+                                          .addOnSuccessListener { authResult ->
+                                              val user = authResult.user
+                                              val uid = user?.uid ?: ""
+                                              val fbName = user?.displayName ?: "زبون Facebook"
+                                              onSuccess(fbName, "", uid, false)
+                                          }
+                                          .addOnFailureListener { e ->
+                                              errorMessage = e.localizedMessage ?: "فشل تسجيل الدخول عبر Facebook"
+                                          }
                                   },
-                                  modifier = Modifier.weight(1f),
-                                  shape = RoundedCornerShape(12.dp)
+                                  modifier = Modifier
+                                      .weight(1f)
+                                      .height(48.dp)
+                                      .border(1.dp, QdBorder, RoundedCornerShape(12.dp)),
+                                  shape = RoundedCornerShape(12.dp),
+                                  colors = ButtonDefaults.buttonColors(containerColor = Color.White)
                               ) {
-                                  Text("Facebook", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                  FacebookOfficialIcon(size = 20.dp)
+                                  Spacer(modifier = Modifier.width(8.dp))
+                                  Text("Facebook", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = QdTextDark)
                               }
                           }
                           Spacer(modifier = Modifier.height(14.dp))
@@ -1351,12 +1861,12 @@ jobs:
                           Spacer(modifier = Modifier.height(12.dp))
                           Row(verticalAlignment = Alignment.CenterVertically) {
                               Checkbox(checked = termsAccepted, onCheckedChange = { termsAccepted = it })
-                              Text("أوافق على شروط الخدمة وتعرفات التوصيل (50 دج / 500م)", fontSize = 11.sp, color = QdTextDark)
+                              Text("أوافق على سياسة الاستخدام والأسعار (50 دج / 500م)", fontSize = 11.sp, color = QdTextDark)
                           }
                           if (userType == AuthUserType.DRIVER) {
                               Row(verticalAlignment = Alignment.CenterVertically) {
                                   Checkbox(checked = ageAccepted, onCheckedChange = { ageAccepted = it })
-                                  Text("أؤكد أن عمري فوق 18 سنة وألتزم بسداد ديون المنصة (10دج/كم)", fontSize = 11.sp, color = QdTextDark)
+                                  Text("أصرح أن عمري فوق 18 سنة وألتزم بديون المنصة (10دج/كم)", fontSize = 11.sp, color = QdTextDark)
                               }
                           }
                       }
@@ -1371,7 +1881,7 @@ jobs:
                           onClick = {
                               errorMessage = ""
                               if (email.isBlank() || password.isBlank()) {
-                                  errorMessage = "يرجى ملء جميع الحقول"
+                                  errorMessage = "يرجى ملء كافة الحقول"
                                   return@Button
                               }
                               isLoading = true
@@ -1436,7 +1946,7 @@ jobs:
 
                       Spacer(modifier = Modifier.height(10.dp))
                       TextButton(onClick = { isRegisterMode = !isRegisterMode }) {
-                          Text(if (isRegisterMode) "Vous avez déjà un compte ? Se connecter" else "Pas de compte ? S'inscrire", color = QdOrange, fontSize = 12.sp)
+                          Text(if (isRegisterMode) "لديك حساب بالفعل؟ تسجيل الدخول" else "ليس لديك حساب؟ إنشاء حساب جديد", color = QdOrange, fontSize = 12.sp)
                       }
                       OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
                           Text("Annuler", color = QdTextDark)
@@ -1446,19 +1956,27 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 3. SCREEN: HOME EXPLORE (Screen 2 in mockup)
+          // 3. SCREEN: HOME EXPLORE (WORKING SEARCH & DYNAMIC CATEGORIES)
           // -------------------------------------------------------------
           @Composable
           fun HomeScreen(
               selectedCity: String,
-              stores: List<RestaurantItem>,
-              onSelectRestaurant: (RestaurantItem) -> Unit,
+              stores: List<StoreModel>,
+              searchQuery: String,
+              onSearchChange: (String) -> Unit,
+              selectedCategory: String,
+              onSelectCategory: (String) -> Unit,
+              onSelectStore: (StoreModel) -> Unit,
               onOrderBannerClick: () -> Unit
           ) {
-              val marketStores = listOf(
-                  MarketItem("1", "سوبرماركت النصر العفرون", "15-30 min", false, "🧺"),
-                  MarketItem("2", "صيدلية الصحة المركزية", "10-20 min", true, "💊")
-              )
+              // Real Filtering logic by search and category
+              val filteredStores = stores.filter { item ->
+                  val matchesCategory = (selectedCategory == "الكل" || item.category == selectedCategory)
+                  val matchesSearch = (searchQuery.isBlank() ||
+                          item.name.contains(searchQuery, ignoreCase = true) ||
+                          item.category.contains(searchQuery, ignoreCase = true))
+                  matchesCategory && matchesSearch
+              }
 
               LazyColumn(
                   modifier = Modifier
@@ -1468,56 +1986,90 @@ jobs:
                   verticalArrangement = Arrangement.spacedBy(16.dp)
               ) {
                   item {
-                      Spacer(modifier = Modifier.height(10.dp))
-                      Row(
-                          modifier = Modifier.fillMaxWidth(),
-                          horizontalArrangement = Arrangement.SpaceBetween,
-                          verticalAlignment = Alignment.CenterVertically
-                      ) {
-                          Row(
-                              verticalAlignment = Alignment.CenterVertically,
-                              horizontalArrangement = Arrangement.spacedBy(6.dp)
-                          ) {
-                              Icon(Icons.Default.LocationOn, contentDescription = null, tint = QdOrange, modifier = Modifier.size(20.dp))
-                              Text(text = selectedCity, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                              Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = QdTextMuted, modifier = Modifier.size(18.dp))
-                          }
-                          IconButton(onClick = {}) {
-                              Icon(Icons.Default.Notifications, contentDescription = null, tint = QdTextDark)
-                          }
-                      }
-                  }
-
-                  item {
+                      Spacer(modifier = Modifier.height(8.dp))
+                      // Working Search Bar
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
-                              .height(50.dp)
+                              .height(52.dp)
                               .clip(RoundedCornerShape(16.dp))
                               .background(Color.White)
                               .border(1.dp, QdBorder, RoundedCornerShape(16.dp))
-                              .padding(horizontal = 14.dp),
+                              .padding(horizontal = 12.dp),
                           verticalAlignment = Alignment.CenterVertically,
                           horizontalArrangement = Arrangement.spacedBy(10.dp)
                       ) {
-                          Icon(Icons.Default.Search, contentDescription = null, tint = QdTextMuted)
-                          Text(text = "Rechercher un restaurant, un magasin...", color = QdTextMuted, fontSize = 13.sp)
+                          Icon(Icons.Default.Search, contentDescription = null, tint = QdOrange)
+                          OutlinedTextField(
+                              value = searchQuery,
+                              onValueChange = onSearchChange,
+                              placeholder = { Text("ابحث عن مطعم، صيدلية، بقالة أو طرد...", color = QdTextMuted, fontSize = 12.sp) },
+                              modifier = Modifier.weight(1f),
+                              colors = OutlinedTextFieldDefaults.colors(
+                                  focusedBorderColor = Color.Transparent,
+                                  unfocusedBorderColor = Color.Transparent
+                              ),
+                              singleLine = true
+                          )
+                          if (searchQuery.isNotEmpty()) {
+                              IconButton(onClick = { onSearchChange("") }) {
+                                  Icon(Icons.Default.Close, contentDescription = "Clear", tint = QdTextMuted)
+                              }
+                          }
                       }
                   }
 
                   item {
-                      Row(
+                      // 5 Selectable Interactive Categories including "سلع وبضائع"
+                      LazyRow(
                           modifier = Modifier.fillMaxWidth(),
-                          horizontalArrangement = Arrangement.SpaceBetween
+                          horizontalArrangement = Arrangement.spacedBy(10.dp)
                       ) {
-                          CategoryItem(icon = Icons.Default.Restaurant, label = "Restaurants", color = QdOrange)
-                          CategoryItem(icon = Icons.Default.ShoppingCart, label = "Épicerie", color = Color(0xFFF97316.toInt()))
-                          CategoryItem(icon = Icons.Default.AddBox, label = "Pharmacie", color = Color(0xFFEF4444.toInt()))
-                          CategoryItem(icon = Icons.Default.Apps, label = "Autres", color = Color(0xFFEAB308.toInt()))
+                          item {
+                              CategoryChipItem(
+                                  icon = Icons.Default.Apps,
+                                  label = "الكل",
+                                  isSelected = (selectedCategory == "الكل"),
+                                  onClick = { onSelectCategory("الكل") }
+                              )
+                          }
+                          item {
+                              CategoryChipItem(
+                                  icon = Icons.Default.Restaurant,
+                                  label = "مطاعم",
+                                  isSelected = (selectedCategory == "مطاعم"),
+                                  onClick = { onSelectCategory("مطاعم") }
+                              )
+                          }
+                          item {
+                              CategoryChipItem(
+                                  icon = Icons.Default.ShoppingCart,
+                                  label = "بقالة",
+                                  isSelected = (selectedCategory == "بقالة"),
+                                  onClick = { onSelectCategory("بقالة") }
+                              )
+                          }
+                          item {
+                              CategoryChipItem(
+                                  icon = Icons.Default.AddBox,
+                                  label = "صيدليات",
+                                  isSelected = (selectedCategory == "صيدليات"),
+                                  onClick = { onSelectCategory("صيدليات") }
+                              )
+                          }
+                          item {
+                              CategoryChipItem(
+                                  icon = Icons.Default.LocalShipping,
+                                  label = "سلع وبضائع",
+                                  isSelected = (selectedCategory == "سلع وبضائع"),
+                                  onClick = { onSelectCategory("سلع وبضائع") }
+                              )
+                          }
                       }
                   }
 
                   item {
+                      // Promo Banner
                       Card(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -1535,10 +2087,10 @@ jobs:
                           ) {
                               Column(verticalArrangement = Arrangement.Center) {
                                   Text(
-                                      text = "Vos plats préférés\nen quelques clics",
+                                      text = "توصيل سريع لكل طلباتك\nفي العفرون وضواحيها",
                                       color = Color.White,
                                       fontWeight = FontWeight.Bold,
-                                      fontSize = 16.sp
+                                      fontSize = 15.sp
                                   )
                                   Spacer(modifier = Modifier.height(10.dp))
                                   Button(
@@ -1547,145 +2099,120 @@ jobs:
                                       shape = RoundedCornerShape(10.dp),
                                       contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                                   ) {
-                                      Text(text = "Commander", color = QdOrange, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                      Text(text = "اطلب الآن (50دج/500م)", color = QdOrange, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                   }
                               }
-                              Text(text = "🍔", fontSize = 54.sp)
+                              Text(text = "🛵", fontSize = 52.sp)
                           }
                       }
                   }
 
                   item {
-                      Row(
-                          modifier = Modifier.fillMaxWidth(),
-                          horizontalArrangement = Arrangement.SpaceBetween,
-                          verticalAlignment = Alignment.CenterVertically
-                      ) {
-                          Text(text = "Restaurants populaires", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                          Text(text = "Voir tout >", color = QdOrange, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                      }
+                      Text(
+                          text = "المتاجر المتاحة (${selectedCategory})",
+                          fontWeight = FontWeight.Bold,
+                          fontSize = 16.sp
+                      )
                   }
 
-                  item {
-                      Row(
-                          modifier = Modifier.fillMaxWidth(),
-                          horizontalArrangement = Arrangement.spacedBy(12.dp)
-                      ) {
-                          stores.take(3).forEach { rest ->
-                              RestaurantCardItem(
-                                  restaurant = rest,
-                                  onClick = { onSelectRestaurant(rest) },
-                                  modifier = Modifier.weight(1f)
-                              )
+                  if (filteredStores.isEmpty()) {
+                      item {
+                          Card(
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .height(100.dp),
+                              shape = RoundedCornerShape(16.dp),
+                              colors = CardDefaults.cardColors(containerColor = Color.White),
+                              border = CardDefaults.outlinedCardBorder()
+                          ) {
+                              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                  Text("لا توجد نتائج مطابقة لبحثك في قسم $selectedCategory", color = QdTextMuted, fontSize = 13.sp)
+                              }
                           }
                       }
-                  }
-
-                  item {
-                      Text(text = "Magasins proches", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                  }
-
-                  item {
-                      Row(
-                          modifier = Modifier.fillMaxWidth(),
-                          horizontalArrangement = Arrangement.spacedBy(12.dp)
-                      ) {
-                          marketStores.forEach { store ->
-                              StoreCardItem(store = store, modifier = Modifier.weight(1f))
-                          }
+                  } else {
+                      items(filteredStores) { store ->
+                          StoreListItemCard(
+                              store = store,
+                              onClick = { onSelectStore(store) }
+                          )
                       }
+                  }
+
+                  item {
                       Spacer(modifier = Modifier.height(20.dp))
                   }
               }
           }
 
           @Composable
-          fun CategoryItem(icon: ImageVector, label: String, color: Color) {
-              Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                  Box(
-                      modifier = Modifier
-                          .size(56.dp)
-                          .clip(RoundedCornerShape(16.dp))
-                          .background(color.copy(alpha = 0.12f)),
-                      contentAlignment = Alignment.Center
-                  ) {
-                      Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(26.dp))
+          fun CategoryChipItem(
+              icon: ImageVector,
+              label: String,
+              isSelected: Boolean,
+              onClick: () -> Unit
+          ) {
+              Box(
+                  modifier = Modifier
+                      .clip(RoundedCornerShape(16.dp))
+                      .background(if (isSelected) QdOrange else Color.White)
+                      .border(1.dp, if (isSelected) QdOrange else QdBorder, RoundedCornerShape(16.dp))
+                      .clickable { onClick() }
+                      .padding(horizontal = 14.dp, vertical = 10.dp)
+              ) {
+                  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                      Icon(icon, contentDescription = label, tint = if (isSelected) Color.White else QdOrange, modifier = Modifier.size(18.dp))
+                      Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.White else QdTextDark)
                   }
-                  Spacer(modifier = Modifier.height(6.dp))
-                  Text(text = label, fontSize = 11.sp, color = QdTextDark, fontWeight = FontWeight.Medium)
               }
           }
 
           @Composable
-          fun RestaurantCardItem(
-              restaurant: RestaurantItem,
-              onClick: () -> Unit,
-              modifier: Modifier = Modifier
+          fun StoreListItemCard(
+              store: StoreModel,
+              onClick: () -> Unit
           ) {
               Card(
-                  modifier = modifier.clickable { onClick() },
-                  shape = RoundedCornerShape(16.dp),
-                  colors = CardDefaults.cardColors(containerColor = Color.White),
-                  border = CardDefaults.outlinedCardBorder()
-              ) {
-                  Column(modifier = Modifier.padding(8.dp)) {
-                      Box(
-                          modifier = Modifier
-                              .fillMaxWidth()
-                              .height(84.dp)
-                              .clip(RoundedCornerShape(12.dp))
-                              .background(Color(0xFFFFF7ED.toInt())),
-                          contentAlignment = Alignment.Center
-                      ) {
-                          Text(text = restaurant.emoji, fontSize = 42.sp)
-                      }
-                      Spacer(modifier = Modifier.height(8.dp))
-                      Text(text = restaurant.name, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
-                      Spacer(modifier = Modifier.height(2.dp))
-                      Row(verticalAlignment = Alignment.CenterVertically) {
-                          Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFBBF24.toInt()), modifier = Modifier.size(13.dp))
-                          Text(text = " ${restaurant.rating} • ${restaurant.time}", fontSize = 10.sp, color = QdTextMuted)
-                      }
-                  }
-              }
-          }
-
-          @Composable
-          fun StoreCardItem(store: MarketItem, modifier: Modifier = Modifier) {
-              Card(
-                  modifier = modifier,
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .clickable { onClick() },
                   shape = RoundedCornerShape(16.dp),
                   colors = CardDefaults.cardColors(containerColor = Color.White),
                   border = CardDefaults.outlinedCardBorder()
               ) {
                   Row(
-                      modifier = Modifier.padding(12.dp),
+                      modifier = Modifier.padding(14.dp),
                       verticalAlignment = Alignment.CenterVertically,
-                      horizontalArrangement = Arrangement.spacedBy(10.dp)
+                      horizontalArrangement = Arrangement.spacedBy(14.dp)
                   ) {
                       Box(
                           modifier = Modifier
-                              .size(40.dp)
-                              .clip(RoundedCornerShape(12.dp))
-                              .background(if (store.isPharmacy) Color(0xFFEFF6FF.toInt()) else Color(0xFFECFDF5.toInt())),
+                              .size(54.dp)
+                              .clip(RoundedCornerShape(14.dp))
+                              .background(QdOrangeSoft),
                           contentAlignment = Alignment.Center
                       ) {
-                          Text(text = store.emoji, fontSize = 20.sp)
+                          Text(text = store.emoji, fontSize = 28.sp)
                       }
-                      Column {
-                          Text(text = store.name, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                          Text(text = "• ${store.time}", fontSize = 10.sp, color = QdTextMuted)
+                      Column(modifier = Modifier.weight(1f)) {
+                          Text(text = store.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                          Text(text = "${store.category} • ${store.time}", fontSize = 11.sp, color = QdTextMuted)
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFBBF24.toInt()), modifier = Modifier.size(14.dp))
+                              Text(text = " ${store.rating} • التسعيرة الأساسية ${store.basePrice} دج", fontSize = 10.sp, color = QdGreen, fontWeight = FontWeight.SemiBold)
+                          }
                       }
+                      Icon(Icons.Default.ChevronRight, contentDescription = null, tint = QdTextMuted)
                   }
               }
           }
 
           // -------------------------------------------------------------
-          // 4. SCREEN: CONFIRMER LA COMMANDE (Screen 3 in mockup)
+          // 4. SCREEN: CONFIRMER LA COMMANDE (CONFIRM ORDER)
           // -------------------------------------------------------------
           @Composable
           fun ConfirmOrderScreen(
-              restaurant: RestaurantItem,
+              store: StoreModel,
               address: String,
               meals: List<OrderProduct>,
               userLat: Double,
@@ -1696,8 +2223,8 @@ jobs:
               onConfirmOrder: (deliveryFee: Int, note: String) -> Unit
           ) {
               var orderNote by remember { mutableStateOf("") }
-              val distanceKm = remember(restaurant, userLat, userLng) {
-                  getDistanceInKm(restaurant.lat, restaurant.lng, userLat, userLng).coerceAtLeast(0.5)
+              val distanceKm = remember(store, userLat, userLng) {
+                  getDistanceInKm(store.lat, store.lng, userLat, userLng).coerceAtLeast(0.5)
               }
               val deliveryFee = remember(distanceKm) {
                   calculateDeliveryFee(distanceKm)
@@ -1722,7 +2249,7 @@ jobs:
                               shape = RoundedCornerShape(16.dp),
                               colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
                           ) {
-                              Text(text = "Commander ($totalAmount DA)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                              Text(text = "تأكيد الطلب ($totalAmount DA)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
                           }
                       }
                   }
@@ -1745,10 +2272,10 @@ jobs:
                               Icon(Icons.Default.ArrowBack, contentDescription = "Retour")
                           }
                           Spacer(modifier = Modifier.width(8.dp))
-                          Text(text = "Confirmer la commande", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                          Text(text = "تأكيد الطلب والتوصيل", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                       }
 
-                      // Restaurant Details Box
+                      // Store Info
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -1762,16 +2289,16 @@ jobs:
                               modifier = Modifier
                                   .size(54.dp)
                                   .clip(RoundedCornerShape(12.dp))
-                                  .background(Color(0xFFFFF7ED.toInt())),
+                                  .background(QdOrangeSoft),
                               contentAlignment = Alignment.Center
                           ) {
-                              Text(text = restaurant.emoji, fontSize = 30.sp)
+                              Text(text = store.emoji, fontSize = 30.sp)
                           }
                           Column(modifier = Modifier.weight(1f)) {
-                              Text(text = restaurant.name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                              Text(text = "${meals.size} articles • ${meals.sumOf { it.qty }} plats", fontSize = 12.sp, color = QdTextMuted)
+                              Text(text = store.name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                              Text(text = "${store.category} • ${meals.size} عناصر مطلوبة", fontSize = 12.sp, color = QdTextMuted)
                               Text(
-                                  text = "+ Ajouter un article",
+                                  text = "+ إضافة وجبة / سلعة أخرى",
                                   fontSize = 11.sp,
                                   color = QdOrange,
                                   fontWeight = FontWeight.SemiBold,
@@ -1780,7 +2307,7 @@ jobs:
                           }
                       }
 
-                      // Delivery Address Box
+                      // Delivery Address
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -1800,11 +2327,11 @@ jobs:
                               Icon(Icons.Default.LocationOn, contentDescription = null, tint = QdOrange, modifier = Modifier.size(20.dp))
                           }
                           Column(modifier = Modifier.weight(1f)) {
-                              Text(text = "Adresse de livraison", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                              Text(text = "عنوان التوصيل (العفرون)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                               Text(text = address, fontSize = 11.sp, color = QdTextMuted, maxLines = 1)
                           }
                           Text(
-                              text = "Modifier",
+                              text = "تعديل",
                               color = QdOrange,
                               fontSize = 12.sp,
                               fontWeight = FontWeight.SemiBold,
@@ -1812,56 +2339,30 @@ jobs:
                           )
                       }
 
-                      // Payment Method Box
-                      Row(
-                          modifier = Modifier
-                              .fillMaxWidth()
-                              .clip(RoundedCornerShape(16.dp))
-                              .background(QdBackground)
-                              .padding(14.dp),
-                          verticalAlignment = Alignment.CenterVertically,
-                          horizontalArrangement = Arrangement.spacedBy(12.dp)
-                      ) {
-                          Box(
-                              modifier = Modifier
-                                  .size(38.dp)
-                                  .clip(CircleShape)
-                                  .background(Color(0xFFF97316.toInt()).copy(alpha = 0.12f)),
-                              contentAlignment = Alignment.Center
-                          ) {
-                              Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = QdOrange, modifier = Modifier.size(20.dp))
-                          }
-                          Column(modifier = Modifier.weight(1f)) {
-                              Text(text = "Moyen de paiement", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                              Text(text = "Paiement à la livraison (Espèces)", fontSize = 11.sp, color = QdTextMuted)
-                          }
-                          Text(text = "Modifier", color = QdOrange, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                      }
-
-                      // Note Field
+                      // Note field
                       OutlinedTextField(
                           value = orderNote,
                           onValueChange = { orderNote = it },
-                          placeholder = { Text("ملاحظة لعامل التوصيل (مثال: بدون طماطم...)", fontSize = 11.sp) },
+                          placeholder = { Text("ملاحظة للسائق أو تفاصيل البضاعة...", fontSize = 11.sp) },
                           modifier = Modifier.fillMaxWidth(),
                           shape = RoundedCornerShape(12.dp)
                       )
 
                       Divider(color = QdBorder)
 
-                      // Bill Pricing Breakdown (50 DA / 500m calculation)
+                      // Pricing Breakdown (50 DA / 500m logic)
                       Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                              Text(text = "Sous-total plats", color = QdTextMuted, fontSize = 13.sp)
+                              Text(text = "المبلغ المبدئي للمنتجات", color = QdTextMuted, fontSize = 13.sp)
                               Text(text = "$foodSubtotal DA", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                           }
                           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                              Text(text = "Frais de livraison (${"%.2f".format(distanceKm)} km)", color = QdTextMuted, fontSize = 13.sp)
+                              Text(text = "تسعيرة التوصيل الرسمية (${"%.2f".format(distanceKm)} km)", color = QdTextMuted, fontSize = 13.sp)
                               Text(text = "$deliveryFee DA", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                           }
                           Spacer(modifier = Modifier.height(4.dp))
                           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                              Text(text = "Total", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                              Text(text = "المبلغ الإجمالي عند الاستلام", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                               Text(text = "$totalAmount DA", fontWeight = FontWeight.Black, fontSize = 18.sp, color = QdTextDark)
                           }
                       }
@@ -1870,7 +2371,7 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 5. SCREEN: SUIVI DE LA COMMANDE (Screen 4 in mockup)
+          // 5. SCREEN: SUIVI DE COMMANDE (DRIVER INFO HIDDEN UNTIL ACCEPTED)
           // -------------------------------------------------------------
           @Composable
           fun OrderTrackingScreen(
@@ -1885,12 +2386,14 @@ jobs:
               val context = LocalContext.current
               var roadWaypoints by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
 
+              // لا تظهر معلومات عامل التوصيل الا بعد قبول الطلب
+              val isDriverAssigned = order.status in listOf("accepted", "to_store", "received", "delivered", "completed") && order.driverPhone.isNotBlank()
+
               LaunchedEffect(order) {
                   roadWaypoints = MapUtils.fetchOsrmRoadPath(order.storeLat, order.storeLng, order.custLat, order.custLng)
               }
 
               Box(modifier = Modifier.fillMaxSize()) {
-                  // Interactive Real Road Map (OSMDroid)
                   AndroidView(
                       modifier = Modifier.fillMaxSize(),
                       factory = { ctx ->
@@ -1907,7 +2410,7 @@ jobs:
                           val userMarker = Marker(mapView).apply {
                               position = GeoPoint(order.custLat, order.custLng)
                               setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                              title = "Vous"
+                              title = "موقعك"
                               icon = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#1E2024"), "🏠")
                           }
                           mapView.overlays.add(userMarker)
@@ -1928,14 +2431,16 @@ jobs:
                               }
                               mapView.overlays.add(polyline)
 
-                              val midPoint = roadWaypoints[roadWaypoints.size / 2]
-                              val driverMarker = Marker(mapView).apply {
-                                  position = midPoint
-                                  setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                  title = if (order.driverName.isNotBlank()) order.driverName else "Livreur"
-                                  icon = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#FF5E00"), "🛵")
+                              if (isDriverAssigned) {
+                                  val midPoint = roadWaypoints[roadWaypoints.size / 2]
+                                  val driverMarker = Marker(mapView).apply {
+                                      position = midPoint
+                                      setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                      title = order.driverName
+                                      icon = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#FF5E00"), "🛵")
+                                  }
+                                  mapView.overlays.add(driverMarker)
                               }
-                              mapView.overlays.add(driverMarker)
                           }
                           mapView.invalidate()
                       }
@@ -1962,7 +2467,7 @@ jobs:
                               Icon(Icons.Default.ArrowBack, contentDescription = "Retour", tint = QdTextDark)
                           }
                           Spacer(modifier = Modifier.width(12.dp))
-                          Text(text = "Suivi de la commande", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = QdTextDark)
+                          Text(text = "تتبع الطلب مباشرة", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = QdTextDark)
                       }
 
                       Spacer(modifier = Modifier.height(14.dp))
@@ -1982,15 +2487,19 @@ jobs:
                                   modifier = Modifier
                                       .size(46.dp)
                                       .clip(CircleShape)
-                                      .background(Color(0xFFFFF7ED.toInt())),
+                                      .background(QdOrangeSoft),
                                   contentAlignment = Alignment.Center
                               ) {
-                                  Text(text = "🍔", fontSize = 24.sp)
+                                  Text(text = if (order.category == "سلع وبضائع") "📦" else "🍔", fontSize = 24.sp)
                               }
                               Column(modifier = Modifier.weight(1f)) {
-                                  Text(text = if (order.status == "pending") "جاري البحث عن عامل توصيل..." else "Votre commande est en route", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                  Text(text = "الحالة: ${order.status}", fontSize = 12.sp, color = QdTextMuted)
-                                  Text(text = "السعر المقدر : ${order.price} DA", fontSize = 11.sp, color = QdOrange, fontWeight = FontWeight.SemiBold)
+                                  Text(
+                                      text = if (!isDriverAssigned) "جاري البحث عن عامل توصيل قريب... ⏳" else "طلبك قيد التوصيل الآن",
+                                      fontWeight = FontWeight.Bold,
+                                      fontSize = 13.sp,
+                                      color = if (!isDriverAssigned) QdOrange else QdGreen
+                                  )
+                                  Text(text = "الحالة: ${order.status} • السعر: ${order.price} دج", fontSize = 11.sp, color = QdTextMuted)
                               }
                               if (order.status == "received" || order.status == "delivered") {
                                   Button(
@@ -1999,18 +2508,18 @@ jobs:
                                       shape = RoundedCornerShape(10.dp),
                                       contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                                   ) {
-                                      Text("Reçu", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                      Text("استلمت", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                   }
-                              } else if (order.status == "pending") {
+                              } else if (!isDriverAssigned) {
                                   TextButton(onClick = onCancelOrder) {
-                                      Text("إلغاء", color = QdRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                      Text("إلغاء", color = QdRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                   }
                               }
                           }
                       }
                   }
 
-                  // Bottom Driver Info Card
+                  // Bottom Driver Card (ONLY SHOWN AFTER DRIVER ACCEPTS)
                   Card(
                       modifier = Modifier
                           .align(Alignment.BottomCenter)
@@ -2020,53 +2529,67 @@ jobs:
                       colors = CardDefaults.cardColors(containerColor = Color.White),
                       elevation = CardDefaults.cardElevation(8.dp)
                   ) {
-                      Row(
-                          modifier = Modifier.padding(16.dp),
-                          verticalAlignment = Alignment.CenterVertically,
-                          horizontalArrangement = Arrangement.SpaceBetween
-                      ) {
+                      if (isDriverAssigned) {
                           Row(
+                              modifier = Modifier.padding(16.dp),
+                              verticalAlignment = Alignment.CenterVertically,
+                              horizontalArrangement = Arrangement.SpaceBetween
+                          ) {
+                              Row(
+                                  verticalAlignment = Alignment.CenterVertically,
+                                  horizontalArrangement = Arrangement.spacedBy(12.dp)
+                              ) {
+                                  Box(
+                                      modifier = Modifier
+                                          .size(48.dp)
+                                          .clip(CircleShape)
+                                          .background(QdOrangeSoft),
+                                      contentAlignment = Alignment.Center
+                                  ) {
+                                      Text(text = "👨‍✈️", fontSize = 26.sp)
+                                  }
+                                  Column {
+                                      Text(text = order.driverName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                      Text(text = "★ 4.9 • دراجة نارية معتمدة", fontSize = 11.sp, color = QdTextMuted)
+                                      Text(text = "الهاتف: ${order.driverPhone}", fontSize = 11.sp, color = QdGreen, fontWeight = FontWeight.Bold)
+                                  }
+                              }
+
+                              Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                  IconButton(
+                                      onClick = {
+                                          val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${order.driverPhone}"))
+                                          context.startActivity(dialIntent)
+                                      },
+                                      modifier = Modifier
+                                          .size(42.dp)
+                                          .clip(CircleShape)
+                                          .background(QdOrange)
+                                  ) {
+                                      Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                  }
+                                  IconButton(
+                                      onClick = onOpenChat,
+                                      modifier = Modifier
+                                          .size(42.dp)
+                                          .clip(CircleShape)
+                                          .background(QdOrange)
+                                  ) {
+                                      Icon(Icons.Default.ChatBubble, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                  }
+                              }
+                          }
+                      } else {
+                          // Placeholder when waiting for driver acceptance
+                          Row(
+                              modifier = Modifier.padding(16.dp),
                               verticalAlignment = Alignment.CenterVertically,
                               horizontalArrangement = Arrangement.spacedBy(12.dp)
                           ) {
-                              Box(
-                                  modifier = Modifier
-                                      .size(48.dp)
-                                      .clip(CircleShape)
-                                      .background(Color(0xFFFFF0E8.toInt())),
-                                  contentAlignment = Alignment.Center
-                              ) {
-                                  Text(text = "👨‍✈️", fontSize = 26.sp)
-                              }
+                              CircularProgressIndicator(color = QdOrange, modifier = Modifier.size(24.dp))
                               Column {
-                                  Text(text = if (order.driverName.isNotBlank()) order.driverName else "عامل توصيل معتمد", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                  Text(text = "★ 4.9 (El Affroun VIP)", fontSize = 11.sp, color = QdTextMuted)
-                                  Text(text = "Moto • AB 12345", fontSize = 11.sp, color = QdTextMuted)
-                              }
-                          }
-
-                          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                              IconButton(
-                                  onClick = {
-                                      val phone = if (order.driverPhone.isNotBlank()) order.driverPhone else "0555555555"
-                                      val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
-                                      context.startActivity(dialIntent)
-                                  },
-                                  modifier = Modifier
-                                      .size(42.dp)
-                                      .clip(CircleShape)
-                                      .background(QdOrange)
-                              ) {
-                                  Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                              }
-                              IconButton(
-                                  onClick = onOpenChat,
-                                  modifier = Modifier
-                                      .size(42.dp)
-                                      .clip(CircleShape)
-                                      .background(QdOrange)
-                              ) {
-                                  Icon(Icons.Default.ChatBubble, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                  Text("بانتظار قبول السائق للطلب...", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                  Text("لن تظهر بيانات وهاتف السائق إلا بعد تأكيده للرحلة.", fontSize = 11.sp, color = QdTextMuted)
                               }
                           }
                       }
@@ -2075,7 +2598,7 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 6. SCREEN: MES COMMANDES (Screen 5 in mockup)
+          // 6. SCREEN: MES COMMANDES (ORDERS LIST)
           // -------------------------------------------------------------
           @Composable
           fun OrdersListScreen(
@@ -2091,7 +2614,7 @@ jobs:
                       .padding(horizontal = 20.dp)
               ) {
                   Spacer(modifier = Modifier.height(14.dp))
-                  Text(text = "Mes commandes", fontSize = 20.sp, fontWeight = FontWeight.Black)
+                  Text(text = "Mes commandes / طلباتي", fontSize = 20.sp, fontWeight = FontWeight.Black)
                   Spacer(modifier = Modifier.height(14.dp))
 
                   Row(
@@ -2119,18 +2642,18 @@ jobs:
                       if (filtered.isEmpty()) {
                           item {
                               Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
-                                  Text("Aucune commande dans cette section", color = QdTextMuted, fontSize = 13.sp)
+                                  Text("لا توجد طلبات في هذا القسم حالياً", color = QdTextMuted, fontSize = 13.sp)
                               }
                           }
                       } else {
                           items(filtered) { ord ->
                               OrderListItem(
                                   name = ord.restaurant,
-                                  date = "Commande #${ord.id.takeLast(4)}",
+                                  date = "الطلب #${ord.id.takeLast(4)}",
                                   price = "${ord.price} DA",
                                   status = ord.status,
                                   statusColor = if (ord.status == "completed") QdGreen else QdOrange,
-                                  emoji = "🍕",
+                                  emoji = if (ord.category == "سلع وبضائع") "📦" else "🍕",
                                   onClick = onSelectOrder
                               )
                           }
@@ -2185,7 +2708,7 @@ jobs:
                       modifier = Modifier
                           .size(52.dp)
                           .clip(RoundedCornerShape(12.dp))
-                          .background(Color(0xFFFFF7ED.toInt())),
+                          .background(QdOrangeSoft),
                       contentAlignment = Alignment.Center
                   ) {
                       Text(text = emoji, fontSize = 28.sp)
@@ -2209,7 +2732,7 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 7. SCREEN: CHOISIR UNE ADRESSE (Screen 6 in mockup)
+          // 7. SCREEN: CHOISIR UNE ADRESSE
           // -------------------------------------------------------------
           @Composable
           fun ChooseAddressScreen(
@@ -2269,20 +2792,6 @@ jobs:
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
-                              .height(50.dp)
-                              .clip(RoundedCornerShape(16.dp))
-                              .background(QdBackground)
-                              .padding(horizontal = 14.dp),
-                          verticalAlignment = Alignment.CenterVertically,
-                          horizontalArrangement = Arrangement.spacedBy(10.dp)
-                      ) {
-                          Icon(Icons.Default.Search, contentDescription = null, tint = QdTextMuted)
-                          Text(text = "Rechercher une adresse à El Affroun...", color = QdTextMuted, fontSize = 13.sp)
-                      }
-
-                      Row(
-                          modifier = Modifier
-                              .fillMaxWidth()
                               .clickable { onSelect("موقعي الحالي عبر GPS (العفرون)") }
                               .padding(vertical = 8.dp),
                           verticalAlignment = Alignment.CenterVertically,
@@ -2291,11 +2800,11 @@ jobs:
                           Icon(Icons.Default.NearMe, contentDescription = null, tint = QdOrange, modifier = Modifier.size(24.dp))
                           Column {
                               Text(text = "Ma position actuelle (GPS)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                              Text(text = "Prendre ma position exacte sur la carte", fontSize = 11.sp, color = QdTextMuted)
+                              Text(text = "تحديد موقعي التلقائي في العفرون", fontSize = 11.sp, color = QdTextMuted)
                           }
                       }
 
-                      Text(text = "Mes adresses enregistrées", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                      Text(text = "العناوين المسجلة :", fontWeight = FontWeight.Bold, fontSize = 15.sp)
 
                       addresses.forEach { addr ->
                           val isSelected = (currentSelected == addr)
@@ -2325,7 +2834,7 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 8. SCREEN: MON PROFIL (Screen 7 in mockup)
+          // 8. SCREEN: MON PROFIL
           // -------------------------------------------------------------
           @Composable
           fun ProfileScreen(
@@ -2379,9 +2888,9 @@ jobs:
 
                   ProfileMenuRow(icon = Icons.Default.ReceiptLong, title = "Mes commandes", onClick = {})
                   ProfileMenuRow(icon = Icons.Default.LocationOn, title = "Mes adresses", onClick = {})
-                  ProfileMenuRow(icon = Icons.Default.TwoWheeler, title = "Espace livreur (Devenir coursier)", onClick = onBecomeDriver)
+                  ProfileMenuRow(icon = Icons.Default.TwoWheeler, title = "Espace livreur (الانضمام كعامل توصيل)", onClick = onBecomeDriver)
                   ProfileMenuRow(icon = Icons.Default.VerifiedUser, title = "Politique de confidentialité", onClick = { onOpenPolicy("privacy") })
-                  ProfileMenuRow(icon = Icons.Default.LocalShipping, title = "Tarifs et politique de livraison (50 DA/500m)", onClick = { onOpenPolicy("shipping") })
+                  ProfileMenuRow(icon = Icons.Default.LocalShipping, title = "Tarifs de livraison (50 DA/500m)", onClick = { onOpenPolicy("shipping") })
                   ProfileMenuRow(icon = Icons.Default.ReportProblem, title = "Signaler un problème", onClick = onOpenReport)
 
                   Spacer(modifier = Modifier.weight(1f))
@@ -2423,7 +2932,7 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 9. SCREEN: DEVENEZ LIVREUR (Screen 8 in mockup)
+          // 9. SCREEN: BECOME DRIVER (INVOKED FROM DRAWER OR PROFILE)
           // -------------------------------------------------------------
           @Composable
           fun BecomeDriverScreen(
@@ -2471,7 +2980,7 @@ jobs:
                           }
                           Spacer(modifier = Modifier.height(4.dp))
                           Text(
-                              text = "Rejoignez notre équipe à El Affroun\net gagnez en toute liberté",
+                              text = "انضم لفريق التوصيل بالعفرون\nواكسب مدخولك بكل حرية ومرونة",
                               fontSize = 13.sp,
                               color = Color.White.copy(alpha = 0.9f)
                           )
@@ -2484,9 +2993,9 @@ jobs:
                           .padding(24.dp),
                       verticalArrangement = Arrangement.spacedBy(20.dp)
                   ) {
-                      DriverPerkItem(icon = Icons.Default.AccessTime, title = "Horaires flexibles à El Affroun")
-                      DriverPerkItem(icon = Icons.Default.MonetizationOn, title = "Rémunération attractive (50 DA / 500m)")
-                      DriverPerkItem(icon = Icons.Default.HeadsetMic, title = "Support dédié & suivi des dettes (10DA/km)")
+                      DriverPerkItem(icon = Icons.Default.AccessTime, title = "أوقات عمل حرة بالكامل في العفرون")
+                      DriverPerkItem(icon = Icons.Default.MonetizationOn, title = "أرباح فورية ومباشرة (50 دج لكل 500م)")
+                      DriverPerkItem(icon = Icons.Default.HeadsetMic, title = "دعم مستمر وإشعارات فورية صوتية")
 
                       Spacer(modifier = Modifier.weight(1f))
 
@@ -2498,7 +3007,7 @@ jobs:
                           shape = RoundedCornerShape(16.dp),
                           colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
                       ) {
-                          Text(text = "Activer l'Espace Livreur", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                          Text(text = "تفعيل وتسجيل حساب عامل توصيل", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
                       }
 
                       OutlinedButton(
@@ -2510,7 +3019,7 @@ jobs:
                           colors = ButtonDefaults.outlinedButtonColors(contentColor = QdTextDark),
                           border = androidx.compose.foundation.BorderStroke(1.dp, QdBorder)
                       ) {
-                          Text(text = "Retour au profil", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                          Text(text = "الرجوع للرئيسية", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                       }
                   }
               }
@@ -2526,7 +3035,7 @@ jobs:
                       modifier = Modifier
                           .size(44.dp)
                           .clip(CircleShape)
-                          .background(QdOrange.copy(alpha = 0.12f)),
+                      .background(QdOrange.copy(alpha = 0.12f)),
                       contentAlignment = Alignment.Center
                   ) {
                       Icon(icon, contentDescription = null, tint = QdOrange, modifier = Modifier.size(22.dp))
@@ -2536,7 +3045,7 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 10. SCREEN: DRIVER DASHBOARD (App 1 Integrated Features)
+          // 10. SCREEN: DRIVER DASHBOARD
           // -------------------------------------------------------------
           @Composable
           fun DriverDashboardScreen(
@@ -2565,7 +3074,7 @@ jobs:
                       verticalAlignment = Alignment.CenterVertically
                   ) {
                       Column {
-                          Text("Tableau de bord Livreur 🛵", fontWeight = FontWeight.Black, fontSize = 18.sp)
+                          Text("لوحة قيادة السائق 🛵", fontWeight = FontWeight.Black, fontSize = 18.sp)
                           Text("كابتن $driverName - العفرون", fontSize = 12.sp, color = QdTextMuted)
                       }
                       Button(
@@ -2578,7 +3087,6 @@ jobs:
                       }
                   }
 
-                  // 3 Stat Cards
                   Row(
                       modifier = Modifier.fillMaxWidth(),
                       horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -2657,7 +3165,7 @@ jobs:
                                           containerColor = if (currentDelivery.status == "to_store") QdOrange else Color.LightGray.copy(alpha = 0.4f)
                                       )
                                   ) {
-                                      Text("للمطعم", fontSize = 10.sp)
+                                      Text("للمحل", fontSize = 10.sp)
                                   }
                                   Button(
                                       onClick = { onUpdateStatus(currentDelivery, "received") },
@@ -2709,18 +3217,21 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 11. SCREEN: ADMIN PANEL (From App 1)
+          // 11. SCREEN: ADMIN PANEL (EDIT / DELETE / ADD STORES & PARCELS)
           // -------------------------------------------------------------
           @Composable
           fun AdminPanelScreen(
-              stores: List<RestaurantItem>,
+              stores: List<StoreModel>,
               orders: List<ActiveOrder>,
-              onAddStore: (name: String, lat: Double, lng: Double) -> Unit,
+              onAddStore: (StoreModel) -> Unit,
+              onDeleteStore: (String) -> Unit,
               onBack: () -> Unit
           ) {
               var newStoreName by remember { mutableStateOf("") }
+              var newStoreCategory by remember { mutableStateOf("مطاعم") }
               var newStoreLat by remember { mutableStateOf("36.4686") }
               var newStoreLng by remember { mutableStateOf("2.6288") }
+              var newStoreBasePrice by remember { mutableStateOf("50") }
 
               val totalVolume = orders.filter { it.status == "completed" }.sumOf { it.price }
               val commission = (totalVolume * 0.20).roundToInt()
@@ -2730,7 +3241,7 @@ jobs:
                       .fillMaxSize()
                       .background(Color.White)
                       .padding(18.dp),
-                  verticalArrangement = Arrangement.spacedBy(16.dp)
+                  verticalArrangement = Arrangement.spacedBy(14.dp)
               ) {
                   item {
                       Row(
@@ -2738,7 +3249,7 @@ jobs:
                           horizontalArrangement = Arrangement.SpaceBetween,
                           verticalAlignment = Alignment.CenterVertically
                       ) {
-                          Text("لوحة إدارة العفرون ديليفري", fontWeight = FontWeight.Black, fontSize = 18.sp, color = QdOrange)
+                          Text("لوحة إدارة المتاجر والأسعار", fontWeight = FontWeight.Black, fontSize = 18.sp, color = QdOrange)
                           IconButton(onClick = onBack) {
                               Icon(Icons.Default.Close, contentDescription = "Fermer")
                           }
@@ -2749,7 +3260,7 @@ jobs:
                       Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                           Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = QdOrangeSoft)) {
                               Column(modifier = Modifier.padding(10.dp)) {
-                                  Text("إجمالي المعاملات", fontSize = 11.sp, color = QdTextMuted)
+                                  Text("إجمالي التعاملات", fontSize = 11.sp, color = QdTextMuted)
                                   Text("$totalVolume DA", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = QdOrange)
                               }
                           }
@@ -2763,38 +3274,83 @@ jobs:
                   }
 
                   item {
-                      Text("إضافة متجر جديد لقائمة العفرون :", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                      Text("إضافة متجر / صيدلية / خدمة بضائع جديدة :", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                       OutlinedTextField(
                           value = newStoreName,
                           onValueChange = { newStoreName = it },
-                          label = { Text("اسم المتجر أو المطعم") },
+                          label = { Text("اسم المتجر أو الخدمة") },
                           modifier = Modifier.fillMaxWidth(),
                           shape = RoundedCornerShape(12.dp)
                       )
                       Spacer(modifier = Modifier.height(8.dp))
                       Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Button(
+                              onClick = { newStoreCategory = "مطاعم" },
+                              colors = ButtonDefaults.buttonColors(containerColor = if (newStoreCategory == "مطاعم") QdOrange else Color.LightGray)
+                          ) { Text("مطعم", fontSize = 10.sp) }
+                          Button(
+                              onClick = { newStoreCategory = "بقالة" },
+                              colors = ButtonDefaults.buttonColors(containerColor = if (newStoreCategory == "بقالة") QdOrange else Color.LightGray)
+                          ) { Text("بقالة", fontSize = 10.sp) }
+                          Button(
+                              onClick = { newStoreCategory = "صيدليات" },
+                              colors = ButtonDefaults.buttonColors(containerColor = if (newStoreCategory == "صيدليات") QdOrange else Color.LightGray)
+                          ) { Text("صيدلية", fontSize = 10.sp) }
+                          Button(
+                              onClick = { newStoreCategory = "سلع وبضائع" },
+                              colors = ButtonDefaults.buttonColors(containerColor = if (newStoreCategory == "سلع وبضائع") QdOrange else Color.LightGray)
+                          ) { Text("بضائع", fontSize = 10.sp) }
+                      }
+                      Spacer(modifier = Modifier.height(8.dp))
+                      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                           OutlinedTextField(
                               value = newStoreLat,
                               onValueChange = { newStoreLat = it },
-                              label = { Text("Latitude") },
+                              label = { Text("Lat") },
                               modifier = Modifier.weight(1f),
                               shape = RoundedCornerShape(12.dp)
                           )
                           OutlinedTextField(
                               value = newStoreLng,
                               onValueChange = { newStoreLng = it },
-                              label = { Text("Longitude") },
+                              label = { Text("Lng") },
+                              modifier = Modifier.weight(1f),
+                              shape = RoundedCornerShape(12.dp)
+                          )
+                          OutlinedTextField(
+                              value = newStoreBasePrice,
+                              onValueChange = { newStoreBasePrice = it },
+                              label = { Text("السعر") },
                               modifier = Modifier.weight(1f),
                               shape = RoundedCornerShape(12.dp)
                           )
                       }
-                      Spacer(modifier = Modifier.height(8.dp))
+                      Spacer(modifier = Modifier.height(10.dp))
                       Button(
                           onClick = {
                               if (newStoreName.isNotBlank()) {
                                   val lat = newStoreLat.toDoubleOrNull() ?: 36.4686
                                   val lng = newStoreLng.toDoubleOrNull() ?: 2.6288
-                                  onAddStore(newStoreName.trim(), lat, lng)
+                                  val price = newStoreBasePrice.toIntOrNull() ?: 50
+                                  val emoji = when (newStoreCategory) {
+                                      "صيدليات" -> "💊"
+                                      "بقالة" -> "🧺"
+                                      "سلع وبضائع" -> "📦"
+                                      else -> "🍲"
+                                  }
+                                  onAddStore(
+                                      StoreModel(
+                                          id = System.currentTimeMillis().toString(),
+                                          name = newStoreName.trim(),
+                                          category = newStoreCategory,
+                                          rating = "4.8",
+                                          time = "20-30 min",
+                                          emoji = emoji,
+                                          lat = lat,
+                                          lng = lng,
+                                          basePrice = price
+                                      )
+                                  )
                                   newStoreName = ""
                               }
                           },
@@ -2802,7 +3358,30 @@ jobs:
                           shape = RoundedCornerShape(12.dp),
                           colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
                       ) {
-                          Text("حفظ المتجر", fontWeight = FontWeight.Bold)
+                          Text("حفظ ونشر على التطبيق", fontWeight = FontWeight.Bold)
+                      }
+                  }
+
+                  item {
+                      Text("إدارة المتاجر الحالية (حذف / تعديل) :", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                  }
+
+                  items(stores) { store ->
+                      Row(
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .border(1.dp, QdBorder, RoundedCornerShape(12.dp))
+                              .padding(12.dp),
+                          horizontalArrangement = Arrangement.SpaceBetween,
+                          verticalAlignment = Alignment.CenterVertically
+                      ) {
+                          Column {
+                              Text(store.name, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                              Text("${store.category} • سعر أساسي: ${store.basePrice} DA", fontSize = 11.sp, color = QdTextMuted)
+                          }
+                          IconButton(onClick = { onDeleteStore(store.id) }) {
+                              Icon(Icons.Default.Delete, contentDescription = "Delete", tint = QdRed)
+                          }
                       }
                   }
               }
@@ -2969,12 +3548,12 @@ jobs:
                       colors = CardDefaults.cardColors(containerColor = Color.White)
                   ) {
                       Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                          Text("Ajouter un plat / produit", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                          Text("Ajouter un plat / produit / طرد", fontWeight = FontWeight.Bold, fontSize = 16.sp)
 
                           OutlinedTextField(
                               value = mealName,
                               onValueChange = { mealName = it },
-                              label = { Text("Nom du plat ou produit") },
+                              label = { Text("Nom du plat ou colis") },
                               modifier = Modifier.fillMaxWidth(),
                               shape = RoundedCornerShape(12.dp)
                           )
@@ -3056,6 +3635,8 @@ jobs:
           ) {
               val (title, text) = when (type) {
                   "privacy" -> "سياسة الخصوصية" to "نحن نلتزم بحماية بياناتك وموقعك الجغرافي واستخدامه حصراً لتوجيه مسار التوصيل بينك وبين المطعم والسائق."
+                  "about" -> "من نحن" to "منصة el affroun delevry هي منصة رقمية محلية مخصصة لمدينة العفرون وضواحيها لتوصيل الطعام، الأدوية، والسلع والطرود بأعلى درجات السرعة والأمان."
+                  "contact" -> "اتصل بنا" to "هاتف الدعم الفني: 0555-555-555\nالبريد الإلكتروني: support@elaffroun-delevry.com"
                   else -> "سياسة التوصيل والأسعار" to "تسعيرة التوصيل لدينا واضحة وشفافة: 50 دج لكل 500 متر بناءً على المسار الحقيقي على الخارطة."
               }
 
@@ -3090,5 +3671,5 @@ jobs:
       - name: Upload Artifact APK
         uses: actions/upload-artifact@v4
         with:
-          name: QuickDeliver-CompleteMerged-APK
+          name: el-affroun-delevry-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
