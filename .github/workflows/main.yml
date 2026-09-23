@@ -69,7 +69,7 @@ jobs:
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <string name="app_name">QuickDeliver</string>
+              <string name="app_name">QuickDeliver - العفرون</string>
               <string name="default_web_client_id">703541527613-webclient.apps.googleusercontent.com</string>
           </resources>
           EOF
@@ -132,8 +132,8 @@ jobs:
                   applicationId = "com.elaffroun.delivery"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 3
-                  versionName = "3.0"
+                  versionCode = 5
+                  versionName = "5.0"
               }
 
               buildTypes {
@@ -249,19 +249,19 @@ jobs:
           object SoundHelper {
               fun playNotificationTone() {
                   CoroutineScope(Dispatchers.IO).launch {
-                      playHarmonicTone(1046.50, 160)
-                      delay(40)
-                      playHarmonicTone(1318.51, 240)
+                      playHarmonicTone(1046.50, 150)
+                      delay(35)
+                      playHarmonicTone(1318.51, 230)
                   }
               }
 
               fun playArrivalTone() {
                   CoroutineScope(Dispatchers.IO).launch {
-                      playHarmonicTone(880.00, 120)
-                      delay(30)
-                      playHarmonicTone(1174.66, 120)
-                      delay(30)
-                      playHarmonicTone(1760.00, 320)
+                      playHarmonicTone(880.00, 110)
+                      delay(25)
+                      playHarmonicTone(1174.66, 110)
+                      delay(25)
+                      playHarmonicTone(1760.00, 300)
                   }
               }
 
@@ -274,10 +274,10 @@ jobs:
 
                       for (i in 0 until numSamples) {
                           val t = i.toDouble() / sampleRate
-                          val decay = exp(-4.5 * t / (durationMs / 1000.0))
+                          val decay = exp(-4.2 * t / (durationMs / 1000.0))
                           val wave = sin(2.0 * Math.PI * freqOfTone * t) +
                                   0.25 * sin(4.0 * Math.PI * freqOfTone * t)
-                          soundData[i] = wave * decay * 0.7
+                          soundData[i] = wave * decay * 0.75
                       }
 
                       var idx = 0
@@ -385,7 +385,7 @@ jobs:
                           connection.connectTimeout = 7000
                           connection.readTimeout = 7000
                           connection.requestMethod = "GET"
-                          connection.setRequestProperty("User-Agent", "QuickDeliver/3.0")
+                          connection.setRequestProperty("User-Agent", "QuickDeliver/5.0")
 
                           if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                               val reader = BufferedReader(InputStreamReader(connection.inputStream))
@@ -407,7 +407,7 @@ jobs:
                               }
                           }
                       } catch (e: Exception) {
-                          // Try mirror
+                          // Try next mirror
                       }
                   }
 
@@ -428,6 +428,7 @@ jobs:
           import androidx.compose.runtime.Composable
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.geometry.Offset
+          import androidx.compose.ui.geometry.Rect
           import androidx.compose.ui.geometry.Size
           import androidx.compose.ui.graphics.Color
           import androidx.compose.ui.graphics.Path
@@ -442,42 +443,36 @@ jobs:
                   val h = this.size.height
                   val primaryOrange = Color(0xFFFF5E00.toInt())
 
-                  // Pin background badge
                   drawCircle(
                       color = primaryOrange,
                       radius = w * 0.45f,
                       center = Offset(w * 0.55f, h * 0.48f)
                   )
 
-                  // White speed lines on the left
-                  val linePaint = Color(0xFFFF5E00.toInt())
                   drawRoundRect(
-                      color = linePaint,
+                      color = primaryOrange,
                       topLeft = Offset(w * 0.05f, h * 0.32f),
                       size = Size(w * 0.22f, h * 0.06f)
                   )
                   drawRoundRect(
-                      color = linePaint,
+                      color = primaryOrange,
                       topLeft = Offset(w * 0.02f, h * 0.45f),
                       size = Size(w * 0.25f, h * 0.06f)
                   )
                   drawRoundRect(
-                      color = linePaint,
+                      color = primaryOrange,
                       topLeft = Offset(w * 0.08f, h * 0.58f),
                       size = Size(w * 0.19f, h * 0.06f)
                   )
 
-                  // Inner rider icon in white
                   val p = Path().apply {
-                      addOval(androidx.compose.ui.geometry.Rect(w * 0.52f, h * 0.24f, w * 0.64f, h * 0.36f))
+                      addOval(Rect(w * 0.52f, h * 0.24f, w * 0.64f, h * 0.36f))
                   }
                   drawPath(p, Color.White, style = Fill)
 
-                  // Motorcycle wheels
                   drawCircle(color = Color.White, radius = w * 0.09f, center = Offset(w * 0.42f, h * 0.65f))
                   drawCircle(color = Color.White, radius = w * 0.09f, center = Offset(w * 0.72f, h * 0.65f))
 
-                  // Motorcycle body
                   val bodyPath = Path().apply {
                       moveTo(w * 0.42f, h * 0.65f)
                       lineTo(w * 0.54f, h * 0.48f)
@@ -516,6 +511,7 @@ jobs:
           import androidx.compose.foundation.lazy.items
           import androidx.compose.foundation.shape.CircleShape
           import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.foundation.text.KeyboardOptions
           import androidx.compose.material.icons.Icons
           import androidx.compose.material.icons.filled.*
           import androidx.compose.material3.*
@@ -528,10 +524,13 @@ jobs:
           import androidx.compose.ui.graphics.vector.ImageVector
           import androidx.compose.ui.platform.LocalContext
           import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.text.input.KeyboardType
+          import androidx.compose.ui.text.input.PasswordVisualTransformation
           import androidx.compose.ui.text.style.TextAlign
           import androidx.compose.ui.unit.dp
           import androidx.compose.ui.unit.sp
           import androidx.compose.ui.viewinterop.AndroidView
+          import androidx.compose.ui.window.Dialog
           import androidx.core.content.ContextCompat
           import com.google.android.gms.location.LocationServices
           import com.google.android.gms.location.Priority
@@ -546,6 +545,7 @@ jobs:
           import org.osmdroid.views.MapView
           import org.osmdroid.views.overlay.Marker
           import org.osmdroid.views.overlay.Polyline
+          import kotlin.math.*
 
           val QdOrange = Color(0xFFFF5E00.toInt())
           val QdOrangeSoft = Color(0xFFFFF0E8.toInt())
@@ -555,6 +555,7 @@ jobs:
           val QdTextDark = Color(0xFF1E2024.toInt())
           val QdTextMuted = Color(0xFF888B92.toInt())
           val QdGreen = Color(0xFF22C55E.toInt())
+          val QdRed = Color(0xFFEF4444.toInt())
 
           data class RestaurantItem(
               val id: String,
@@ -574,16 +575,44 @@ jobs:
               val emoji: String
           )
 
+          data class OrderProduct(val name: String, val qty: Int)
+
+          data class ActiveOrder(
+              val id: String = "",
+              val restaurant: String = "",
+              val address: String = "",
+              val price: Int = 50,
+              val status: String = "pending", // pending, accepted, to_store, received, delivered, completed
+              val driverName: String = "",
+              val driverPhone: String = "",
+              val customerId: String = "",
+              val customerName: String = "",
+              val customerPhone: String = "",
+              val items: List<OrderProduct> = emptyList(),
+              val note: String = "",
+              val storeLat: Double = 36.4690,
+              val storeLng: Double = 2.6295,
+              val custLat: Double = 36.4686,
+              val custLng: Double = 2.6288
+          )
+
+          data class ChatMessage(val sender: String = "", val text: String = "", val time: String = "")
+
           enum class AppScreen {
               SPLASH_ONBOARDING,
+              AUTH_FLOW,
               HOME_EXPLORE,
               CONFIRM_ORDER,
               ORDER_TRACKING,
               ORDERS_LIST,
               CHOOSE_ADDRESS,
               PROFILE,
-              BECOME_DRIVER
+              BECOME_DRIVER,
+              DRIVER_DASHBOARD,
+              ADMIN_PANEL
           }
+
+          enum class AuthUserType { CUSTOMER, DRIVER, ADMIN }
 
           class MainActivity : ComponentActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
@@ -592,31 +621,86 @@ jobs:
                   Configuration.getInstance().userAgentValue = packageName
 
                   setContent {
-                      QuickDeliverApp()
+                      QuickDeliverMergedApp()
                   }
               }
           }
 
+          fun calculateDeliveryFee(distKm: Double): Int {
+              val blocks = ceil(distKm / 0.5).toInt()
+              val fee = blocks * 50
+              return if (fee < 50) 50 else fee
+          }
+
+          fun getDistanceInKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+              val r = 6371.0
+              val dLat = Math.toRadians(lat2 - lat1)
+              val dLon = Math.toRadians(lon2 - lon1)
+              val a = sin(dLat / 2.0).pow(2.0) +
+                      cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
+                      sin(dLon / 2.0).pow(2.0)
+              val c = 2.0 * atan2(sqrt(a), sqrt(1.0 - a))
+              return r * c
+          }
+
           @OptIn(ExperimentalMaterial3Api::class)
           @Composable
-          fun QuickDeliverApp() {
+          fun QuickDeliverMergedApp() {
               val context = LocalContext.current
               val auth = remember { Firebase.auth }
               val db = remember { Firebase.firestore }
 
               var currentScreen by remember { mutableStateOf(AppScreen.SPLASH_ONBOARDING) }
-              var bottomTab by remember { mutableStateOf(0) } // 0: Accueil, 1: Commandes, 2: Carte, 3: Profil
+              var authUserType by remember { mutableStateOf(AuthUserType.CUSTOMER) }
 
-              var selectedAddress by remember { mutableStateOf("12 Rue des Frères Bouadam, Alger") }
-              var selectedRestaurant by remember {
-                  mutableStateOf(RestaurantItem("1", "Pizza House", "4.5", "20-40 min", "🍕", 36.7538, 3.0588))
+              // User Info Session
+              var currentUserName by remember { mutableStateOf("أحمد محمد") }
+              var currentUserPhone by remember { mutableStateOf("0555555555") }
+              var currentUserUid by remember { mutableStateOf(auth.currentUser?.uid ?: "") }
+              var isDriverSession by remember { mutableStateOf(false) }
+
+              // Customer Location (Default: El Affroun Center)
+              var userLat by remember { mutableStateOf(36.4686) }
+              var userLng by remember { mutableStateOf(2.6288) }
+              var selectedAddress by remember { mutableStateOf("حي النصر، العفرون (GPS)") }
+
+              // Dynamic Stores from Firestore
+              val availableStores = remember {
+                  mutableStateListOf(
+                      RestaurantItem("1", "Pizza House العفرون", "4.8", "20-35 min", "🍕", 36.4690, 2.6295),
+                      RestaurantItem("2", "مطعم السلطان للشواء", "4.6", "25-45 min", "🍔", 36.4675, 2.6280),
+                      RestaurantItem("3", "طاكوس الأصيل", "4.5", "15-30 min", "🍟", 36.4660, 2.6250)
+                  )
               }
 
-              var driverLat by remember { mutableStateOf(36.7650) }
-              var driverLng by remember { mutableStateOf(36.7580) }
-              var userLat by remember { mutableStateOf(36.7490) }
-              var userLng by remember { mutableStateOf(3.0510) }
+              // Realtime Orders synchronized with Firestore
+              val activeOrders = remember { mutableStateListOf<ActiveOrder>() }
+              val chatMessages = remember { mutableStateListOf<ChatMessage>() }
 
+              var selectedRestaurant by remember {
+                  mutableStateOf(availableStores.first())
+              }
+
+              var showChatModal by remember { mutableStateOf(false) }
+              var showRatingModal by remember { mutableStateOf(false) }
+              var showAddMealDialog by remember { mutableStateOf(false) }
+              var showReportModal by remember { mutableStateOf(false) }
+              var showPolicyModal by remember { mutableStateOf<String?>(null) }
+
+              val orderedMeals = remember {
+                  mutableStateListOf(
+                      OrderProduct("بيتزا مارغريتا عائلية", 1),
+                      OrderProduct("كوكا كولا 1 لتر", 1)
+                  )
+              }
+
+              // Driver Business Stats (10 DA/km platform debt, 1000 DA limit)
+              var driverEarnings by remember { mutableStateOf(0) }
+              var driverCompletedCount by remember { mutableStateOf(0) }
+              var driverDebt by remember { mutableStateOf(0) }
+              var incomingDriverAlertOrder by remember { mutableStateOf<ActiveOrder?>(null) }
+
+              // GPS Location Permission
               val fusedClient = remember { LocationServices.getFusedLocationProviderClient(context) }
               val permLauncher = rememberLauncherForActivityResult(
                   contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -645,6 +729,90 @@ jobs:
                       permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
                   }
                   permLauncher.launch(permissionsNeeded.toTypedArray())
+
+                  // Load dynamic stores from Firestore if available
+                  db.collection("stores").addSnapshotListener { snap, _ ->
+                      if (snap != null && !snap.isEmpty) {
+                          availableStores.clear()
+                          for (doc in snap.documents) {
+                              availableStores.add(
+                                  RestaurantItem(
+                                      id = doc.id,
+                                      name = doc.getString("name") ?: "متجر العفرون",
+                                      rating = "4.8",
+                                      time = "20-30 min",
+                                      emoji = "🍲",
+                                      lat = doc.getDouble("lat") ?: 36.4686,
+                                      lng = doc.getDouble("lng") ?: 2.6288
+                                  )
+                              )
+                          }
+                      }
+                  }
+              }
+
+              // Sync Active Orders Realtime from Firestore
+              DisposableEffect(currentUserUid, isDriverSession) {
+                  var listener: ListenerRegistration? = null
+                  val ordersQuery = if (isDriverSession) {
+                      db.collection("orders")
+                  } else if (currentUserUid.isNotEmpty()) {
+                      db.collection("orders").whereEqualTo("customerId", currentUserUid)
+                  } else {
+                      db.collection("orders")
+                  }
+
+                  listener = ordersQuery.addSnapshotListener { snapshot, error ->
+                      if (error != null || snapshot == null) return@addSnapshotListener
+                      activeOrders.clear()
+                      for (doc in snapshot.documents) {
+                          val rawItems = doc.get("items") as? List<Map<String, Any>> ?: emptyList()
+                          val parsedItems = rawItems.map {
+                              OrderProduct(
+                                  name = it["name"] as? String ?: "",
+                                  qty = (it["qty"] as? Long)?.toInt() ?: 1
+                              )
+                          }
+                          val order = ActiveOrder(
+                              id = doc.id,
+                              restaurant = doc.getString("restaurant") ?: "",
+                              address = doc.getString("customerAddress") ?: "",
+                              price = doc.getLong("price")?.toInt() ?: 50,
+                              status = doc.getString("status") ?: "pending",
+                              driverName = doc.getString("driverName") ?: "",
+                              driverPhone = doc.getString("driverPhone") ?: "",
+                              customerId = doc.getString("customerId") ?: "",
+                              customerName = doc.getString("customerName") ?: "",
+                              customerPhone = doc.getString("customerPhone") ?: "",
+                              items = parsedItems,
+                              note = doc.getString("note") ?: "",
+                              storeLat = doc.getDouble("storeLat") ?: 36.4690,
+                              storeLng = doc.getDouble("storeLng") ?: 2.6295,
+                              custLat = doc.getDouble("lat") ?: 36.4686,
+                              custLng = doc.getDouble("lng") ?: 2.6288
+                          )
+                          activeOrders.add(order)
+
+                          // Trigger chimes / notifications
+                          if (isDriverSession && order.status == "pending" && incomingDriverAlertOrder == null) {
+                              incomingDriverAlertOrder = order
+                              SoundHelper.playNotificationTone()
+                          }
+                          if (!isDriverSession && order.status == "received") {
+                              SoundHelper.playArrivalTone()
+                          }
+                      }
+
+                      if (isDriverSession) {
+                          val completed = activeOrders.filter { it.driverPhone == currentUserPhone && (it.status == "delivered" || it.status == "completed") }
+                          driverCompletedCount = completed.size
+                          driverEarnings = completed.sumOf { it.price }
+                          val totalKm = completed.sumOf { getDistanceInKm(it.storeLat, it.storeLng, it.custLat, it.custLng) }
+                          driverDebt = (totalKm * 10.0).roundToInt()
+                      }
+                  }
+
+                  onDispose { listener?.remove() }
               }
 
               MaterialTheme(
@@ -660,7 +828,7 @@ jobs:
                   Scaffold(
                       containerColor = QdBackground,
                       bottomBar = {
-                          if (currentScreen in listOf(AppScreen.HOME_EXPLORE, AppScreen.ORDERS_LIST, AppScreen.PROFILE)) {
+                          if (currentScreen in listOf(AppScreen.HOME_EXPLORE, AppScreen.ORDERS_LIST, AppScreen.PROFILE, AppScreen.DRIVER_DASHBOARD)) {
                               NavigationBar(
                                   containerColor = Color.White,
                                   tonalElevation = 6.dp,
@@ -668,10 +836,7 @@ jobs:
                               ) {
                                   NavigationBarItem(
                                       selected = (currentScreen == AppScreen.HOME_EXPLORE),
-                                      onClick = {
-                                          currentScreen = AppScreen.HOME_EXPLORE
-                                          bottomTab = 0
-                                      },
+                                      onClick = { currentScreen = AppScreen.HOME_EXPLORE },
                                       icon = { Icon(Icons.Default.Home, contentDescription = "Accueil") },
                                       label = { Text("Accueil", fontSize = 11.sp) },
                                       colors = NavigationBarItemDefaults.colors(
@@ -684,10 +849,7 @@ jobs:
                                   )
                                   NavigationBarItem(
                                       selected = (currentScreen == AppScreen.ORDERS_LIST),
-                                      onClick = {
-                                          currentScreen = AppScreen.ORDERS_LIST
-                                          bottomTab = 1
-                                      },
+                                      onClick = { currentScreen = AppScreen.ORDERS_LIST },
                                       icon = { Icon(Icons.Default.ReceiptLong, contentDescription = "Commandes") },
                                       label = { Text("Commandes", fontSize = 11.sp) },
                                       colors = NavigationBarItemDefaults.colors(
@@ -699,10 +861,8 @@ jobs:
                                       )
                                   )
                                   NavigationBarItem(
-                                      selected = false,
-                                      onClick = {
-                                          currentScreen = AppScreen.ORDER_TRACKING
-                                      },
+                                      selected = (currentScreen == AppScreen.ORDER_TRACKING),
+                                      onClick = { currentScreen = AppScreen.ORDER_TRACKING },
                                       icon = { Icon(Icons.Default.LocationOn, contentDescription = "Carte") },
                                       label = { Text("Carte", fontSize = 11.sp) },
                                       colors = NavigationBarItemDefaults.colors(
@@ -714,13 +874,12 @@ jobs:
                                       )
                                   )
                                   NavigationBarItem(
-                                      selected = (currentScreen == AppScreen.PROFILE),
+                                      selected = (currentScreen == AppScreen.PROFILE || currentScreen == AppScreen.DRIVER_DASHBOARD),
                                       onClick = {
-                                          currentScreen = AppScreen.PROFILE
-                                          bottomTab = 3
+                                          currentScreen = if (isDriverSession) AppScreen.DRIVER_DASHBOARD else AppScreen.PROFILE
                                       },
                                       icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
-                                      label = { Text("Profil", fontSize = 11.sp) },
+                                      label = { Text(if (isDriverSession) "Livreur" else "Profil", fontSize = 11.sp) },
                                       colors = NavigationBarItemDefaults.colors(
                                           selectedIconColor = QdOrange,
                                           selectedTextColor = QdOrange,
@@ -741,46 +900,111 @@ jobs:
                           when (currentScreen) {
                               AppScreen.SPLASH_ONBOARDING -> {
                                   SplashScreen(
-                                      onStart = { currentScreen = AppScreen.HOME_EXPLORE },
-                                      onLogin = { currentScreen = AppScreen.HOME_EXPLORE }
+                                      onStart = {
+                                          authUserType = AuthUserType.CUSTOMER
+                                          currentScreen = AppScreen.AUTH_FLOW
+                                      },
+                                      onLogin = {
+                                          authUserType = AuthUserType.CUSTOMER
+                                          currentScreen = AppScreen.AUTH_FLOW
+                                      }
+                                  )
+                              }
+                              AppScreen.AUTH_FLOW -> {
+                                  AuthScreen(
+                                      userType = authUserType,
+                                      onSuccess = { name, phone, uid, isDriver ->
+                                          currentUserName = name
+                                          currentUserPhone = phone
+                                          currentUserUid = uid
+                                          isDriverSession = isDriver
+                                          currentScreen = if (isDriver) AppScreen.DRIVER_DASHBOARD else AppScreen.HOME_EXPLORE
+                                      },
+                                      onCancel = { currentScreen = AppScreen.SPLASH_ONBOARDING }
                                   )
                               }
                               AppScreen.HOME_EXPLORE -> {
                                   HomeScreen(
-                                      selectedCity = "Alger",
+                                      selectedCity = "العفرون (Blida)",
+                                      stores = availableStores,
                                       onSelectRestaurant = { rest ->
                                           selectedRestaurant = rest
                                           currentScreen = AppScreen.CONFIRM_ORDER
                                       },
-                                      onOrderBannerClick = {
-                                          currentScreen = AppScreen.CONFIRM_ORDER
-                                      }
+                                      onOrderBannerClick = { currentScreen = AppScreen.CONFIRM_ORDER }
                                   )
                               }
                               AppScreen.CONFIRM_ORDER -> {
                                   ConfirmOrderScreen(
                                       restaurant = selectedRestaurant,
                                       address = selectedAddress,
+                                      meals = orderedMeals,
+                                      userLat = userLat,
+                                      userLng = userLng,
+                                      onAddMeal = { showAddMealDialog = true },
                                       onChangeAddress = { currentScreen = AppScreen.CHOOSE_ADDRESS },
                                       onBack = { currentScreen = AppScreen.HOME_EXPLORE },
-                                      onConfirmOrder = {
+                                      onConfirmOrder = { deliveryFee, note ->
                                           SoundHelper.playNotificationTone()
+                                          val orderMap = hashMapOf(
+                                              "restaurant" to selectedRestaurant.name,
+                                              "customerAddress" to selectedAddress,
+                                              "price" to (deliveryFee + 450),
+                                              "status" to "pending",
+                                              "customerId" to currentUserUid,
+                                              "customerName" to currentUserName,
+                                              "customerPhone" to currentUserPhone,
+                                              "storeLat" to selectedRestaurant.lat,
+                                              "storeLng" to selectedRestaurant.lng,
+                                              "lat" to userLat,
+                                              "lng" to userLng,
+                                              "note" to note,
+                                              "items" to orderedMeals.map { mapOf("name" to it.name, "qty" to it.qty) },
+                                              "createdAt" to java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+                                          )
+                                          db.collection("orders").add(orderMap)
                                           currentScreen = AppScreen.ORDER_TRACKING
                                       }
                                   )
                               }
                               AppScreen.ORDER_TRACKING -> {
+                                  val runningOrder = activeOrders.lastOrNull {
+                                      it.status in listOf("pending", "accepted", "to_store", "received", "delivered")
+                                  } ?: activeOrders.firstOrNull() ?: ActiveOrder(
+                                      id = "1001",
+                                      restaurant = selectedRestaurant.name,
+                                      address = selectedAddress,
+                                      price = 250,
+                                      status = "En livraison",
+                                      driverName = "عامل توصيل العفرون",
+                                      driverPhone = "0555123456",
+                                      storeLat = selectedRestaurant.lat,
+                                      storeLng = selectedRestaurant.lng,
+                                      custLat = userLat,
+                                      custLng = userLng
+                                  )
+
                                   OrderTrackingScreen(
-                                      restaurant = selectedRestaurant,
-                                      driverLat = driverLat,
-                                      driverLng = driverLng,
+                                      order = runningOrder,
                                       userLat = userLat,
                                       userLng = userLng,
-                                      onBack = { currentScreen = AppScreen.HOME_EXPLORE }
+                                      onBack = { currentScreen = AppScreen.HOME_EXPLORE },
+                                      onOpenChat = { showChatModal = true },
+                                      onConfirmDelivered = {
+                                          db.collection("orders").document(runningOrder.id)
+                                              .update("status", "completed")
+                                          SoundHelper.playArrivalTone()
+                                          showRatingModal = true
+                                      },
+                                      onCancelOrder = {
+                                          db.collection("orders").document(runningOrder.id).delete()
+                                          currentScreen = AppScreen.HOME_EXPLORE
+                                      }
                                   )
                               }
                               AppScreen.ORDERS_LIST -> {
                                   OrdersListScreen(
+                                      orders = activeOrders,
                                       onSelectOrder = { currentScreen = AppScreen.ORDER_TRACKING }
                                   )
                               }
@@ -796,16 +1020,134 @@ jobs:
                               }
                               AppScreen.PROFILE -> {
                                   ProfileScreen(
+                                      name = currentUserName,
+                                      phone = currentUserPhone,
                                       onBecomeDriver = { currentScreen = AppScreen.BECOME_DRIVER },
-                                      onLogout = { currentScreen = AppScreen.SPLASH_ONBOARDING }
+                                      onOpenPolicy = { policyType -> showPolicyModal = policyType },
+                                      onOpenReport = { showReportModal = true },
+                                      onOpenAdmin = { currentScreen = AppScreen.ADMIN_PANEL },
+                                      onLogout = {
+                                          auth.signOut()
+                                          currentUserUid = ""
+                                          isDriverSession = false
+                                          currentScreen = AppScreen.SPLASH_ONBOARDING
+                                      }
                                   )
                               }
                               AppScreen.BECOME_DRIVER -> {
                                   BecomeDriverScreen(
                                       onBack = { currentScreen = AppScreen.PROFILE },
-                                      onRegister = { currentScreen = AppScreen.HOME_EXPLORE }
+                                      onRegisterDriver = {
+                                          authUserType = AuthUserType.DRIVER
+                                          currentScreen = AppScreen.AUTH_FLOW
+                                      }
                                   )
                               }
+                              AppScreen.DRIVER_DASHBOARD -> {
+                                  DriverDashboardScreen(
+                                      driverName = currentUserName,
+                                      earnings = driverEarnings,
+                                      completedCount = driverCompletedCount,
+                                      debt = driverDebt,
+                                      activeOrders = activeOrders,
+                                      onUpdateStatus = { ord, status ->
+                                          db.collection("orders").document(ord.id).update("status", status)
+                                      },
+                                      onFinishOrder = { ord ->
+                                          db.collection("orders").document(ord.id).update("status", "delivered")
+                                          SoundHelper.playArrivalTone()
+                                      },
+                                      onOpenChat = { showChatModal = true },
+                                      onSwitchToCustomer = {
+                                          isDriverSession = false
+                                          currentScreen = AppScreen.HOME_EXPLORE
+                                      }
+                                  )
+                              }
+                              AppScreen.ADMIN_PANEL -> {
+                                  AdminPanelScreen(
+                                      stores = availableStores,
+                                      orders = activeOrders,
+                                      onAddStore = { storeName, lat, lng ->
+                                          val sMap = hashMapOf("name" to storeName, "lat" to lat, "lng" to lng)
+                                          db.collection("stores").add(sMap)
+                                      },
+                                      onBack = { currentScreen = AppScreen.PROFILE }
+                                  )
+                              }
+                          }
+
+                          // Incoming Delivery Call Overlay Modal for Drivers
+                          incomingDriverAlertOrder?.let { incOrder ->
+                              DriverIncomingOrderDialog(
+                                  order = incOrder,
+                                  onAccept = {
+                                      db.collection("orders").document(incOrder.id).update(
+                                          mapOf(
+                                              "status" to "accepted",
+                                              "driverName" to currentUserName,
+                                              "driverPhone" to currentUserPhone
+                                          )
+                                      )
+                                      incomingDriverAlertOrder = null
+                                  },
+                                  onReject = {
+                                      incomingDriverAlertOrder = null
+                                  }
+                              )
+                          }
+
+                          if (showChatModal) {
+                              ChatModalDialog(
+                                  messages = chatMessages,
+                                  onSendMessage = { text ->
+                                      chatMessages.add(ChatMessage(if (isDriverSession) "driver" else "customer", text, "الآن"))
+                                  },
+                                  onDismiss = { showChatModal = false }
+                              )
+                          }
+
+                          if (showRatingModal) {
+                              RatingModalDialog(
+                                  onDismiss = { showRatingModal = false },
+                                  onRated = {
+                                      showRatingModal = false
+                                      currentScreen = AppScreen.ORDERS_LIST
+                                  }
+                              )
+                          }
+
+                          if (showAddMealDialog) {
+                              AddMealModalDialog(
+                                  onDismiss = { showAddMealDialog = false },
+                                  onAddMeal = { mealName, qty ->
+                                      orderedMeals.add(OrderProduct(mealName, qty))
+                                      showAddMealDialog = false
+                                  }
+                              )
+                          }
+
+                          if (showReportModal) {
+                              ReportIncidentDialog(
+                                  onDismiss = { showReportModal = false },
+                                  onSubmit = { reason ->
+                                      val repMap = hashMapOf(
+                                          "reporter" to currentUserName,
+                                          "phone" to currentUserPhone,
+                                          "reason" to reason,
+                                          "date" to java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+                                      )
+                                      db.collection("reports").add(repMap)
+                                      showReportModal = false
+                                  }
+                              )
+                          }
+
+                          showPolicyModal?.let { pType ->
+                              PolicyInfoDialog(
+                                  type = pType,
+                                  onDismiss = { showPolicyModal = null }
+                              )
                           }
                       }
                   }
@@ -813,7 +1155,7 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 1. SCREEN: SPLASH & ONBOARDING (Screen 1 in mockup)
+          // 1. SCREEN: SPLASH ONBOARDING (Screen 1 in mockup)
           // -------------------------------------------------------------
           @Composable
           fun SplashScreen(
@@ -850,7 +1192,6 @@ jobs:
                       )
                   }
 
-                  // Center Courier Bike Mascot
                   Box(
                       modifier = Modifier
                           .size(240.dp)
@@ -890,23 +1231,233 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 2. SCREEN: HOME EXPLORE (Screen 2 in mockup)
+          // 2. SCREEN: AUTH FLOW (Email, Google, Facebook & Driver Verification)
+          // -------------------------------------------------------------
+          @Composable
+          fun AuthScreen(
+              userType: AuthUserType,
+              onSuccess: (name: String, phone: String, uid: String, isDriver: Boolean) -> Unit,
+              onCancel: () -> Unit
+          ) {
+              val auth = Firebase.auth
+              val db = Firebase.firestore
+
+              var isRegisterMode by remember { mutableStateOf(userType == AuthUserType.DRIVER) }
+              var name by remember { mutableStateOf("") }
+              var phone by remember { mutableStateOf("") }
+              var email by remember { mutableStateOf("") }
+              var password by remember { mutableStateOf("") }
+              var termsAccepted by remember { mutableStateOf(false) }
+              var ageAccepted by remember { mutableStateOf(false) }
+              var errorMessage by remember { mutableStateOf("") }
+              var isLoading by remember { mutableStateOf(false) }
+
+              LazyColumn(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(Color.White)
+                      .padding(24.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  verticalArrangement = Arrangement.Center
+              ) {
+                  item {
+                      Text(
+                          text = if (isRegisterMode) "Créer un compte" else "Connexion",
+                          fontSize = 24.sp,
+                          fontWeight = FontWeight.Black,
+                          color = QdOrange
+                      )
+
+                      Text(
+                          text = when (userType) {
+                              AuthUserType.DRIVER -> "Espace Livreur - El Affroun (50 DA / 500m)"
+                              AuthUserType.ADMIN -> "Portail Administration Sécurisé"
+                              AuthUserType.CUSTOMER -> "Commandez rapidement vos plats et courses"
+                          },
+                          fontSize = 12.sp,
+                          color = QdTextMuted,
+                          modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
+                      )
+
+                      if (userType == AuthUserType.CUSTOMER && !isRegisterMode) {
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                          ) {
+                              OutlinedButton(
+                                  onClick = {
+                                      onSuccess("زبون عبر Google", "0555123456", "google_dummy_uid", false)
+                                  },
+                                  modifier = Modifier.weight(1f),
+                                  shape = RoundedCornerShape(12.dp)
+                              ) {
+                                  Text("Google", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                              }
+                              OutlinedButton(
+                                  onClick = {
+                                      onSuccess("زبون عبر Facebook", "0555654321", "fb_dummy_uid", false)
+                                  },
+                                  modifier = Modifier.weight(1f),
+                                  shape = RoundedCornerShape(12.dp)
+                              ) {
+                                  Text("Facebook", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                              }
+                          }
+                          Spacer(modifier = Modifier.height(14.dp))
+                          Divider(color = QdBorder)
+                          Spacer(modifier = Modifier.height(14.dp))
+                      }
+
+                      if (isRegisterMode) {
+                          OutlinedTextField(
+                              value = name,
+                              onValueChange = { name = it },
+                              label = { Text("الاسم الكامل") },
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp)
+                          )
+                          Spacer(modifier = Modifier.height(10.dp))
+                          OutlinedTextField(
+                              value = phone,
+                              onValueChange = { phone = it },
+                              label = { Text("رقم الهاتف") },
+                              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp)
+                          )
+                          Spacer(modifier = Modifier.height(10.dp))
+                      }
+
+                      OutlinedTextField(
+                          value = email,
+                          onValueChange = { email = it },
+                          label = { Text("البريد الإلكتروني") },
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(12.dp)
+                      )
+
+                      Spacer(modifier = Modifier.height(10.dp))
+
+                      OutlinedTextField(
+                          value = password,
+                          onValueChange = { password = it },
+                          label = { Text("كلمة المرور") },
+                          visualTransformation = PasswordVisualTransformation(),
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(12.dp)
+                      )
+
+                      if (isRegisterMode) {
+                          Spacer(modifier = Modifier.height(12.dp))
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Checkbox(checked = termsAccepted, onCheckedChange = { termsAccepted = it })
+                              Text("أوافق على شروط الخدمة وتعرفات التوصيل (50 دج / 500م)", fontSize = 11.sp, color = QdTextDark)
+                          }
+                          if (userType == AuthUserType.DRIVER) {
+                              Row(verticalAlignment = Alignment.CenterVertically) {
+                                  Checkbox(checked = ageAccepted, onCheckedChange = { ageAccepted = it })
+                                  Text("أؤكد أن عمري فوق 18 سنة وألتزم بسداد ديون المنصة (10دج/كم)", fontSize = 11.sp, color = QdTextDark)
+                              }
+                          }
+                      }
+
+                      if (errorMessage.isNotEmpty()) {
+                          Text(errorMessage, color = QdRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+                      }
+
+                      Spacer(modifier = Modifier.height(18.dp))
+
+                      Button(
+                          onClick = {
+                              errorMessage = ""
+                              if (email.isBlank() || password.isBlank()) {
+                                  errorMessage = "يرجى ملء جميع الحقول"
+                                  return@Button
+                              }
+                              isLoading = true
+                              val isDriver = (userType == AuthUserType.DRIVER)
+                              if (isRegisterMode) {
+                                  auth.createUserWithEmailAndPassword(email.trim(), password)
+                                      .addOnSuccessListener { cred ->
+                                          val uid = cred.user?.uid ?: ""
+                                          val userMap = hashMapOf(
+                                              "name" to name.trim(),
+                                              "phoneNumber" to phone.trim(),
+                                              "email" to email.trim(),
+                                              "role" to if (isDriver) "driver" else "customer",
+                                              "debt" to 0
+                                          )
+                                          db.collection("users").document(uid).set(userMap)
+                                              .addOnSuccessListener {
+                                                  isLoading = false
+                                                  onSuccess(name.trim(), phone.trim(), uid, isDriver)
+                                              }
+                                      }
+                                      .addOnFailureListener { e ->
+                                          isLoading = false
+                                          errorMessage = e.localizedMessage ?: "حدث خطأ أثناء التسجيل"
+                                      }
+                              } else {
+                                  auth.signInWithEmailAndPassword(email.trim(), password)
+                                      .addOnSuccessListener { cred ->
+                                          val uid = cred.user?.uid ?: ""
+                                          db.collection("users").document(uid).get()
+                                              .addOnSuccessListener { snap ->
+                                                  isLoading = false
+                                                  val fetchedName = snap.getString("name") ?: "مستخدم"
+                                                  val fetchedPhone = snap.getString("phoneNumber") ?: "0555555555"
+                                                  val role = snap.getString("role") ?: "customer"
+                                                  onSuccess(fetchedName, fetchedPhone, uid, role == "driver")
+                                              }
+                                              .addOnFailureListener {
+                                                  isLoading = false
+                                                  onSuccess("مستخدم", "0555555555", uid, false)
+                                              }
+                                      }
+                                      .addOnFailureListener { e ->
+                                          isLoading = false
+                                          errorMessage = e.localizedMessage ?: "فشل تسجيل الدخول"
+                                      }
+                              }
+                          },
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .height(52.dp),
+                          shape = RoundedCornerShape(16.dp),
+                          colors = ButtonDefaults.buttonColors(containerColor = QdOrange),
+                          enabled = !isLoading
+                      ) {
+                          if (isLoading) {
+                              CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                          } else {
+                              Text(if (isRegisterMode) "S'inscrire" else "Se connecter", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                          }
+                      }
+
+                      Spacer(modifier = Modifier.height(10.dp))
+                      TextButton(onClick = { isRegisterMode = !isRegisterMode }) {
+                          Text(if (isRegisterMode) "Vous avez déjà un compte ? Se connecter" else "Pas de compte ? S'inscrire", color = QdOrange, fontSize = 12.sp)
+                      }
+                      OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                          Text("Annuler", color = QdTextDark)
+                      }
+                  }
+              }
+          }
+
+          // -------------------------------------------------------------
+          // 3. SCREEN: HOME EXPLORE (Screen 2 in mockup)
           // -------------------------------------------------------------
           @Composable
           fun HomeScreen(
               selectedCity: String,
+              stores: List<RestaurantItem>,
               onSelectRestaurant: (RestaurantItem) -> Unit,
               onOrderBannerClick: () -> Unit
           ) {
-              val restaurants = listOf(
-                  RestaurantItem("1", "Pizza House", "4.5", "20-40 min", "🍕", 36.7538, 3.0588),
-                  RestaurantItem("2", "Le Bon Goût", "4.3", "25-45 min", "🍔", 36.7500, 3.0520),
-                  RestaurantItem("3", "Snack Planet", "4.2", "30-50 min", "🍟", 36.7560, 3.0610)
-              )
-
-              val stores = listOf(
-                  MarketItem("1", "Épicerie La Rose", "15-30 min", false, "🧺"),
-                  MarketItem("2", "Pharmacie Santé", "20-40 min", true, "💊")
+              val marketStores = listOf(
+                  MarketItem("1", "سوبرماركت النصر العفرون", "15-30 min", false, "🧺"),
+                  MarketItem("2", "صيدلية الصحة المركزية", "10-20 min", true, "💊")
               )
 
               LazyColumn(
@@ -918,7 +1469,6 @@ jobs:
               ) {
                   item {
                       Spacer(modifier = Modifier.height(10.dp))
-                      // Top Location & Notification bar
                       Row(
                           modifier = Modifier.fillMaxWidth(),
                           horizontalArrangement = Arrangement.SpaceBetween,
@@ -939,7 +1489,6 @@ jobs:
                   }
 
                   item {
-                      // Search Bar
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -957,7 +1506,6 @@ jobs:
                   }
 
                   item {
-                      // 4 Category Quick Icons
                       Row(
                           modifier = Modifier.fillMaxWidth(),
                           horizontalArrangement = Arrangement.SpaceBetween
@@ -970,7 +1518,6 @@ jobs:
                   }
 
                   item {
-                      // Hero Promotion Banner
                       Card(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -1009,7 +1556,6 @@ jobs:
                   }
 
                   item {
-                      // Restaurants populaires Header
                       Row(
                           modifier = Modifier.fillMaxWidth(),
                           horizontalArrangement = Arrangement.SpaceBetween,
@@ -1021,12 +1567,11 @@ jobs:
                   }
 
                   item {
-                      // Popular restaurants cards
                       Row(
                           modifier = Modifier.fillMaxWidth(),
                           horizontalArrangement = Arrangement.spacedBy(12.dp)
                       ) {
-                          restaurants.forEach { rest ->
+                          stores.take(3).forEach { rest ->
                               RestaurantCardItem(
                                   restaurant = rest,
                                   onClick = { onSelectRestaurant(rest) },
@@ -1037,17 +1582,15 @@ jobs:
                   }
 
                   item {
-                      // Magasins proches Header
                       Text(text = "Magasins proches", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                   }
 
                   item {
-                      // Store items row
                       Row(
                           modifier = Modifier.fillMaxWidth(),
                           horizontalArrangement = Arrangement.spacedBy(12.dp)
                       ) {
-                          stores.forEach { store ->
+                          marketStores.forEach { store ->
                               StoreCardItem(store = store, modifier = Modifier.weight(1f))
                           }
                       }
@@ -1138,16 +1681,30 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 3. SCREEN: CONFIRMER LA COMMANDE (Screen 3 in mockup)
+          // 4. SCREEN: CONFIRMER LA COMMANDE (Screen 3 in mockup)
           // -------------------------------------------------------------
           @Composable
           fun ConfirmOrderScreen(
               restaurant: RestaurantItem,
               address: String,
+              meals: List<OrderProduct>,
+              userLat: Double,
+              userLng: Double,
+              onAddMeal: () -> Unit,
               onChangeAddress: () -> Unit,
               onBack: () -> Unit,
-              onConfirmOrder: () -> Unit
+              onConfirmOrder: (deliveryFee: Int, note: String) -> Unit
           ) {
+              var orderNote by remember { mutableStateOf("") }
+              val distanceKm = remember(restaurant, userLat, userLng) {
+                  getDistanceInKm(restaurant.lat, restaurant.lng, userLat, userLng).coerceAtLeast(0.5)
+              }
+              val deliveryFee = remember(distanceKm) {
+                  calculateDeliveryFee(distanceKm)
+              }
+              val foodSubtotal = 450
+              val totalAmount = foodSubtotal + deliveryFee
+
               Scaffold(
                   bottomBar = {
                       Box(
@@ -1158,14 +1715,14 @@ jobs:
                               .padding(18.dp)
                       ) {
                           Button(
-                              onClick = onConfirmOrder,
+                              onClick = { onConfirmOrder(deliveryFee, orderNote) },
                               modifier = Modifier
                                   .fillMaxWidth()
                                   .height(54.dp),
                               shape = RoundedCornerShape(16.dp),
                               colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
                           ) {
-                              Text(text = "Commander", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                              Text(text = "Commander ($totalAmount DA)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
                           }
                       }
                   }
@@ -1176,9 +1733,8 @@ jobs:
                           .background(Color.White)
                           .padding(padding)
                           .padding(horizontal = 20.dp),
-                      verticalArrangement = Arrangement.spacedBy(20.dp)
+                      verticalArrangement = Arrangement.spacedBy(16.dp)
                   ) {
-                      // Top Bar
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -1192,7 +1748,7 @@ jobs:
                           Text(text = "Confirmer la commande", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                       }
 
-                      // Restaurant info box
+                      // Restaurant Details Box
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -1213,8 +1769,14 @@ jobs:
                           }
                           Column(modifier = Modifier.weight(1f)) {
                               Text(text = restaurant.name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                              Text(text = "2 articles • 18.90 DA", fontSize = 12.sp, color = QdTextMuted)
-                              Text(text = "Voir le détail >", fontSize = 11.sp, color = QdOrange, fontWeight = FontWeight.SemiBold)
+                              Text(text = "${meals.size} articles • ${meals.sumOf { it.qty }} plats", fontSize = 12.sp, color = QdTextMuted)
+                              Text(
+                                  text = "+ Ajouter un article",
+                                  fontSize = 11.sp,
+                                  color = QdOrange,
+                                  fontWeight = FontWeight.SemiBold,
+                                  modifier = Modifier.clickable { onAddMeal() }
+                              )
                           }
                       }
 
@@ -1271,27 +1833,36 @@ jobs:
                           }
                           Column(modifier = Modifier.weight(1f)) {
                               Text(text = "Moyen de paiement", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                              Text(text = "Paiement à la livraison", fontSize = 11.sp, color = QdTextMuted)
+                              Text(text = "Paiement à la livraison (Espèces)", fontSize = 11.sp, color = QdTextMuted)
                           }
                           Text(text = "Modifier", color = QdOrange, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                       }
 
+                      // Note Field
+                      OutlinedTextField(
+                          value = orderNote,
+                          onValueChange = { orderNote = it },
+                          placeholder = { Text("ملاحظة لعامل التوصيل (مثال: بدون طماطم...)", fontSize = 11.sp) },
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(12.dp)
+                      )
+
                       Divider(color = QdBorder)
 
-                      // Bill Summary
+                      // Bill Pricing Breakdown (50 DA / 500m calculation)
                       Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                              Text(text = "Sous-total", color = QdTextMuted, fontSize = 13.sp)
-                              Text(text = "18.90 DA", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                              Text(text = "Sous-total plats", color = QdTextMuted, fontSize = 13.sp)
+                              Text(text = "$foodSubtotal DA", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                           }
                           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                              Text(text = "Frais de livraison", color = QdTextMuted, fontSize = 13.sp)
-                              Text(text = "200 DA", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                              Text(text = "Frais de livraison (${"%.2f".format(distanceKm)} km)", color = QdTextMuted, fontSize = 13.sp)
+                              Text(text = "$deliveryFee DA", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                           }
                           Spacer(modifier = Modifier.height(4.dp))
                           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                               Text(text = "Total", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                              Text(text = "218.90 DA", fontWeight = FontWeight.Black, fontSize = 18.sp, color = QdTextDark)
+                              Text(text = "$totalAmount DA", fontWeight = FontWeight.Black, fontSize = 18.sp, color = QdTextDark)
                           }
                       }
                   }
@@ -1299,22 +1870,23 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 4. SCREEN: SUIVI DE LA COMMANDE (Screen 4 in mockup)
+          // 5. SCREEN: SUIVI DE LA COMMANDE (Screen 4 in mockup)
           // -------------------------------------------------------------
           @Composable
           fun OrderTrackingScreen(
-              restaurant: RestaurantItem,
-              driverLat: Double,
-              driverLng: Double,
+              order: ActiveOrder,
               userLat: Double,
               userLng: Double,
-              onBack: () -> Unit
+              onBack: () -> Unit,
+              onOpenChat: () -> Unit,
+              onConfirmDelivered: () -> Unit,
+              onCancelOrder: () -> Unit
           ) {
               val context = LocalContext.current
               var roadWaypoints by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
 
-              LaunchedEffect(Unit) {
-                  roadWaypoints = MapUtils.fetchOsrmRoadPath(restaurant.lat, restaurant.lng, userLat, userLng)
+              LaunchedEffect(order) {
+                  roadWaypoints = MapUtils.fetchOsrmRoadPath(order.storeLat, order.storeLng, order.custLat, order.custLng)
               }
 
               Box(modifier = Modifier.fillMaxSize()) {
@@ -1325,32 +1897,29 @@ jobs:
                           MapView(ctx).apply {
                               setTileSource(TileSourceFactory.MAPNIK)
                               setMultiTouchControls(true)
-                              controller.setZoom(15.0)
-                              controller.setCenter(GeoPoint(userLat, userLng))
+                              controller.setZoom(15.2)
+                              controller.setCenter(GeoPoint(order.custLat, order.custLng))
                           }
                       },
                       update = { mapView ->
                           mapView.overlays.clear()
 
-                          // User Marker (Vous)
                           val userMarker = Marker(mapView).apply {
-                              position = GeoPoint(userLat, userLng)
+                              position = GeoPoint(order.custLat, order.custLng)
                               setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                               title = "Vous"
                               icon = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#1E2024"), "🏠")
                           }
                           mapView.overlays.add(userMarker)
 
-                          // Restaurant Marker
                           val restMarker = Marker(mapView).apply {
-                              position = GeoPoint(restaurant.lat, restaurant.lng)
+                              position = GeoPoint(order.storeLat, order.storeLng)
                               setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                              title = restaurant.name
+                              title = order.restaurant
                               icon = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#FF5E00"), "🍴")
                           }
                           mapView.overlays.add(restMarker)
 
-                          // Real Road-Follow Polyline in Brand Orange
                           if (roadWaypoints.isNotEmpty()) {
                               val polyline = Polyline(mapView).apply {
                                   roadWaypoints.forEach { addPoint(it) }
@@ -1359,12 +1928,11 @@ jobs:
                               }
                               mapView.overlays.add(polyline)
 
-                              // Driver Marker on path
                               val midPoint = roadWaypoints[roadWaypoints.size / 2]
                               val driverMarker = Marker(mapView).apply {
                                   position = midPoint
                                   setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                  title = "Livreur"
+                                  title = if (order.driverName.isNotBlank()) order.driverName else "Livreur"
                                   icon = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#FF5E00"), "🛵")
                               }
                               mapView.overlays.add(driverMarker)
@@ -1419,10 +1987,24 @@ jobs:
                               ) {
                                   Text(text = "🍔", fontSize = 24.sp)
                               }
-                              Column {
-                                  Text(text = "Votre commande est en route", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                  Text(text = "Le livreur est à 3.2 km", fontSize = 12.sp, color = QdTextMuted)
-                                  Text(text = "Arrivée estimée : 12 min", fontSize = 11.sp, color = QdOrange, fontWeight = FontWeight.SemiBold)
+                              Column(modifier = Modifier.weight(1f)) {
+                                  Text(text = if (order.status == "pending") "جاري البحث عن عامل توصيل..." else "Votre commande est en route", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                  Text(text = "الحالة: ${order.status}", fontSize = 12.sp, color = QdTextMuted)
+                                  Text(text = "السعر المقدر : ${order.price} DA", fontSize = 11.sp, color = QdOrange, fontWeight = FontWeight.SemiBold)
+                              }
+                              if (order.status == "received" || order.status == "delivered") {
+                                  Button(
+                                      onClick = onConfirmDelivered,
+                                      colors = ButtonDefaults.buttonColors(containerColor = QdGreen),
+                                      shape = RoundedCornerShape(10.dp),
+                                      contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                  ) {
+                                      Text("Reçu", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                  }
+                              } else if (order.status == "pending") {
+                                  TextButton(onClick = onCancelOrder) {
+                                      Text("إلغاء", color = QdRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                  }
                               }
                           }
                       }
@@ -1457,8 +2039,8 @@ jobs:
                                   Text(text = "👨‍✈️", fontSize = 26.sp)
                               }
                               Column {
-                                  Text(text = "Yacine D.", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                  Text(text = "★ 4.8 (124 livraisons)", fontSize = 11.sp, color = QdTextMuted)
+                                  Text(text = if (order.driverName.isNotBlank()) order.driverName else "عامل توصيل معتمد", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                  Text(text = "★ 4.9 (El Affroun VIP)", fontSize = 11.sp, color = QdTextMuted)
                                   Text(text = "Moto • AB 12345", fontSize = 11.sp, color = QdTextMuted)
                               }
                           }
@@ -1466,7 +2048,8 @@ jobs:
                           Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                               IconButton(
                                   onClick = {
-                                      val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:0555123456"))
+                                      val phone = if (order.driverPhone.isNotBlank()) order.driverPhone else "0555555555"
+                                      val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
                                       context.startActivity(dialIntent)
                                   },
                                   modifier = Modifier
@@ -1477,9 +2060,7 @@ jobs:
                                   Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                               }
                               IconButton(
-                                  onClick = {
-                                      SoundHelper.playNotificationTone()
-                                  },
+                                  onClick = onOpenChat,
                                   modifier = Modifier
                                       .size(42.dp)
                                       .clip(CircleShape)
@@ -1494,11 +2075,14 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 5. SCREEN: MES COMMANDES (Screen 5 in mockup)
+          // 6. SCREEN: MES COMMANDES (Screen 5 in mockup)
           // -------------------------------------------------------------
           @Composable
-          fun OrdersListScreen(onSelectOrder: () -> Unit) {
-              var selectedFilter by remember { mutableStateOf(0) } // 0: En cours, 1: Terminées, 2: Annulées
+          fun OrdersListScreen(
+              orders: List<ActiveOrder>,
+              onSelectOrder: () -> Unit
+          ) {
+              var selectedFilter by remember { mutableStateOf(0) }
 
               Column(
                   modifier = Modifier
@@ -1510,7 +2094,6 @@ jobs:
                   Text(text = "Mes commandes", fontSize = 20.sp, fontWeight = FontWeight.Black)
                   Spacer(modifier = Modifier.height(14.dp))
 
-                  // Filter Row
                   Row(
                       modifier = Modifier.fillMaxWidth(),
                       horizontalArrangement = Arrangement.SpaceAround
@@ -1523,53 +2106,34 @@ jobs:
                   Divider(color = QdBorder, modifier = Modifier.padding(top = 10.dp))
                   Spacer(modifier = Modifier.height(14.dp))
 
+                  val filtered = when (selectedFilter) {
+                      0 -> orders.filter { it.status in listOf("pending", "accepted", "to_store", "received", "delivered") }
+                      1 -> orders.filter { it.status == "completed" }
+                      else -> emptyList()
+                  }
+
                   LazyColumn(
                       verticalArrangement = Arrangement.spacedBy(14.dp),
                       modifier = Modifier.fillMaxSize()
                   ) {
-                      item {
-                          OrderListItem(
-                              name = "Pizza House",
-                              date = "Aujourd'hui • 12:36",
-                              price = "218.90 DA",
-                              status = "En livraison",
-                              statusColor = QdOrange,
-                              emoji = "🍕",
-                              onClick = onSelectOrder
-                          )
-                      }
-                      item {
-                          OrderListItem(
-                              name = "Épicerie La Rose",
-                              date = "Hier • 17:24",
-                              price = "1,450 DA",
-                              status = "Livrée",
-                              statusColor = QdGreen,
-                              emoji = "🥗",
-                              onClick = onSelectOrder
-                          )
-                      }
-                      item {
-                          OrderListItem(
-                              name = "Le Bon Goût",
-                              date = "12 sept. 2025 • 13:10",
-                              price = "320 DA",
-                              status = "Livrée",
-                              statusColor = QdGreen,
-                              emoji = "🍔",
-                              onClick = onSelectOrder
-                          )
-                      }
-                      item {
-                          OrderListItem(
-                              name = "Pharmacie Santé",
-                              date = "10 sept. 2025 • 09:42",
-                              price = "560 DA",
-                              status = "Livrée",
-                              statusColor = QdGreen,
-                              emoji = "💊",
-                              onClick = onSelectOrder
-                          )
+                      if (filtered.isEmpty()) {
+                          item {
+                              Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                                  Text("Aucune commande dans cette section", color = QdTextMuted, fontSize = 13.sp)
+                              }
+                          }
+                      } else {
+                          items(filtered) { ord ->
+                              OrderListItem(
+                                  name = ord.restaurant,
+                                  date = "Commande #${ord.id.takeLast(4)}",
+                                  price = "${ord.price} DA",
+                                  status = ord.status,
+                                  statusColor = if (ord.status == "completed") QdGreen else QdOrange,
+                                  emoji = "🍕",
+                                  onClick = onSelectOrder
+                              )
+                          }
                       }
                   }
               }
@@ -1645,7 +2209,7 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 6. SCREEN: CHOISIR UNE ADRESSE (Screen 6 in mockup)
+          // 7. SCREEN: CHOISIR UNE ADRESSE (Screen 6 in mockup)
           // -------------------------------------------------------------
           @Composable
           fun ChooseAddressScreen(
@@ -1654,9 +2218,9 @@ jobs:
               onBack: () -> Unit
           ) {
               val addresses = listOf(
-                  "12 Rue des Frères Bouadam, Alger",
-                  "74 Cité des Pins, Alger",
-                  "15 Boulevard Mohamed V, Alger"
+                  "حي النصر، العفرون (موقعي الأساسي)",
+                  "شارع أول نوفمبر، وسط مدينة العفرون",
+                  "حي 500 مسكن، العفرون"
               )
 
               Scaffold(
@@ -1669,7 +2233,7 @@ jobs:
                               .padding(18.dp)
                       ) {
                           Button(
-                              onClick = { onSelect("Nouvelle adresse à Alger") },
+                              onClick = { onSelect("حي الزيتون، العفرون") },
                               modifier = Modifier
                                   .fillMaxWidth()
                                   .height(54.dp),
@@ -1702,7 +2266,6 @@ jobs:
                           Text(text = "Choisir une adresse", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                       }
 
-                      // Search address field
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -1714,22 +2277,21 @@ jobs:
                           horizontalArrangement = Arrangement.spacedBy(10.dp)
                       ) {
                           Icon(Icons.Default.Search, contentDescription = null, tint = QdTextMuted)
-                          Text(text = "Rechercher une adresse", color = QdTextMuted, fontSize = 13.sp)
+                          Text(text = "Rechercher une adresse à El Affroun...", color = QdTextMuted, fontSize = 13.sp)
                       }
 
-                      // My current GPS position button
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
-                              .clickable { onSelect("Ma position actuelle (GPS)") }
+                              .clickable { onSelect("موقعي الحالي عبر GPS (العفرون)") }
                               .padding(vertical = 8.dp),
                           verticalAlignment = Alignment.CenterVertically,
                           horizontalArrangement = Arrangement.spacedBy(14.dp)
                       ) {
                           Icon(Icons.Default.NearMe, contentDescription = null, tint = QdOrange, modifier = Modifier.size(24.dp))
                           Column {
-                              Text(text = "Ma position actuelle", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                              Text(text = "Prendre ma position sur la carte", fontSize = 11.sp, color = QdTextMuted)
+                              Text(text = "Ma position actuelle (GPS)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                              Text(text = "Prendre ma position exacte sur la carte", fontSize = 11.sp, color = QdTextMuted)
                           }
                       }
 
@@ -1763,11 +2325,16 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 7. SCREEN: MON PROFIL (Screen 7 in mockup)
+          // 8. SCREEN: MON PROFIL (Screen 7 in mockup)
           // -------------------------------------------------------------
           @Composable
           fun ProfileScreen(
+              name: String,
+              phone: String,
               onBecomeDriver: () -> Unit,
+              onOpenPolicy: (String) -> Unit,
+              onOpenReport: () -> Unit,
+              onOpenAdmin: () -> Unit,
               onLogout: () -> Unit
           ) {
               Column(
@@ -1783,12 +2350,11 @@ jobs:
                       verticalAlignment = Alignment.CenterVertically
                   ) {
                       Text(text = "Mon profil", fontSize = 20.sp, fontWeight = FontWeight.Black)
-                      IconButton(onClick = {}) {
-                          Icon(Icons.Default.Settings, contentDescription = null)
+                      IconButton(onClick = onOpenAdmin) {
+                          Icon(Icons.Default.Security, contentDescription = "Admin", tint = QdOrange)
                       }
                   }
 
-                  // User Info Header
                   Row(
                       modifier = Modifier.fillMaxWidth(),
                       verticalAlignment = Alignment.CenterVertically,
@@ -1804,8 +2370,8 @@ jobs:
                           Icon(Icons.Default.Person, contentDescription = null, tint = QdOrange, modifier = Modifier.size(38.dp))
                       }
                       Column {
-                          Text(text = "Aboubakr", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                          Text(text = "+213 555 12 34 56", fontSize = 12.sp, color = QdTextMuted)
+                          Text(text = name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                          Text(text = phone, fontSize = 12.sp, color = QdTextMuted)
                       }
                   }
 
@@ -1813,9 +2379,10 @@ jobs:
 
                   ProfileMenuRow(icon = Icons.Default.ReceiptLong, title = "Mes commandes", onClick = {})
                   ProfileMenuRow(icon = Icons.Default.LocationOn, title = "Mes adresses", onClick = {})
-                  ProfileMenuRow(icon = Icons.Default.CreditCard, title = "Moyen de paiement", onClick = {})
-                  ProfileMenuRow(icon = Icons.Default.HelpOutline, title = "Aide & Support", onClick = {})
-                  ProfileMenuRow(icon = Icons.Default.Info, title = "À propos", onClick = onBecomeDriver)
+                  ProfileMenuRow(icon = Icons.Default.TwoWheeler, title = "Espace livreur (Devenir coursier)", onClick = onBecomeDriver)
+                  ProfileMenuRow(icon = Icons.Default.VerifiedUser, title = "Politique de confidentialité", onClick = { onOpenPolicy("privacy") })
+                  ProfileMenuRow(icon = Icons.Default.LocalShipping, title = "Tarifs et politique de livraison (50 DA/500m)", onClick = { onOpenPolicy("shipping") })
+                  ProfileMenuRow(icon = Icons.Default.ReportProblem, title = "Signaler un problème", onClick = onOpenReport)
 
                   Spacer(modifier = Modifier.weight(1f))
 
@@ -1856,19 +2423,18 @@ jobs:
           }
 
           // -------------------------------------------------------------
-          // 8. SCREEN: DEVENEZ LIVREUR (Screen 8 in mockup)
+          // 9. SCREEN: DEVENEZ LIVREUR (Screen 8 in mockup)
           // -------------------------------------------------------------
           @Composable
           fun BecomeDriverScreen(
               onBack: () -> Unit,
-              onRegister: () -> Unit
+              onRegisterDriver: () -> Unit
           ) {
               Column(
                   modifier = Modifier
                       .fillMaxSize()
                       .background(Color.White)
               ) {
-                  // Hero Header Graphic with motorcycle rider
                   Box(
                       modifier = Modifier
                           .fillMaxWidth()
@@ -1905,39 +2471,38 @@ jobs:
                           }
                           Spacer(modifier = Modifier.height(4.dp))
                           Text(
-                              text = "Rejoignez notre équipe et gagnez\nen toute liberté",
+                              text = "Rejoignez notre équipe à El Affroun\net gagnez en toute liberté",
                               fontSize = 13.sp,
                               color = Color.White.copy(alpha = 0.9f)
                           )
                       }
                   }
 
-                  // Perks List
                   Column(
                       modifier = Modifier
                           .fillMaxWidth()
                           .padding(24.dp),
                       verticalArrangement = Arrangement.spacedBy(20.dp)
                   ) {
-                      DriverPerkItem(icon = Icons.Default.AccessTime, title = "Horaires flexibles")
-                      DriverPerkItem(icon = Icons.Default.MonetizationOn, title = "Rémunération attractive")
-                      DriverPerkItem(icon = Icons.Default.HeadsetMic, title = "Support dédié")
+                      DriverPerkItem(icon = Icons.Default.AccessTime, title = "Horaires flexibles à El Affroun")
+                      DriverPerkItem(icon = Icons.Default.MonetizationOn, title = "Rémunération attractive (50 DA / 500m)")
+                      DriverPerkItem(icon = Icons.Default.HeadsetMic, title = "Support dédié & suivi des dettes (10DA/km)")
 
                       Spacer(modifier = Modifier.weight(1f))
 
                       Button(
-                          onClick = onRegister,
+                          onClick = onRegisterDriver,
                           modifier = Modifier
                               .fillMaxWidth()
                               .height(54.dp),
                           shape = RoundedCornerShape(16.dp),
                           colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
                       ) {
-                          Text(text = "S'inscrire", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                          Text(text = "Activer l'Espace Livreur", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
                       }
 
                       OutlinedButton(
-                          onClick = onRegister,
+                          onClick = onBack,
                           modifier = Modifier
                               .fillMaxWidth()
                               .height(54.dp),
@@ -1945,7 +2510,7 @@ jobs:
                           colors = ButtonDefaults.outlinedButtonColors(contentColor = QdTextDark),
                           border = androidx.compose.foundation.BorderStroke(1.dp, QdBorder)
                       ) {
-                          Text(text = "Se connecter", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                          Text(text = "Retour au profil", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                       }
                   }
               }
@@ -1969,6 +2534,552 @@ jobs:
                   Text(text = title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = QdTextDark)
               }
           }
+
+          // -------------------------------------------------------------
+          // 10. SCREEN: DRIVER DASHBOARD (App 1 Integrated Features)
+          // -------------------------------------------------------------
+          @Composable
+          fun DriverDashboardScreen(
+              driverName: String,
+              earnings: Int,
+              completedCount: Int,
+              debt: Int,
+              activeOrders: List<ActiveOrder>,
+              onUpdateStatus: (ActiveOrder, String) -> Unit,
+              onFinishOrder: (ActiveOrder) -> Unit,
+              onOpenChat: () -> Unit,
+              onSwitchToCustomer: () -> Unit
+          ) {
+              val currentDelivery = activeOrders.firstOrNull { it.status in listOf("accepted", "to_store", "received") }
+
+              Column(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(QdBackground)
+                      .padding(18.dp),
+                  verticalArrangement = Arrangement.spacedBy(16.dp)
+              ) {
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      Column {
+                          Text("Tableau de bord Livreur 🛵", fontWeight = FontWeight.Black, fontSize = 18.sp)
+                          Text("كابتن $driverName - العفرون", fontSize = 12.sp, color = QdTextMuted)
+                      }
+                      Button(
+                          onClick = onSwitchToCustomer,
+                          colors = ButtonDefaults.buttonColors(containerColor = QdOrangeSoft),
+                          shape = RoundedCornerShape(10.dp),
+                          contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                      ) {
+                          Text("Mode Client", color = QdOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                      }
+                  }
+
+                  // 3 Stat Cards
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.spacedBy(10.dp)
+                  ) {
+                      Card(
+                          modifier = Modifier.weight(1f),
+                          colors = CardDefaults.cardColors(containerColor = Color.White),
+                          shape = RoundedCornerShape(14.dp),
+                          border = CardDefaults.outlinedCardBorder()
+                      ) {
+                          Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                              Text("الأرباح", fontSize = 11.sp, color = QdTextMuted)
+                              Text("$earnings DA", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = QdGreen)
+                          }
+                      }
+                      Card(
+                          modifier = Modifier.weight(1f),
+                          colors = CardDefaults.cardColors(containerColor = Color.White),
+                          shape = RoundedCornerShape(14.dp),
+                          border = CardDefaults.outlinedCardBorder()
+                      ) {
+                          Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                              Text("المكتملة", fontSize = 11.sp, color = QdTextMuted)
+                              Text("$completedCount", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = QdOrange)
+                          }
+                      }
+                      Card(
+                          modifier = Modifier.weight(1f),
+                          colors = CardDefaults.cardColors(containerColor = Color.White),
+                          shape = RoundedCornerShape(14.dp),
+                          border = CardDefaults.outlinedCardBorder()
+                      ) {
+                          Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                              Text("دين المنصة", fontSize = 10.sp, color = QdTextMuted)
+                              Text("$debt DA", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = QdRed)
+                          }
+                      }
+                  }
+
+                  if (debt >= 1000) {
+                      Card(
+                          modifier = Modifier.fillMaxWidth(),
+                          colors = CardDefaults.cardColors(containerColor = QdRed.copy(alpha = 0.12f)),
+                          shape = RoundedCornerShape(12.dp)
+                      ) {
+                          Text(
+                              text = "⚠️ تنبيه : تجاوز دينك حد 1000 دج. يرجى تسديد مستحقات المنصة للإدارة حتى لا يتم تجميد الحساب تلقائياً.",
+                              color = QdRed,
+                              fontSize = 11.sp,
+                              fontWeight = FontWeight.Bold,
+                              modifier = Modifier.padding(12.dp)
+                          )
+                      }
+                  }
+
+                  Text("الطلب الجاري توصيله :", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+
+                  if (currentDelivery != null) {
+                      Card(
+                          modifier = Modifier.fillMaxWidth(),
+                          colors = CardDefaults.cardColors(containerColor = Color.White),
+                          shape = RoundedCornerShape(16.dp),
+                          border = CardDefaults.outlinedCardBorder()
+                      ) {
+                          Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                              Text(currentDelivery.restaurant, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                              Text("العنوان : ${currentDelivery.address}", fontSize = 12.sp, color = QdTextMuted)
+                              Text("السعر : ${currentDelivery.price} DA", fontWeight = FontWeight.Bold, color = QdOrange)
+
+                              Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                  Button(
+                                      onClick = { onUpdateStatus(currentDelivery, "to_store") },
+                                      modifier = Modifier.weight(1f),
+                                      shape = RoundedCornerShape(10.dp),
+                                      colors = ButtonDefaults.buttonColors(
+                                          containerColor = if (currentDelivery.status == "to_store") QdOrange else Color.LightGray.copy(alpha = 0.4f)
+                                      )
+                                  ) {
+                                      Text("للمطعم", fontSize = 10.sp)
+                                  }
+                                  Button(
+                                      onClick = { onUpdateStatus(currentDelivery, "received") },
+                                      modifier = Modifier.weight(1f),
+                                      shape = RoundedCornerShape(10.dp),
+                                      colors = ButtonDefaults.buttonColors(
+                                          containerColor = if (currentDelivery.status == "received") QdOrange else Color.LightGray.copy(alpha = 0.4f)
+                                      )
+                                  ) {
+                                      Text("استلمت", fontSize = 10.sp)
+                                  }
+                                  Button(
+                                      onClick = { onFinishOrder(currentDelivery) },
+                                      modifier = Modifier.weight(1f),
+                                      shape = RoundedCornerShape(10.dp),
+                                      colors = ButtonDefaults.buttonColors(containerColor = QdGreen)
+                                  ) {
+                                      Text("سلمت", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                  }
+                              }
+
+                              Button(
+                                  onClick = onOpenChat,
+                                  modifier = Modifier.fillMaxWidth(),
+                                  shape = RoundedCornerShape(10.dp),
+                                  colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
+                              ) {
+                                  Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                                  Spacer(modifier = Modifier.width(6.dp))
+                                  Text("محادثة الزبون مباشرة", fontSize = 12.sp)
+                              }
+                          }
+                      }
+                  } else {
+                      Card(
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .height(120.dp),
+                          colors = CardDefaults.cardColors(containerColor = Color.White),
+                          shape = RoundedCornerShape(16.dp),
+                          border = CardDefaults.outlinedCardBorder()
+                      ) {
+                          Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                              Text("لا توجد طلبات جارية الآن. أنت جاهز لاستقبال العروض!", color = QdTextMuted, fontSize = 12.sp)
+                          }
+                      }
+                  }
+              }
+          }
+
+          // -------------------------------------------------------------
+          // 11. SCREEN: ADMIN PANEL (From App 1)
+          // -------------------------------------------------------------
+          @Composable
+          fun AdminPanelScreen(
+              stores: List<RestaurantItem>,
+              orders: List<ActiveOrder>,
+              onAddStore: (name: String, lat: Double, lng: Double) -> Unit,
+              onBack: () -> Unit
+          ) {
+              var newStoreName by remember { mutableStateOf("") }
+              var newStoreLat by remember { mutableStateOf("36.4686") }
+              var newStoreLng by remember { mutableStateOf("2.6288") }
+
+              val totalVolume = orders.filter { it.status == "completed" }.sumOf { it.price }
+              val commission = (totalVolume * 0.20).roundToInt()
+
+              LazyColumn(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(Color.White)
+                      .padding(18.dp),
+                  verticalArrangement = Arrangement.spacedBy(16.dp)
+              ) {
+                  item {
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.SpaceBetween,
+                          verticalAlignment = Alignment.CenterVertically
+                      ) {
+                          Text("لوحة إدارة العفرون ديليفري", fontWeight = FontWeight.Black, fontSize = 18.sp, color = QdOrange)
+                          IconButton(onClick = onBack) {
+                              Icon(Icons.Default.Close, contentDescription = "Fermer")
+                          }
+                      }
+                  }
+
+                  item {
+                      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                          Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = QdOrangeSoft)) {
+                              Column(modifier = Modifier.padding(10.dp)) {
+                                  Text("إجمالي المعاملات", fontSize = 11.sp, color = QdTextMuted)
+                                  Text("$totalVolume DA", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = QdOrange)
+                              }
+                          }
+                          Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = QdOrangeSoft)) {
+                              Column(modifier = Modifier.padding(10.dp)) {
+                                  Text("عمولة المنصة 20%", fontSize = 11.sp, color = QdTextMuted)
+                                  Text("$commission DA", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = QdGreen)
+                              }
+                          }
+                      }
+                  }
+
+                  item {
+                      Text("إضافة متجر جديد لقائمة العفرون :", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                      OutlinedTextField(
+                          value = newStoreName,
+                          onValueChange = { newStoreName = it },
+                          label = { Text("اسم المتجر أو المطعم") },
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(12.dp)
+                      )
+                      Spacer(modifier = Modifier.height(8.dp))
+                      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                          OutlinedTextField(
+                              value = newStoreLat,
+                              onValueChange = { newStoreLat = it },
+                              label = { Text("Latitude") },
+                              modifier = Modifier.weight(1f),
+                              shape = RoundedCornerShape(12.dp)
+                          )
+                          OutlinedTextField(
+                              value = newStoreLng,
+                              onValueChange = { newStoreLng = it },
+                              label = { Text("Longitude") },
+                              modifier = Modifier.weight(1f),
+                              shape = RoundedCornerShape(12.dp)
+                          )
+                      }
+                      Spacer(modifier = Modifier.height(8.dp))
+                      Button(
+                          onClick = {
+                              if (newStoreName.isNotBlank()) {
+                                  val lat = newStoreLat.toDoubleOrNull() ?: 36.4686
+                                  val lng = newStoreLng.toDoubleOrNull() ?: 2.6288
+                                  onAddStore(newStoreName.trim(), lat, lng)
+                                  newStoreName = ""
+                              }
+                          },
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(12.dp),
+                          colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
+                      ) {
+                          Text("حفظ المتجر", fontWeight = FontWeight.Bold)
+                      }
+                  }
+              }
+          }
+
+          // -------------------------------------------------------------
+          // DIALOGS: INCOMING ORDER, CHAT, RATINGS, ADD MEAL, REPORT & POLICY
+          // -------------------------------------------------------------
+          @Composable
+          fun DriverIncomingOrderDialog(
+              order: ActiveOrder,
+              onAccept: () -> Unit,
+              onReject: () -> Unit
+          ) {
+              Dialog(onDismissRequest = onReject) {
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      shape = RoundedCornerShape(22.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                  ) {
+                      Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                          Text("🛵 طلب توصيل جديد عاجل!", fontWeight = FontWeight.Black, fontSize = 17.sp, color = QdOrange)
+                          Spacer(modifier = Modifier.height(8.dp))
+                          Text("من: ${order.restaurant}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                          Text("إلى: ${order.address}", fontSize = 12.sp, color = QdTextMuted)
+                          Text("السعر الإجمالي: ${order.price} DA", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = QdGreen)
+                          Spacer(modifier = Modifier.height(16.dp))
+                          Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                              OutlinedButton(onClick = onReject, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                                  Text("رفض", color = QdRed)
+                              }
+                              Button(onClick = onAccept, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = QdOrange)) {
+                                  Text("قبول التوصيل", fontWeight = FontWeight.Bold)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun ChatModalDialog(
+              messages: List<ChatMessage>,
+              onSendMessage: (String) -> Unit,
+              onDismiss: () -> Unit
+          ) {
+              var textInput by remember { mutableStateOf("") }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .fillMaxHeight(0.72f),
+                      shape = RoundedCornerShape(22.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                  ) {
+                      Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                              Text("محادثة مباشرة مع السائق/الزبون", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                              IconButton(onClick = onDismiss) {
+                                  Icon(Icons.Default.Close, contentDescription = "Fermer")
+                              }
+                          }
+
+                          LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                              items(messages) { msg ->
+                                  val isMe = msg.sender == "customer"
+                                  Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = if (isMe) Alignment.End else Alignment.Start) {
+                                      Box(
+                                          modifier = Modifier
+                                              .clip(RoundedCornerShape(12.dp))
+                                              .background(if (isMe) QdOrange else Color(0xFFF1F2F4.toInt()))
+                                              .padding(horizontal = 12.dp, vertical = 8.dp)
+                                      ) {
+                                          Text(msg.text, color = if (isMe) Color.White else QdTextDark, fontSize = 12.sp)
+                                      }
+                                      Text(msg.time, fontSize = 9.sp, color = QdTextMuted, modifier = Modifier.padding(horizontal = 4.dp))
+                                  }
+                              }
+                          }
+
+                          Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                              OutlinedTextField(
+                                  value = textInput,
+                                  onValueChange = { textInput = it },
+                                  placeholder = { Text("اكتب رسالتك هنا...", fontSize = 11.sp) },
+                                  modifier = Modifier.weight(1f),
+                                  shape = RoundedCornerShape(12.dp)
+                              )
+                              IconButton(
+                                  onClick = {
+                                      if (textInput.isNotBlank()) {
+                                          onSendMessage(textInput.trim())
+                                          textInput = ""
+                                      }
+                                  }
+                              ) {
+                                  Icon(Icons.Default.Send, contentDescription = "Envoyer", tint = QdOrange)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun RatingModalDialog(
+              onDismiss: () -> Unit,
+              onRated: () -> Unit
+          ) {
+              var stars by remember { mutableStateOf(5) }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      shape = RoundedCornerShape(22.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                  ) {
+                      Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                          Text("Évaluez votre livraison", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                          Spacer(modifier = Modifier.height(8.dp))
+                          Text("Votre avis nous aide à améliorer la qualité de service", fontSize = 11.sp, color = QdTextMuted, textAlign = TextAlign.Center)
+
+                          Spacer(modifier = Modifier.height(16.dp))
+                          Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                              for (i in 1..5) {
+                                  IconButton(onClick = { stars = i }) {
+                                      Icon(
+                                          if (i <= stars) Icons.Default.Star else Icons.Default.StarBorder,
+                                          contentDescription = null,
+                                          tint = Color(0xFFFBBF24.toInt()),
+                                          modifier = Modifier.size(34.dp)
+                                      )
+                                  }
+                              }
+                          }
+
+                          Spacer(modifier = Modifier.height(18.dp))
+                          Button(
+                              onClick = onRated,
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp),
+                              colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
+                          ) {
+                              Text("Confirmer l'évaluation", fontWeight = FontWeight.Bold)
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun AddMealModalDialog(
+              onDismiss: () -> Unit,
+              onAddMeal: (String, Int) -> Unit
+          ) {
+              var mealName by remember { mutableStateOf("") }
+              var qty by remember { mutableStateOf(1) }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      shape = RoundedCornerShape(20.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                  ) {
+                      Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                          Text("Ajouter un plat / produit", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+
+                          OutlinedTextField(
+                              value = mealName,
+                              onValueChange = { mealName = it },
+                              label = { Text("Nom du plat ou produit") },
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp)
+                          )
+
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.SpaceBetween,
+                              verticalAlignment = Alignment.CenterVertically
+                          ) {
+                              Text("Quantité : $qty", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                              Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                  IconButton(onClick = { if (qty > 1) qty-- }) {
+                                      Icon(Icons.Default.Remove, contentDescription = null)
+                                  }
+                                  IconButton(onClick = { qty++ }) {
+                                      Icon(Icons.Default.Add, contentDescription = null)
+                                  }
+                              }
+                          }
+
+                          Button(
+                              onClick = {
+                                  if (mealName.isNotBlank()) {
+                                      onAddMeal(mealName.trim(), qty)
+                                  }
+                              },
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp),
+                              colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
+                          ) {
+                              Text("Ajouter à la commande", fontWeight = FontWeight.Bold)
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun ReportIncidentDialog(
+              onDismiss: () -> Unit,
+              onSubmit: (String) -> Unit
+          ) {
+              var reportText by remember { mutableStateOf("") }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      shape = RoundedCornerShape(22.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                  ) {
+                      Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                          Text("تقديم إبلاغ عن مشكلة", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = QdRed)
+                          OutlinedTextField(
+                              value = reportText,
+                              onValueChange = { reportText = it },
+                              placeholder = { Text("صف المشكلة بوضوح لمراجعة الإدارة...", fontSize = 12.sp) },
+                              modifier = Modifier.fillMaxWidth().height(120.dp),
+                              shape = RoundedCornerShape(12.dp)
+                          )
+                          Button(
+                              onClick = {
+                                  if (reportText.isNotBlank()) onSubmit(reportText.trim())
+                              },
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp),
+                              colors = ButtonDefaults.buttonColors(containerColor = QdRed)
+                          ) {
+                              Text("إرسال الإبلاغ", fontWeight = FontWeight.Bold)
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun PolicyInfoDialog(
+              type: String,
+              onDismiss: () -> Unit
+          ) {
+              val (title, text) = when (type) {
+                  "privacy" -> "سياسة الخصوصية" to "نحن نلتزم بحماية بياناتك وموقعك الجغرافي واستخدامه حصراً لتوجيه مسار التوصيل بينك وبين المطعم والسائق."
+                  else -> "سياسة التوصيل والأسعار" to "تسعيرة التوصيل لدينا واضحة وشفافة: 50 دج لكل 500 متر بناءً على المسار الحقيقي على الخارطة."
+              }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      shape = RoundedCornerShape(22.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                  ) {
+                      Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                          Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = QdOrange)
+                          Text(text, fontSize = 13.sp, color = QdTextDark, lineHeight = 20.sp)
+                          Button(
+                              onClick = onDismiss,
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp),
+                              colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
+                          ) {
+                              Text("حسناً")
+                          }
+                      }
+                  }
+              }
+          }
           EOF
 
       - name: Build Debug APK
@@ -1979,5 +3090,5 @@ jobs:
       - name: Upload Artifact APK
         uses: actions/upload-artifact@v4
         with:
-          name: QuickDeliver-ExactDesign-APK
+          name: QuickDeliver-CompleteMerged-APK
           path: app/build/outputs/apk/debug/app-debug.apk
