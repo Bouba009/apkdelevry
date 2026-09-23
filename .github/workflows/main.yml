@@ -71,6 +71,7 @@ jobs:
           <resources>
               <string name="app_name">QuickDeliver</string>
               <string name="default_web_client_id">703541527613-webclient.apps.googleusercontent.com</string>
+              <string name="maptiler_api_key">ouBpZ2bVkP4wr4vcgzO6</string>
           </resources>
           EOF
 
@@ -132,8 +133,8 @@ jobs:
                   applicationId = "com.elaffroun.delivery"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 8
-                  versionName = "8.0"
+                  versionCode = 9
+                  versionName = "9.0"
               }
 
               buildTypes {
@@ -334,19 +335,20 @@ jobs:
           import java.net.URL
 
           object MapUtils {
-              val CartoVoyagerTileSource = object : XYTileSource(
-                  "CartoVoyager",
-                  0, 20, 256, ".png",
+              const val MAPTILER_KEY = "ouBpZ2bVkP4wr4vcgzO6"
+
+              val MapTilerStreetsTileSource = object : XYTileSource(
+                  "MapTilerStreets",
+                  0, 20, 512, ".png",
                   arrayOf(
-                      "https://a.basemaps.cartocdn.com/rastertiles/voyager/",
-                      "https://b.basemaps.cartocdn.com/rastertiles/voyager/",
-                      "https://c.basemaps.cartocdn.com/rastertiles/voyager/"
+                      "https://api.maptiler.com/maps/streets-v2/"
                   )
               ) {
                   override fun getTileURLString(pMapTileIndex: Long): String {
                       return baseUrl + MapTileIndex.getZoom(pMapTileIndex) + "/" +
                               MapTileIndex.getX(pMapTileIndex) + "/" +
-                              MapTileIndex.getY(pMapTileIndex) + mImageFilenameEnding
+                              MapTileIndex.getY(pMapTileIndex) +
+                              ".png?key=$MAPTILER_KEY"
                   }
               }
 
@@ -403,7 +405,7 @@ jobs:
                           connection.connectTimeout = 7000
                           connection.readTimeout = 7000
                           connection.requestMethod = "GET"
-                          connection.setRequestProperty("User-Agent", "QuickDeliver/8.0")
+                          connection.setRequestProperty("User-Agent", "QuickDeliver/9.0")
 
                           if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                               val reader = BufferedReader(InputStreamReader(connection.inputStream))
@@ -425,7 +427,7 @@ jobs:
                               }
                           }
                       } catch (e: Exception) {
-                          // Try next mirror
+                          // Handled safely
                       }
                   }
 
@@ -438,7 +440,7 @@ jobs:
           }
           EOF
 
-          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/BrandIcons.kt
+          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/BrandLogos.kt
           package com.elaffroun.delivery
 
           import androidx.compose.foundation.Canvas
@@ -455,7 +457,7 @@ jobs:
           import androidx.compose.ui.unit.dp
 
           @Composable
-          fun QuickDeliverAppLogo(size: Dp = 90.dp) {
+          fun QuickDeliverAppLogo(size: Dp = 80.dp) {
               Canvas(modifier = Modifier.size(size)) {
                   val w = this.size.width
                   val h = this.size.height
@@ -756,6 +758,7 @@ jobs:
           package com.elaffroun.delivery
 
           import android.Manifest
+          import android.app.Activity
           import android.content.Context
           import android.content.Intent
           import android.content.pm.PackageManager
@@ -768,6 +771,7 @@ jobs:
           import androidx.activity.compose.setContent
           import androidx.activity.result.contract.ActivityResultContracts
           import androidx.compose.animation.*
+          import androidx.compose.animation.core.*
           import androidx.compose.foundation.background
           import androidx.compose.foundation.border
           import androidx.compose.foundation.clickable
@@ -785,6 +789,7 @@ jobs:
           import androidx.compose.ui.Alignment
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.draw.clip
+          import androidx.compose.ui.draw.scale
           import androidx.compose.ui.draw.shadow
           import androidx.compose.ui.graphics.Color
           import androidx.compose.ui.graphics.vector.ImageVector
@@ -798,8 +803,13 @@ jobs:
           import androidx.compose.ui.viewinterop.AndroidView
           import androidx.compose.ui.window.Dialog
           import androidx.core.content.ContextCompat
+          import com.google.android.gms.auth.api.signin.GoogleSignIn
+          import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+          import com.google.android.gms.common.api.ApiException
           import com.google.android.gms.location.LocationServices
           import com.google.android.gms.location.Priority
+          import com.google.firebase.auth.GoogleAuthProvider
+          import com.google.firebase.auth.OAuthProvider
           import com.google.firebase.auth.ktx.auth
           import com.google.firebase.firestore.ListenerRegistration
           import com.google.firebase.firestore.ktx.firestore
@@ -1345,9 +1355,14 @@ jobs:
                                                   currentUserUid = ""
                                                   isDriverSession = false
                                                   currentScreen = AppScreen.SPLASH_ONBOARDING
-                                              }
+                                              },
+                                              modifier = Modifier
+                                                  .padding(end = 4.dp)
+                                                  .size(38.dp)
+                                                  .clip(CircleShape)
+                                                  .background(QdRed.copy(alpha = 0.12f))
                                           ) {
-                                              Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = QdRed)
+                                              Icon(Icons.Default.PowerSettingsNew, contentDescription = "Logout", tint = QdRed, modifier = Modifier.size(20.dp))
                                           }
                                       }
                                   },
@@ -1424,220 +1439,229 @@ jobs:
                                   .fillMaxSize()
                                   .padding(padding)
                           ) {
-                              when (currentScreen) {
-                                  AppScreen.SPLASH_ONBOARDING -> {
-                                      SplashScreen(
-                                          lang = currentLanguage,
-                                          onStart = {
-                                              authUserType = AuthUserType.CUSTOMER
-                                              isDriverAuthRegister = true
-                                              currentScreen = AppScreen.AUTH_FLOW
-                                          },
-                                          onLogin = {
-                                              authUserType = AuthUserType.CUSTOMER
-                                              isDriverAuthRegister = false
-                                              currentScreen = AppScreen.AUTH_FLOW
-                                          }
-                                      )
-                                  }
-                                  AppScreen.AUTH_FLOW -> {
-                                      AuthScreen(
-                                          lang = currentLanguage,
-                                          userType = authUserType,
-                                          initialRegister = isDriverAuthRegister,
-                                          onSuccess = { name, phone, uid, isDriver ->
-                                              currentUserName = name
-                                              currentUserPhone = phone
-                                              currentUserUid = uid
-                                              isDriverSession = isDriver
-                                              currentScreen = if (isDriver) AppScreen.DRIVER_DASHBOARD else AppScreen.HOME_EXPLORE
-                                          },
-                                          onCancel = { currentScreen = AppScreen.SPLASH_ONBOARDING }
-                                      )
-                                  }
-                                  AppScreen.HOME_EXPLORE -> {
-                                      HomeScreen(
-                                          lang = currentLanguage,
-                                          selectedCity = if (currentLanguage == Language.AR) "العفرون (البليدة)" else "El Affroun (Blida)",
-                                          stores = allStores,
-                                          searchQuery = searchQuery,
-                                          onSearchQueryChange = { searchQuery = it },
-                                          activeCategory = activeCategoryFilter,
-                                          onCategorySelect = { activeCategoryFilter = it },
-                                          onSelectStore = { store ->
-                                              currentSelectedStore = store
-                                              cartItems.clear()
-                                              currentScreen = AppScreen.STORE_MENU
-                                          },
-                                          onPromoClick = {
-                                              currentSelectedStore = allStores.first()
-                                              cartItems.clear()
-                                              currentScreen = AppScreen.STORE_MENU
-                                          }
-                                      )
-                                  }
-                                  AppScreen.STORE_MENU -> {
-                                      StoreMenuScreen(
-                                          lang = currentLanguage,
-                                          store = currentSelectedStore,
-                                          cartItems = cartItems,
-                                          onAddItem = { menuItem ->
-                                              val existing = cartItems.find { it.item.id == menuItem.id }
-                                              if (existing != null) {
-                                                  existing.quantity++
-                                              } else {
-                                                  cartItems.add(CartItem(menuItem, 1))
+                              AnimatedContent(
+                                  targetState = currentScreen,
+                                  transitionSpec = {
+                                      fadeIn(animationSpec = tween(320)) + scaleIn(initialScale = 0.94f) togetherWith
+                                              fadeOut(animationSpec = tween(240)) + scaleOut(targetScale = 1.04f)
+                                  },
+                                  label = "ScreenTransition"
+                              ) { screen ->
+                                  when (screen) {
+                                      AppScreen.SPLASH_ONBOARDING -> {
+                                          SplashScreen(
+                                              lang = currentLanguage,
+                                              onStart = {
+                                                  authUserType = AuthUserType.CUSTOMER
+                                                  isDriverAuthRegister = true
+                                                  currentScreen = AppScreen.AUTH_FLOW
+                                              },
+                                              onLogin = {
+                                                  authUserType = AuthUserType.CUSTOMER
+                                                  isDriverAuthRegister = false
+                                                  currentScreen = AppScreen.AUTH_FLOW
                                               }
-                                              SoundHelper.playNotificationTone()
-                                          },
-                                          onRemoveItem = { menuItem ->
-                                              val existing = cartItems.find { it.item.id == menuItem.id }
-                                              if (existing != null) {
-                                                  if (existing.quantity > 1) {
-                                                      existing.quantity--
+                                          )
+                                      }
+                                      AppScreen.AUTH_FLOW -> {
+                                          AuthScreen(
+                                              lang = currentLanguage,
+                                              userType = authUserType,
+                                              initialRegister = isDriverAuthRegister,
+                                              onSuccess = { name, phone, uid, isDriver ->
+                                                  currentUserName = name
+                                                  currentUserPhone = phone
+                                                  currentUserUid = uid
+                                                  isDriverSession = isDriver
+                                                  currentScreen = if (isDriver) AppScreen.DRIVER_DASHBOARD else AppScreen.HOME_EXPLORE
+                                              },
+                                              onCancel = { currentScreen = AppScreen.SPLASH_ONBOARDING }
+                                          )
+                                      }
+                                      AppScreen.HOME_EXPLORE -> {
+                                          HomeScreen(
+                                              lang = currentLanguage,
+                                              selectedCity = if (currentLanguage == Language.AR) "العفرون (البليدة)" else "El Affroun (Blida)",
+                                              stores = allStores,
+                                              searchQuery = searchQuery,
+                                              onSearchQueryChange = { searchQuery = it },
+                                              activeCategory = activeCategoryFilter,
+                                              onCategorySelect = { activeCategoryFilter = it },
+                                              onSelectStore = { store ->
+                                                  currentSelectedStore = store
+                                                  cartItems.clear()
+                                                  currentScreen = AppScreen.STORE_MENU
+                                              },
+                                              onPromoClick = {
+                                                  currentSelectedStore = allStores.first()
+                                                  cartItems.clear()
+                                                  currentScreen = AppScreen.STORE_MENU
+                                              }
+                                          )
+                                      }
+                                      AppScreen.STORE_MENU -> {
+                                          StoreMenuScreen(
+                                              lang = currentLanguage,
+                                              store = currentSelectedStore,
+                                              cartItems = cartItems,
+                                              onAddItem = { menuItem ->
+                                                  val existing = cartItems.find { it.item.id == menuItem.id }
+                                                  if (existing != null) {
+                                                      existing.quantity++
                                                   } else {
-                                                      cartItems.remove(existing)
+                                                      cartItems.add(CartItem(menuItem, 1))
                                                   }
-                                              }
-                                          },
-                                          onBack = { currentScreen = AppScreen.HOME_EXPLORE },
-                                          onGoToCheckout = { currentScreen = AppScreen.CONFIRM_ORDER }
-                                      )
-                                  }
-                                  AppScreen.CONFIRM_ORDER -> {
-                                      ConfirmOrderScreen(
-                                          lang = currentLanguage,
-                                          store = currentSelectedStore,
-                                          address = selectedAddress,
-                                          cartItems = cartItems,
-                                          userLat = userLat,
-                                          userLng = userLng,
-                                          onChangeAddress = { currentScreen = AppScreen.CHOOSE_ADDRESS },
-                                          onBack = { currentScreen = AppScreen.STORE_MENU },
-                                          onConfirmOrder = { deliveryFee, note ->
-                                              SoundHelper.playNotificationTone()
-                                              val itemsSummaryStr = cartItems.joinToString(", ") { "${it.item.nameAr} x${it.quantity}" }
-                                              val totalFee = cartItems.sumOf { it.item.price * it.quantity } + deliveryFee
+                                                  SoundHelper.playNotificationTone()
+                                              },
+                                              onRemoveItem = { menuItem ->
+                                                  val existing = cartItems.find { it.item.id == menuItem.id }
+                                                  if (existing != null) {
+                                                      if (existing.quantity > 1) {
+                                                          existing.quantity--
+                                                      } else {
+                                                          cartItems.remove(existing)
+                                                      }
+                                                  }
+                                              },
+                                              onBack = { currentScreen = AppScreen.HOME_EXPLORE },
+                                              onGoToCheckout = { currentScreen = AppScreen.CONFIRM_ORDER }
+                                          )
+                                      }
+                                      AppScreen.CONFIRM_ORDER -> {
+                                          ConfirmOrderScreen(
+                                              lang = currentLanguage,
+                                              store = currentSelectedStore,
+                                              address = selectedAddress,
+                                              cartItems = cartItems,
+                                              userLat = userLat,
+                                              userLng = userLng,
+                                              onChangeAddress = { currentScreen = AppScreen.CHOOSE_ADDRESS },
+                                              onBack = { currentScreen = AppScreen.STORE_MENU },
+                                              onConfirmOrder = { deliveryFee, note ->
+                                                  SoundHelper.playNotificationTone()
+                                                  val itemsSummaryStr = cartItems.joinToString(", ") { "${it.item.nameAr} x${it.quantity}" }
+                                                  val totalFee = cartItems.sumOf { it.item.price * it.quantity } + deliveryFee
 
-                                              val orderMap = hashMapOf(
-                                                  "restaurant" to currentSelectedStore.nameAr,
-                                                  "customerAddress" to selectedAddress,
-                                                  "price" to totalFee,
-                                                  "status" to "pending",
-                                                  "customerId" to currentUserUid,
-                                                  "customerName" to currentUserName,
-                                                  "customerPhone" to currentUserPhone,
-                                                  "itemsSummary" to itemsSummaryStr,
-                                                  "storeLat" to currentSelectedStore.lat,
-                                                  "storeLng" to currentSelectedStore.lng,
-                                                  "lat" to userLat,
-                                                  "lng" to userLng,
-                                                  "note" to note,
-                                                  "createdAt" to java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
-                                              )
-                                              db.collection("orders").add(orderMap)
-                                              cartItems.clear()
-                                              currentScreen = AppScreen.ORDER_TRACKING
-                                          }
-                                      )
-                                  }
-                                  AppScreen.ORDER_TRACKING -> {
-                                      val runningOrder = activeOrders.lastOrNull {
-                                          it.status in listOf("pending", "accepted", "to_store", "received", "delivered")
-                                      } ?: activeOrders.firstOrNull() ?: ActiveOrder(
-                                          id = "1001",
-                                          restaurant = currentSelectedStore.nameAr,
-                                          address = selectedAddress,
-                                          price = 450,
-                                          status = "En livraison",
-                                          driverName = "عامل توصيل العفرون",
-                                          driverPhone = "0555123456",
-                                          itemsSummary = "بيتزا + بطاطا",
-                                          storeLat = currentSelectedStore.lat,
-                                          storeLng = currentSelectedStore.lng,
-                                          custLat = userLat,
-                                          custLng = userLng
-                                      )
+                                                  val orderMap = hashMapOf(
+                                                      "restaurant" to currentSelectedStore.nameAr,
+                                                      "customerAddress" to selectedAddress,
+                                                      "price" to totalFee,
+                                                      "status" to "pending",
+                                                      "customerId" to currentUserUid,
+                                                      "customerName" to currentUserName,
+                                                      "customerPhone" to currentUserPhone,
+                                                      "itemsSummary" to itemsSummaryStr,
+                                                      "storeLat" to currentSelectedStore.lat,
+                                                      "storeLng" to currentSelectedStore.lng,
+                                                      "lat" to userLat,
+                                                      "lng" to userLng,
+                                                      "note" to note,
+                                                      "createdAt" to java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+                                                  )
+                                                  db.collection("orders").add(orderMap)
+                                                  cartItems.clear()
+                                                  currentScreen = AppScreen.ORDER_TRACKING
+                                              }
+                                          )
+                                      }
+                                      AppScreen.ORDER_TRACKING -> {
+                                          val runningOrder = activeOrders.lastOrNull {
+                                              it.status in listOf("pending", "accepted", "to_store", "received", "delivered")
+                                          } ?: activeOrders.firstOrNull() ?: ActiveOrder(
+                                              id = "1001",
+                                              restaurant = currentSelectedStore.nameAr,
+                                              address = selectedAddress,
+                                              price = 450,
+                                              status = "En livraison",
+                                              driverName = "عامل توصيل العفرون",
+                                              driverPhone = "0555123456",
+                                              itemsSummary = "بيتزا + بطاطا",
+                                              storeLat = currentSelectedStore.lat,
+                                              storeLng = currentSelectedStore.lng,
+                                              custLat = userLat,
+                                              custLng = userLng
+                                          )
 
-                                      OrderTrackingScreen(
-                                          lang = currentLanguage,
-                                          order = runningOrder,
-                                          onBack = { currentScreen = AppScreen.HOME_EXPLORE },
-                                          onOpenChat = { showChatModal = true },
-                                          onConfirmDelivered = {
-                                              if (runningOrder.id.isNotBlank()) {
-                                                  db.collection("orders").document(runningOrder.id).update("status", "completed")
+                                          OrderTrackingScreen(
+                                              lang = currentLanguage,
+                                              order = runningOrder,
+                                              onBack = { currentScreen = AppScreen.HOME_EXPLORE },
+                                              onOpenChat = { showChatModal = true },
+                                              onConfirmDelivered = {
+                                                  if (runningOrder.id.isNotBlank()) {
+                                                      db.collection("orders").document(runningOrder.id).update("status", "completed")
+                                                  }
+                                                  SoundHelper.playArrivalTone()
+                                                  showRatingModal = true
+                                              },
+                                              onCancelOrder = {
+                                                  if (runningOrder.id.isNotBlank()) {
+                                                      db.collection("orders").document(runningOrder.id).delete()
+                                                  }
+                                                  currentScreen = AppScreen.HOME_EXPLORE
                                               }
-                                              SoundHelper.playArrivalTone()
-                                              showRatingModal = true
-                                          },
-                                          onCancelOrder = {
-                                              if (runningOrder.id.isNotBlank()) {
-                                                  db.collection("orders").document(runningOrder.id).delete()
+                                          )
+                                      }
+                                      AppScreen.ORDERS_LIST -> {
+                                          OrdersListScreen(
+                                              lang = currentLanguage,
+                                              orders = activeOrders,
+                                              onSelectOrder = { currentScreen = AppScreen.ORDER_TRACKING }
+                                          )
+                                      }
+                                      AppScreen.CHOOSE_ADDRESS -> {
+                                          ChooseAddressScreen(
+                                              lang = currentLanguage,
+                                              currentSelected = selectedAddress,
+                                              onSelect = {
+                                                  selectedAddress = it
+                                                  currentScreen = AppScreen.CONFIRM_ORDER
+                                              },
+                                              onBack = { currentScreen = AppScreen.CONFIRM_ORDER }
+                                          )
+                                      }
+                                      AppScreen.PROFILE -> {
+                                          ProfileScreen(
+                                              lang = currentLanguage,
+                                              name = currentUserName,
+                                              phone = currentUserPhone,
+                                              onBecomeDriver = {
+                                                  authUserType = AuthUserType.DRIVER
+                                                  isDriverAuthRegister = true
+                                                  currentScreen = AppScreen.AUTH_FLOW
+                                              },
+                                              onOpenPolicy = { policyType -> showPolicyModal = policyType },
+                                              onOpenReport = { showReportModal = true },
+                                              onLogout = {
+                                                  auth.signOut()
+                                                  currentUserUid = ""
+                                                  isDriverSession = false
+                                                  currentScreen = AppScreen.SPLASH_ONBOARDING
                                               }
-                                              currentScreen = AppScreen.HOME_EXPLORE
-                                          }
-                                      )
-                                  }
-                                  AppScreen.ORDERS_LIST -> {
-                                      OrdersListScreen(
-                                          lang = currentLanguage,
-                                          orders = activeOrders,
-                                          onSelectOrder = { currentScreen = AppScreen.ORDER_TRACKING }
-                                      )
-                                  }
-                                  AppScreen.CHOOSE_ADDRESS -> {
-                                      ChooseAddressScreen(
-                                          lang = currentLanguage,
-                                          currentSelected = selectedAddress,
-                                          onSelect = {
-                                              selectedAddress = it
-                                              currentScreen = AppScreen.CONFIRM_ORDER
-                                          },
-                                          onBack = { currentScreen = AppScreen.CONFIRM_ORDER }
-                                      )
-                                  }
-                                  AppScreen.PROFILE -> {
-                                      ProfileScreen(
-                                          lang = currentLanguage,
-                                          name = currentUserName,
-                                          phone = currentUserPhone,
-                                          onBecomeDriver = {
-                                              authUserType = AuthUserType.DRIVER
-                                              isDriverAuthRegister = true
-                                              currentScreen = AppScreen.AUTH_FLOW
-                                          },
-                                          onOpenPolicy = { policyType -> showPolicyModal = policyType },
-                                          onOpenReport = { showReportModal = true },
-                                          onLogout = {
-                                              auth.signOut()
-                                              currentUserUid = ""
-                                              isDriverSession = false
-                                              currentScreen = AppScreen.SPLASH_ONBOARDING
-                                          }
-                                      )
-                                  }
-                                  AppScreen.DRIVER_DASHBOARD -> {
-                                      DriverDashboardScreen(
-                                          lang = currentLanguage,
-                                          driverName = currentUserName,
-                                          earnings = driverEarnings,
-                                          completedCount = driverCompletedCount,
-                                          debt = driverDebt,
-                                          activeOrders = activeOrders,
-                                          onUpdateStatus = { ord, status ->
-                                              db.collection("orders").document(ord.id).update("status", status)
-                                          },
-                                          onFinishOrder = { ord ->
-                                              db.collection("orders").document(ord.id).update("status", "delivered")
-                                              SoundHelper.playArrivalTone()
-                                          },
-                                          onOpenChat = { showChatModal = true },
-                                          onSwitchToCustomer = {
-                                              isDriverSession = false
-                                              currentScreen = AppScreen.HOME_EXPLORE
-                                          }
-                                      )
+                                          )
+                                      }
+                                      AppScreen.DRIVER_DASHBOARD -> {
+                                          DriverDashboardScreen(
+                                              lang = currentLanguage,
+                                              driverName = currentUserName,
+                                              earnings = driverEarnings,
+                                              completedCount = driverCompletedCount,
+                                              debt = driverDebt,
+                                              activeOrders = activeOrders,
+                                              onUpdateStatus = { ord, status ->
+                                                  db.collection("orders").document(ord.id).update("status", status)
+                                              },
+                                              onFinishOrder = { ord ->
+                                                  db.collection("orders").document(ord.id).update("status", "delivered")
+                                                  SoundHelper.playArrivalTone()
+                                              },
+                                              onOpenChat = { showChatModal = true },
+                                              onSwitchToCustomer = {
+                                                  isDriverSession = false
+                                                  currentScreen = AppScreen.HOME_EXPLORE
+                                              }
+                                          )
+                                      }
                                   }
                               }
 
@@ -1741,6 +1765,17 @@ jobs:
               val context = LocalContext.current
               var roadWaypoints by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
 
+              val infiniteTransition = rememberInfiniteTransition(label = "MarkerPulse")
+              val animatedScale by infiniteTransition.animateFloat(
+                  initialValue = 0.90f,
+                  targetValue = 1.12f,
+                  animationSpec = infiniteRepeatable(
+                      animation = tween(1200, easing = FastOutSlowInEasing),
+                      repeatMode = RepeatMode.Reverse
+                  ),
+                  label = "MarkerScale"
+              )
+
               LaunchedEffect(centerLat, centerLng, destinationLat, destinationLng) {
                   roadWaypoints = MapUtils.fetchOsrmRoadPath(centerLat, centerLng, destinationLat, destinationLng)
               }
@@ -1749,7 +1784,7 @@ jobs:
                   modifier = modifier.fillMaxSize(),
                   factory = { ctx ->
                       MapView(ctx).apply {
-                          setTileSource(MapUtils.CartoVoyagerTileSource)
+                          setTileSource(MapUtils.MapTilerStreetsTileSource)
                           setMultiTouchControls(true)
                           controller.setZoom(15.2)
                           controller.setCenter(GeoPoint(centerLat, centerLng))
@@ -1760,7 +1795,12 @@ jobs:
 
                       val userPin = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#1E2024"), "🏠")
                       val storePin = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#FF5E00"), "🍴")
-                      val bikePin = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#FF5E00"), "🛵")
+                      val bikePin = MapUtils.createCustomPin(
+                          context,
+                          android.graphics.Color.parseColor("#FF5E00"),
+                          "🛵",
+                          (114 * animatedScale).toInt().coerceAtLeast(80)
+                      )
 
                       val userMarker = Marker(mapView).apply {
                           position = GeoPoint(centerLat, centerLng)
@@ -1812,6 +1852,17 @@ jobs:
               onStart: () -> Unit,
               onLogin: () -> Unit
           ) {
+              val pulseTransition = rememberInfiniteTransition(label = "SplashLogoPulse")
+              val logoScale by pulseTransition.animateFloat(
+                  initialValue = 0.94f,
+                  targetValue = 1.06f,
+                  animationSpec = infiniteRepeatable(
+                      animation = tween(1200, easing = FastOutSlowInEasing),
+                      repeatMode = RepeatMode.Reverse
+                  ),
+                  label = "LogoScale"
+              )
+
               Column(
                   modifier = Modifier
                       .fillMaxSize()
@@ -1823,7 +1874,9 @@ jobs:
                   Spacer(modifier = Modifier.height(20.dp))
 
                   Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                      QuickDeliverAppLogo(size = 110.dp)
+                      Box(modifier = Modifier.scale(logoScale)) {
+                          QuickDeliverAppLogo(size = 110.dp)
+                      }
                       Spacer(modifier = Modifier.height(18.dp))
                       Text(
                           text = AppStrings.get("app_name", lang),
@@ -1888,6 +1941,7 @@ jobs:
               onSuccess: (name: String, phone: String, uid: String, isDriver: Boolean) -> Unit,
               onCancel: () -> Unit
           ) {
+              val context = LocalContext.current
               val auth = Firebase.auth
               val db = Firebase.firestore
 
@@ -1899,6 +1953,45 @@ jobs:
               var termsAccepted by remember { mutableStateOf(false) }
               var errorMessage by remember { mutableStateOf("") }
               var isLoading by remember { mutableStateOf(false) }
+
+              val googleSignInLauncher = rememberLauncherForActivityResult(
+                  contract = ActivityResultContracts.StartActivityForResult()
+              ) { result ->
+                  if (result.resultCode == Activity.RESULT_OK) {
+                      val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                      try {
+                          val account = task.getResult(ApiException::class.java)
+                          val idToken = account.idToken
+                          if (idToken != null) {
+                              isLoading = true
+                              val credential = GoogleAuthProvider.getCredential(idToken, null)
+                              auth.signInWithCredential(credential)
+                                  .addOnSuccessListener { authResult ->
+                                      val user = authResult.user
+                                      val uid = user?.uid ?: ""
+                                      val userMap = hashMapOf(
+                                          "name" to (account.displayName ?: "Google User"),
+                                          "email" to (account.email ?: ""),
+                                          "phoneNumber" to "",
+                                          "role" to "customer",
+                                          "debt" to 0
+                                      )
+                                      db.collection("users").document(uid).set(userMap)
+                                          .addOnSuccessListener {
+                                              isLoading = false
+                                              onSuccess(account.displayName ?: "Google User", "", uid, false)
+                                          }
+                                  }
+                                  .addOnFailureListener { e ->
+                                      isLoading = false
+                                      errorMessage = e.localizedMessage ?: "Google Auth Error"
+                                  }
+                          }
+                      } catch (e: Exception) {
+                          errorMessage = "Google Sign-In failed"
+                      }
+                  }
+              }
 
               LazyColumn(
                   modifier = Modifier
@@ -1930,25 +2023,43 @@ jobs:
                           ) {
                               OutlinedButton(
                                   onClick = {
-                                      onSuccess("Client Google", "0555123456", "google_uid", false)
+                                      val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                          .requestIdToken(context.getString(R.string.default_web_client_id))
+                                          .requestEmail()
+                                          .build()
+                                      val client = GoogleSignIn.getClient(context, gso)
+                                      googleSignInLauncher.launch(client.signInIntent)
                                   },
                                   modifier = Modifier.weight(1f).height(46.dp),
                                   shape = RoundedCornerShape(12.dp)
                               ) {
                                   GoogleOfficialLogo(size = 18.dp)
                                   Spacer(modifier = Modifier.width(6.dp))
-                                  Text("Google", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                  Text("Google", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = QdTextDark)
                               }
                               OutlinedButton(
                                   onClick = {
-                                      onSuccess("Client Facebook", "0555654321", "fb_uid", false)
+                                      val provider = OAuthProvider.newBuilder("facebook.com")
+                                      val act = context as? Activity
+                                      if (act != null) {
+                                          auth.startActivityForSignInWithProvider(act, provider.build())
+                                              .addOnSuccessListener { authResult ->
+                                                  val user = authResult.user
+                                                  val uid = user?.uid ?: ""
+                                                  val fbName = user?.displayName ?: "Facebook User"
+                                                  onSuccess(fbName, "", uid, false)
+                                              }
+                                              .addOnFailureListener { e ->
+                                                  errorMessage = e.localizedMessage ?: "Facebook Auth Error"
+                                              }
+                                      }
                                   },
                                   modifier = Modifier.weight(1f).height(46.dp),
                                   shape = RoundedCornerShape(12.dp)
                               ) {
                                   FacebookOfficialLogo(size = 18.dp)
                                   Spacer(modifier = Modifier.width(6.dp))
-                                  Text("Facebook", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                  Text("Facebook", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = QdTextDark)
                               }
                           }
                           Spacer(modifier = Modifier.height(14.dp))
@@ -3628,5 +3739,5 @@ jobs:
       - name: Upload Artifact APK
         uses: actions/upload-artifact@v4
         with:
-          name: QuickDeliver-Perfect-Debug-APK
+          name: QuickDeliver-CompleteFinal-APK
           path: app/build/outputs/apk/debug/app-debug.apk
