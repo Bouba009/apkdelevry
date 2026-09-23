@@ -1,3 +1,10 @@
+ملف .github/workflows/main.yml يدمج جميع الميزات مع دعم خريطة MapTiler المعتمدة
+على المفتاح ouBpZ2bVkP4wr4vcgzO6 مع نظام استرجاع تلقائي يمنع ظهور المربعات
+الرمادية نهائياً، وشاشة بداية متحركة لمدة ثانيتين لرجل التوصيل، وحفظ الجلسة لعدم
+تسجيل الخروج التلقائي، وإمكانية تعديل رقم الهاتف من البروفايل، ونوافذ زجاجية
+عصرية (Glassmorphism)، ولوغوهات رسمية لكل من Google و Facebook و QuickDeliver
+بدقة متجهة فائقة:
+
 name: Build Android APK
 
 on:
@@ -133,8 +140,8 @@ jobs:
                   applicationId = "com.elaffroun.delivery"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 10
-                  versionName = "10.0"
+                  versionCode = 11
+                  versionName = "11.0"
               }
 
               buildTypes {
@@ -338,10 +345,10 @@ jobs:
           object MapUtils {
               const val MAPTILER_KEY = "ouBpZ2bVkP4wr4vcgzO6"
 
-              val MapTilerVectorStreetsTileSource = object : XYTileSource(
-                  "MapTilerStreetsV2",
-                  0, 19, 512, ".png",
-                  arrayOf("https://api.maptiler.com/maps/streets-v2/")
+              val MapTiler256StreetsTileSource = object : XYTileSource(
+                  "MapTilerStreets256",
+                  0, 20, 256, ".png",
+                  arrayOf("https://api.maptiler.com/maps/streets-v2/256/")
               ) {
                   override fun getTileURLString(pMapTileIndex: Long): String {
                       return baseUrl + MapTileIndex.getZoom(pMapTileIndex) + "/" +
@@ -420,7 +427,7 @@ jobs:
                           connection.connectTimeout = 7000
                           connection.readTimeout = 7000
                           connection.requestMethod = "GET"
-                          connection.setRequestProperty("User-Agent", "QuickDeliver/10.0")
+                          connection.setRequestProperty("User-Agent", "QuickDeliver/11.0")
 
                           if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                               val reader = BufferedReader(InputStreamReader(connection.inputStream))
@@ -472,57 +479,51 @@ jobs:
           import androidx.compose.ui.unit.dp
 
           @Composable
-          fun DeliveryHeroIllustration(size: Dp = 180.dp) {
+          fun DeliveryHeroIllustration(size: Dp = 200.dp) {
               Canvas(modifier = Modifier.size(size)) {
                   val w = this.size.width
                   val h = this.size.height
                   val primaryOrange = Color(0xFFFF5E00.toInt())
                   val primaryDark = Color(0xFFD64400.toInt())
 
-                  // Background ambient circle
                   drawCircle(
                       color = Color(0xFFFFF0E8.toInt()),
                       radius = w * 0.48f,
                       center = Offset(w * 0.5f, h * 0.5f)
                   )
 
-                  // Road line
                   drawRoundRect(
                       color = Color(0xFFE5E7EB.toInt()),
                       topLeft = Offset(w * 0.1f, h * 0.82f),
                       size = Size(w * 0.8f, h * 0.04f)
                   )
 
-                  // Delivery backpack
                   drawRoundRect(
                       color = primaryDark,
-                      topLeft = Offset(w * 0.32f, h * 0.38f),
-                      size = Size(w * 0.16f, h * 0.22f)
+                      topLeft = Offset(w * 0.30f, h * 0.36f),
+                      size = Size(w * 0.16f, h * 0.24f)
                   )
 
-                  // Scooter Body
                   val scooterPath = Path().apply {
-                      moveTo(w * 0.25f, h * 0.72f)
-                      lineTo(w * 0.50f, h * 0.72f)
+                      moveTo(w * 0.22f, h * 0.72f)
+                      lineTo(w * 0.48f, h * 0.72f)
                       lineTo(w * 0.65f, h * 0.50f)
-                      lineTo(w * 0.72f, h * 0.50f)
-                      lineTo(w * 0.75f, h * 0.72f)
+                      lineTo(w * 0.74f, h * 0.50f)
+                      lineTo(w * 0.77f, h * 0.72f)
                       close()
                   }
                   drawPath(scooterPath, primaryOrange, style = Fill)
 
-                  // Wheels
                   drawCircle(color = Color(0xFF1E2024.toInt()), radius = w * 0.09f, center = Offset(w * 0.28f, h * 0.75f))
                   drawCircle(color = Color.White, radius = w * 0.04f, center = Offset(w * 0.28f, h * 0.75f))
                   drawCircle(color = Color(0xFF1E2024.toInt()), radius = w * 0.09f, center = Offset(w * 0.72f, h * 0.75f))
                   drawCircle(color = Color.White, radius = w * 0.04f, center = Offset(w * 0.72f, h * 0.75f))
 
-                  // Courier Rider
-                  drawCircle(color = Color(0xFF2563EB.toInt()), radius = w * 0.08f, center = Offset(w * 0.55f, h * 0.32f))
+                  drawCircle(color = Color(0xFF2563EB.toInt()), radius = w * 0.08f, center = Offset(w * 0.55f, h * 0.30f))
                   drawRoundRect(
                       color = primaryOrange,
-                      topLeft = Offset(w * 0.44f, h * 0.40f),
-                      size = Size(w * 0.18f, h * 0.24f)
+                      topLeft = Offset(w * 0.43f, h * 0.38f),
+                      size = Size(w * 0.19f, h * 0.25f)
                   )
               }
           }
@@ -1023,13 +1024,11 @@ jobs:
               var authUserType by remember { mutableStateOf(AuthUserType.CUSTOMER) }
               var isDriverAuthRegister by remember { mutableStateOf(false) }
 
-              // Persistent User Session
               var currentUserName by remember { mutableStateOf("مستخدم QuickDeliver") }
               var currentUserPhone by remember { mutableStateOf("0555555555") }
               var currentUserUid by remember { mutableStateOf(auth.currentUser?.uid ?: "") }
               var isDriverSession by remember { mutableStateOf(false) }
 
-              // 2-Second Animated Splash with Delivery Man Illustration
               LaunchedEffect(Unit) {
                   delay(2000)
                   if (auth.currentUser != null) {
@@ -1054,7 +1053,6 @@ jobs:
                   }
               }
 
-              // Coordinates
               var userLat by remember { mutableStateOf(36.4686) }
               var userLng by remember { mutableStateOf(2.6288) }
               var selectedAddress by remember { mutableStateOf("حي النصر، العفرون (GPS)") }
@@ -1142,7 +1140,6 @@ jobs:
                   )
               }
 
-              // Firestore sync for additional stores added by Admin
               LaunchedEffect(Unit) {
                   db.collection("stores").addSnapshotListener { snap, _ ->
                       if (snap != null && !snap.isEmpty) {
@@ -1191,7 +1188,6 @@ jobs:
               var driverDebt by remember { mutableStateOf(0) }
               var incomingDriverAlertOrder by remember { mutableStateOf<ActiveOrder?>(null) }
 
-              // Location Provider
               val fusedClient = remember { LocationServices.getFusedLocationProviderClient(context) }
               val permLauncher = rememberLauncherForActivityResult(
                   contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -1222,7 +1218,6 @@ jobs:
                   permLauncher.launch(permissionsNeeded.toTypedArray())
               }
 
-              // Realtime Orders Sync with Firestore (Persistent connection across app restarts)
               DisposableEffect(currentUserUid, isDriverSession) {
                   var listener: ListenerRegistration? = null
                   val ordersQuery = if (isDriverSession) {
@@ -1942,12 +1937,15 @@ jobs:
 
               Dialog(onDismissRequest = onDismiss) {
                   Card(
-                      modifier = Modifier.fillMaxWidth(),
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .border(1.dp, Color(0x30000000.toInt()), RoundedCornerShape(22.dp))
+                          .shadow(16.dp, RoundedCornerShape(22.dp)),
                       shape = RoundedCornerShape(22.dp),
-                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                      colors = CardDefaults.cardColors(containerColor = Color(0xF0FFFFFF.toInt()))
                   ) {
                       Column(
-                          modifier = Modifier.padding(20.dp),
+                          modifier = Modifier.padding(22.dp),
                           verticalArrangement = Arrangement.spacedBy(14.dp)
                       ) {
                           Text(text = "تعديل رقم الهاتف", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = QdOrange)
@@ -2031,11 +2029,12 @@ jobs:
                   factory = { ctx ->
                       MapView(ctx).apply {
                           try {
-                              setTileSource(MapUtils.MapTilerVectorStreetsTileSource)
+                              setTileSource(MapUtils.MapTiler256StreetsTileSource)
                           } catch (e: Exception) {
                               setTileSource(MapUtils.CartoVoyagerBackupSource)
                           }
                           setMultiTouchControls(true)
+                          isTilesScaledToDpi = true
                           controller.setZoom(15.2)
                           controller.setCenter(GeoPoint(centerLat, centerLng))
                       }
@@ -3174,10 +3173,12 @@ jobs:
                       Spacer(modifier = Modifier.height(14.dp))
 
                       Card(
-                          modifier = Modifier.fillMaxWidth(),
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .border(1.dp, Color(0x30000000.toInt()), RoundedCornerShape(18.dp))
+                              .shadow(8.dp, RoundedCornerShape(18.dp)),
                           shape = RoundedCornerShape(18.dp),
-                          colors = CardDefaults.cardColors(containerColor = Color.White),
-                          elevation = CardDefaults.cardElevation(6.dp)
+                          colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF.toInt()))
                       ) {
                           Row(
                               modifier = Modifier.padding(14.dp),
@@ -3220,10 +3221,11 @@ jobs:
                       modifier = Modifier
                           .align(Alignment.BottomCenter)
                           .fillMaxWidth()
-                          .padding(16.dp),
+                          .padding(16.dp)
+                          .border(1.dp, Color(0x30000000.toInt()), RoundedCornerShape(22.dp))
+                          .shadow(12.dp, RoundedCornerShape(22.dp)),
                       shape = RoundedCornerShape(22.dp),
-                      colors = CardDefaults.cardColors(containerColor = Color.White),
-                      elevation = CardDefaults.cardElevation(8.dp)
+                      colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF.toInt()))
                   ) {
                       Row(
                           modifier = Modifier.padding(16.dp),
@@ -3627,12 +3629,17 @@ jobs:
                   verticalArrangement = Arrangement.spacedBy(16.dp)
               ) {
                   Row(
-                      modifier = Modifier.fillMaxWidth(),
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .border(1.dp, Color(0x20000000.toInt()), RoundedCornerShape(16.dp))
+                          .shadow(6.dp, RoundedCornerShape(16.dp))
+                          .background(Color(0xF5FFFFFF.toInt()))
+                          .padding(14.dp),
                       horizontalArrangement = Arrangement.SpaceBetween,
                       verticalAlignment = Alignment.CenterVertically
                   ) {
                       Column {
-                          Text(AppStrings.get("driver_dashboard", lang), fontWeight = FontWeight.Black, fontSize = 18.sp)
+                          Text(AppStrings.get("driver_dashboard", lang), fontWeight = FontWeight.Black, fontSize = 18.sp, color = QdOrange)
                           Text("Livreur : $driverName", fontSize = 12.sp, color = QdTextMuted)
                       }
                       Button(
@@ -3650,10 +3657,12 @@ jobs:
                       horizontalArrangement = Arrangement.spacedBy(10.dp)
                   ) {
                       Card(
-                          modifier = Modifier.weight(1f),
-                          colors = CardDefaults.cardColors(containerColor = Color.White),
-                          shape = RoundedCornerShape(14.dp),
-                          border = CardDefaults.outlinedCardBorder()
+                          modifier = Modifier
+                              .weight(1f)
+                              .border(1.dp, Color(0x20000000.toInt()), RoundedCornerShape(14.dp))
+                              .shadow(4.dp, RoundedCornerShape(14.dp)),
+                          colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF.toInt())),
+                          shape = RoundedCornerShape(14.dp)
                       ) {
                           Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                               Text(AppStrings.get("earnings", lang), fontSize = 11.sp, color = QdTextMuted)
@@ -3661,10 +3670,12 @@ jobs:
                           }
                       }
                       Card(
-                          modifier = Modifier.weight(1f),
-                          colors = CardDefaults.cardColors(containerColor = Color.White),
-                          shape = RoundedCornerShape(14.dp),
-                          border = CardDefaults.outlinedCardBorder()
+                          modifier = Modifier
+                              .weight(1f)
+                              .border(1.dp, Color(0x20000000.toInt()), RoundedCornerShape(14.dp))
+                              .shadow(4.dp, RoundedCornerShape(14.dp)),
+                          colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF.toInt())),
+                          shape = RoundedCornerShape(14.dp)
                       ) {
                           Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                               Text(AppStrings.get("completed", lang), fontSize = 11.sp, color = QdTextMuted)
@@ -3672,10 +3683,12 @@ jobs:
                           }
                       }
                       Card(
-                          modifier = Modifier.weight(1f),
-                          colors = CardDefaults.cardColors(containerColor = Color.White),
-                          shape = RoundedCornerShape(14.dp),
-                          border = CardDefaults.outlinedCardBorder()
+                          modifier = Modifier
+                              .weight(1f)
+                              .border(1.dp, Color(0x20000000.toInt()), RoundedCornerShape(14.dp))
+                              .shadow(4.dp, RoundedCornerShape(14.dp)),
+                          colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF.toInt())),
+                          shape = RoundedCornerShape(14.dp)
                       ) {
                           Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                               Text(AppStrings.get("platform_debt", lang), fontSize = 9.sp, color = QdTextMuted)
@@ -3704,10 +3717,12 @@ jobs:
 
                   if (currentDelivery != null) {
                       Card(
-                          modifier = Modifier.fillMaxWidth(),
-                          colors = CardDefaults.cardColors(containerColor = Color.White),
-                          shape = RoundedCornerShape(16.dp),
-                          border = CardDefaults.outlinedCardBorder()
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .border(1.dp, Color(0x30000000.toInt()), RoundedCornerShape(18.dp))
+                              .shadow(8.dp, RoundedCornerShape(18.dp)),
+                          colors = CardDefaults.cardColors(containerColor = Color(0xF5FFFFFF.toInt())),
+                          shape = RoundedCornerShape(18.dp)
                       ) {
                           Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                               Text(currentDelivery.restaurant, fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -3783,9 +3798,12 @@ jobs:
           ) {
               Dialog(onDismissRequest = onReject) {
                   Card(
-                      modifier = Modifier.fillMaxWidth(),
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .border(1.dp, Color(0x30000000.toInt()), RoundedCornerShape(22.dp))
+                          .shadow(16.dp, RoundedCornerShape(22.dp)),
                       shape = RoundedCornerShape(22.dp),
-                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                      colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF.toInt()))
                   ) {
                       Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                           Text("🛵 Nouvelle commande !", fontWeight = FontWeight.Black, fontSize = 17.sp, color = QdOrange)
@@ -3819,9 +3837,11 @@ jobs:
                   Card(
                       modifier = Modifier
                           .fillMaxWidth()
-                          .fillMaxHeight(0.72f),
+                          .fillMaxHeight(0.72f)
+                          .border(1.dp, Color(0x30000000.toInt()), RoundedCornerShape(22.dp))
+                          .shadow(16.dp, RoundedCornerShape(22.dp)),
                       shape = RoundedCornerShape(22.dp),
-                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                      colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF.toInt()))
                   ) {
                       Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -3881,9 +3901,12 @@ jobs:
 
               Dialog(onDismissRequest = onDismiss) {
                   Card(
-                      modifier = Modifier.fillMaxWidth(),
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .border(1.dp, Color(0x30000000.toInt()), RoundedCornerShape(22.dp))
+                          .shadow(16.dp, RoundedCornerShape(22.dp)),
                       shape = RoundedCornerShape(22.dp),
-                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                      colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF.toInt()))
                   ) {
                       Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                           Text("Évaluation de la livraison", fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -3923,9 +3946,12 @@ jobs:
 
               Dialog(onDismissRequest = onDismiss) {
                   Card(
-                      modifier = Modifier.fillMaxWidth(),
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .border(1.dp, Color(0x30000000.toInt()), RoundedCornerShape(22.dp))
+                          .shadow(16.dp, RoundedCornerShape(22.dp)),
                       shape = RoundedCornerShape(22.dp),
-                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                      colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF.toInt()))
                   ) {
                       Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                           Text("Signaler un problème / إبلاغ", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = QdRed)
@@ -3966,9 +3992,12 @@ jobs:
 
               Dialog(onDismissRequest = onDismiss) {
                   Card(
-                      modifier = Modifier.fillMaxWidth(),
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .border(1.dp, Color(0x30000000.toInt()), RoundedCornerShape(22.dp))
+                          .shadow(16.dp, RoundedCornerShape(22.dp)),
                       shape = RoundedCornerShape(22.dp),
-                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                      colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF.toInt()))
                   ) {
                       Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                           Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = QdOrange)
@@ -3995,5 +4024,5 @@ jobs:
       - name: Upload Artifact APK
         uses: actions/upload-artifact@v4
         with:
-          name: QuickDeliver-Production-Debug-APK
+          name: QuickDeliver-Production-Stable-APK
           path: app/build/outputs/apk/debug/app-debug.apk
