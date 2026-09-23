@@ -61,6 +61,7 @@ jobs:
           plugins {
               id("com.android.application") version "8.4.1" apply false
               id("org.jetbrains.kotlin.android") version "1.9.23" apply false
+              id("com.google.gms.google-services") version "4.4.1" apply false
           }
           EOF
 
@@ -82,10 +83,43 @@ jobs:
           </resources>
           EOF
 
+          cat << 'EOF' > app/google-services.json
+          {
+            "project_info": {
+              "project_number": "703541527613",
+              "project_id": "filahadz-31183",
+              "storage_bucket": "filahadz-31183.firebasestorage.app"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:703541527613:android:7d3af803ba09c894d4d654",
+                  "android_client_info": {
+                    "package_name": "com.elaffroun.delivery"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyDXdDA6rH50zAv5pmZKRkXnqosoFnC3GjY"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+
           cat << 'EOF' > app/build.gradle.kts
           plugins {
               id("com.android.application")
               id("org.jetbrains.kotlin.android")
+              id("com.google.gms.google-services")
           }
 
           android {
@@ -150,6 +184,13 @@ jobs:
               implementation("androidx.compose.material3:material3")
               implementation("androidx.compose.material:material-icons-core")
               implementation("androidx.compose.material:material-icons-extended")
+
+              val firebaseBom = platform("com.google.firebase:firebase-bom:32.8.0")
+              implementation(firebaseBom)
+              implementation("com.google.firebase:firebase-auth-ktx")
+              implementation("com.google.firebase:firebase-firestore-ktx")
+
+              implementation("org.osmdroid:osmdroid-android:6.1.18")
               implementation("com.google.android.gms:play-services-location:21.2.0")
           }
           EOF
@@ -160,9 +201,13 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
               <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-              <uses-permission android:name="android.permission.CALL_PHONE" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+              <uses-permission android:name="android.permission.VIBRATE" />
 
               <application
                   android:allowBackup="true"
@@ -181,29 +226,270 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+
+                  <service
+                      android:name=".DeliveryBackgroundService"
+                      android:exported="false"
+                      android:foregroundServiceType="location" />
               </application>
 
           </manifest>
           EOF
 
           mkdir -p app/src/main/java/com/elaffroun/delivery
+          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/DeliveryNotificationHelper.kt
+          package com.elaffroun.delivery
+
+          import android.app.NotificationChannel
+          import android.app.NotificationManager
+          import android.app.PendingIntent
+          import android.content.Context
+          import android.content.Intent
+          import android.media.AudioAttributes
+          import android.media.RingtoneManager
+          import android.os.Build
+          import androidx.core.app.NotificationCompat
+
+          object DeliveryNotificationHelper {
+              const val CHANNEL_ORDERS_ID = "elaffroun_orders_channel"
+              const val CHANNEL_STATUS_ID = "elaffroun_status_channel"
+
+              fun initChannels(context: Context) {
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                      val audioAttr = AudioAttributes.Builder()
+                          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                          .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                          .build()
+
+                      val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+                      val orderChannel = NotificationChannel(
+                          CHANNEL_ORDERS_ID,
+                          "تنبيهات الطلبات العاجلة",
+                          NotificationManager.IMPORTANCE_HIGH
+                      ).apply {
+                          description = "إشعارات بالصوت والاهتزاز عند تلقي طلب توصيل جديد"
+                          enableVibration(true)
+                          vibrationPattern = longArrayOf(0, 500, 200, 500)
+                          setSound(soundUri, audioAttr)
+                      }
+
+                      val statusChannel = NotificationChannel(
+                          CHANNEL_STATUS_ID,
+                          "متابعة حالة التوصيل الحية",
+                          NotificationManager.IMPORTANCE_HIGH
+                      ).apply {
+                          description = "إشعارات تحديث مسار ووصول السائق"
+                          enableVibration(true)
+                          setSound(soundUri, audioAttr)
+                      }
+
+                      manager.createNotificationChannel(orderChannel)
+                      manager.createNotificationChannel(statusChannel)
+                  }
+              }
+
+              fun sendOrderAlert(context: Context, title: String, message: String, notificationId: Int = 1001) {
+                  val intent = Intent(context, MainActivity::class.java).apply {
+                      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                  }
+                  val pendingIntent = PendingIntent.getActivity(
+                      context, 0, intent,
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+
+                  val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                  val notification = NotificationCompat.Builder(context, CHANNEL_ORDERS_ID)
+                      .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                      .setContentTitle(title)
+                      .setContentText(message)
+                      .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+                      .setPriority(NotificationCompat.PRIORITY_MAX)
+                      .setCategory(NotificationCompat.CATEGORY_ALARM)
+                      .setSound(soundUri)
+                      .setVibrate(longArrayOf(0, 500, 200, 500))
+                      .setAutoCancel(true)
+                      .setContentIntent(pendingIntent)
+                      .build()
+
+                  val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                  manager.notify(notificationId, notification)
+              }
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/DeliveryBackgroundService.kt
+          package com.elaffroun.delivery
+
+          import android.app.Notification
+          import android.app.PendingIntent
+          import android.app.Service
+          import android.content.Intent
+          import android.os.IBinder
+          import androidx.core.app.NotificationCompat
+          import com.google.firebase.auth.ktx.auth
+          import com.google.firebase.firestore.DocumentChange
+          import com.google.firebase.firestore.ListenerRegistration
+          import com.google.firebase.firestore.ktx.firestore
+          import com.google.firebase.ktx.Firebase
+
+          class DeliveryBackgroundService : Service() {
+              private var ordersListener: ListenerRegistration? = null
+
+              override fun onBind(intent: Intent?): IBinder? = null
+
+              override fun onCreate() {
+                  super.onCreate()
+                  DeliveryNotificationHelper.initChannels(this)
+              }
+
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+                  val notification = createServiceNotification()
+                  startForeground(999, notification)
+                  startListeningToOrders()
+                  return START_STICKY
+              }
+
+              private fun createServiceNotification(): Notification {
+                  val intent = Intent(this, MainActivity::class.java)
+                  val pendingIntent = PendingIntent.getActivity(
+                      this, 0, intent,
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+
+                  return NotificationCompat.Builder(this, DeliveryNotificationHelper.CHANNEL_STATUS_ID)
+                      .setContentTitle("العفرون ديليفري قيد التشغيل")
+                      .setContentText("المراقبة الحية للطلبات والمسارات نشطة في الخلفية")
+                      .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                      .setContentIntent(pendingIntent)
+                      .setOngoing(true)
+                      .build()
+              }
+
+              private fun startListeningToOrders() {
+                  val user = Firebase.auth.currentUser ?: return
+                  val db = Firebase.firestore
+
+                  ordersListener?.remove()
+                  ordersListener = db.collection("orders")
+                      .whereEqualTo("status", "pending")
+                      .addSnapshotListener { snapshots, e ->
+                          if (e != null || snapshots == null) return@addSnapshotListener
+                          for (dc in snapshots.documentChanges) {
+                              if (dc.type == DocumentChange.Type.ADDED) {
+                                  val restaurant = dc.document.getString("restaurant") ?: "مطعم"
+                                  val price = dc.document.getLong("price") ?: 0L
+                                  DeliveryNotificationHelper.sendOrderAlert(
+                                      this,
+                                      "طلب توصيل عاجل جديد! 🛵",
+                                      "متجر $restaurant - السعر: $price دج. ادخل للموافقة!"
+                                  )
+                              }
+                          }
+                      }
+              }
+
+              override fun onDestroy() {
+                  ordersListener?.remove()
+                  super.onDestroy()
+              }
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/SoundHelper.kt
+          package com.elaffroun.delivery
+
+          import android.content.Context
+          import android.media.AudioAttributes
+          import android.media.AudioFormat
+          import android.media.AudioTrack
+          import android.media.RingtoneManager
+          import kotlinx.coroutines.CoroutineScope
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.launch
+          import kotlin.math.sin
+
+          object SoundHelper {
+              fun playNotificationTone(context: Context) {
+                  try {
+                      val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                      val r = RingtoneManager.getRingtone(context, uri)
+                      r.play()
+                  } catch (e: Exception) {
+                      generateToneBeep(880.0, 300)
+                  }
+              }
+
+              fun playArrivalTone() {
+                  generateToneBeep(1200.0, 450)
+              }
+
+              private fun generateToneBeep(freqOfTone: Double, durationMs: Int) {
+                  CoroutineScope(Dispatchers.IO).launch {
+                      try {
+                          val sampleRate = 8000
+                          val numSamples = durationMs * sampleRate / 1000
+                          val soundData = DoubleArray(numSamples)
+                          val generatedSnd = ByteArray(2 * numSamples)
+
+                          for (i in 0 until numSamples) {
+                              soundData[i] = sin(2.0 * Math.PI * i.toDouble() / (sampleRate / freqOfTone))
+                          }
+
+                          var idx = 0
+                          for (dVal in soundData) {
+                              val valShort = (dVal * 32767).toInt().toShort()
+                              generatedSnd[idx++] = (valShort.toInt() and 0x00ff).toByte()
+                              generatedSnd[idx++] = ((valShort.toInt() and 0xff00) ushr 8).toByte()
+                          }
+
+                          val audioTrack = AudioTrack.Builder()
+                              .setAudioAttributes(
+                                  AudioAttributes.Builder()
+                                      .setUsage(AudioAttributes.USAGE_ALARM)
+                                      .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                      .build()
+                              )
+                              .setAudioFormat(
+                                  AudioFormat.Builder()
+                                      .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                                      .setSampleRate(sampleRate)
+                                      .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                                      .build()
+                              )
+                              .setBufferSizeInBytes(generatedSnd.size)
+                              .setTransferMode(AudioTrack.MODE_STATIC)
+                              .build()
+
+                          audioTrack.write(generatedSnd, 0, generatedSnd.size)
+                          audioTrack.play()
+                      } catch (e: Exception) {
+                          // Handle safely
+                      }
+                  }
+              }
+          }
+          EOF
+
           cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/MainActivity.kt
           package com.elaffroun.delivery
 
           import android.Manifest
+          import android.content.Context
           import android.content.Intent
           import android.content.pm.PackageManager
           import android.net.Uri
+          import android.os.Build
           import android.os.Bundle
+          import android.preference.PreferenceManager
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.rememberLauncherForActivityResult
           import androidx.activity.compose.setContent
           import androidx.activity.result.contract.ActivityResultContracts
           import androidx.compose.animation.*
           import androidx.compose.foundation.background
-          import androidx.compose.foundation.border
           import androidx.compose.foundation.clickable
-          import androidx.compose.foundation.interaction.MutableInteractionSource
           import androidx.compose.foundation.layout.*
           import androidx.compose.foundation.lazy.LazyColumn
           import androidx.compose.foundation.lazy.items
@@ -226,37 +512,55 @@ jobs:
           import androidx.compose.ui.text.style.TextAlign
           import androidx.compose.ui.unit.dp
           import androidx.compose.ui.unit.sp
+          import androidx.compose.ui.viewinterop.AndroidView
           import androidx.compose.ui.window.Dialog
           import androidx.core.content.ContextCompat
           import com.google.android.gms.location.LocationServices
+          import com.google.android.gms.location.Priority
+          import com.google.firebase.auth.FirebaseAuth
+          import com.google.firebase.auth.ktx.auth
+          import com.google.firebase.firestore.FirebaseFirestore
+          import com.google.firebase.firestore.ListenerRegistration
+          import com.google.firebase.firestore.ktx.firestore
+          import com.google.firebase.ktx.Firebase
+          import kotlinx.coroutines.tasks.await
+          import org.osmdroid.config.Configuration
+          import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+          import org.osmdroid.util.GeoPoint
+          import org.osmdroid.views.MapView
+          import org.osmdroid.views.overlay.Marker
+          import org.osmdroid.views.overlay.Polyline
           import kotlin.math.*
 
           val PrimaryColor = Color(0xFFFF7E00.toInt())
           val PrimaryDarkColor = Color(0xFFE06B00.toInt())
           val AppDarkBackground = Color(0xFF0D0D11.toInt())
           val CardDarkBackground = Color(0xFF16161E.toInt())
-          val CardBorderDark = Color(0xFF262630.toInt())
           val AccentGreen = Color(0xFF10B981.toInt())
           val AccentRed = Color(0xFFEF4444.toInt())
           val AccentBlue = Color(0xFF3B82F6.toInt())
 
-          data class StoreItem(val id: String, val name: String, val lat: Double, val lng: Double)
-          data class OrderProduct(val name: String, val qty: Int)
-          data class ChatMessage(val sender: String, val text: String, val time: String)
+          data class StoreItem(val id: String = "", val name: String = "", val lat: Double = 36.4686, val lng: Double = 2.6288)
+          data class OrderProduct(val name: String = "", val qty: Int = 1)
+          data class ChatMessage(val sender: String = "", val text: String = "", val sentAt: String = "")
           data class Order(
-              val id: String,
-              val restaurant: String,
-              val customerAddress: String,
-              val price: Int,
-              val items: List<OrderProduct>,
-              val note: String,
-              val status: String,
+              val id: String = "",
+              val restaurant: String = "",
+              val customerAddress: String = "",
+              val price: Int = 50,
+              val items: List<OrderProduct> = emptyList(),
+              val note: String = "",
+              val status: String = "pending",
+              val driverId: String = "",
               val driverName: String = "",
               val driverPhone: String = "",
+              val customerId: String = "",
+              val customerPhone: String = "",
               val storeLat: Double = 36.4686,
               val storeLng: Double = 2.6288,
               val custLat: Double = 36.4686,
-              val custLng: Double = 2.6288
+              val custLng: Double = 2.6288,
+              val createdAt: String = ""
           )
 
           enum class AppScreen { LANDING, AUTH, CUSTOMER_DASHBOARD, DRIVER_DASHBOARD, ADMIN_PANEL }
@@ -265,6 +569,10 @@ jobs:
           class MainActivity : ComponentActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
+                  Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
+                  Configuration.getInstance().userAgentValue = packageName
+                  DeliveryNotificationHelper.initChannels(this)
+
                   setContent {
                       ElaffrounAppRoot()
                   }
@@ -292,33 +600,29 @@ jobs:
           @Composable
           fun ElaffrounAppRoot() {
               val context = LocalContext.current
+              val auth = remember { Firebase.auth }
+              val db = remember { Firebase.firestore }
+
               var isDarkMode by remember { mutableStateOf(true) }
               var currentScreen by remember { mutableStateOf(AppScreen.LANDING) }
               var userRole by remember { mutableStateOf(UserRole.CUSTOMER) }
-              var userLoggedIn by remember { mutableStateOf(false) }
               var currentUserName by remember { mutableStateOf("") }
               var currentUserPhone by remember { mutableStateOf("") }
+              var currentUserUid by remember { mutableStateOf("") }
 
-              val initialStores = remember {
-                  mutableStateListOf(
-                      StoreItem("1", "بيتزا هاوس العفرون", 36.4690, 2.6295),
-                      StoreItem("2", "مطعم السلطان للشواء", 36.4675, 2.6280),
-                      StoreItem("3", "فاست فود السعادة", 36.4710, 2.6320),
-                      StoreItem("4", "طاكوس وحلويات الأصيل", 36.4660, 2.6250)
-                  )
-              }
-
+              val storesList = remember { mutableStateListOf<StoreItem>() }
               val activeOrders = remember { mutableStateListOf<Order>() }
               val chatMessages = remember { mutableStateListOf<ChatMessage>() }
-              var pendingIncomingOrder by remember { mutableStateOf<Order?>(null) }
+              var incomingOrderAlert by remember { mutableStateOf<Order?>(null) }
 
               var showOrderDialog by remember { mutableStateOf(false) }
               var showHistoryDialog by remember { mutableStateOf(false) }
               var showRatingDialog by remember { mutableStateOf(false) }
               var showChatDialog by remember { mutableStateOf(false) }
+              var showProfileDialog by remember { mutableStateOf(false) }
               var showInfoDialog by remember { mutableStateOf(false) }
-              var infoDialogTitle by remember { mutableStateOf("") }
-              var infoDialogMessage by remember { mutableStateOf("") }
+              var infoTitle by remember { mutableStateOf("") }
+              var infoMessage by remember { mutableStateOf("") }
 
               var driverEarnings by remember { mutableStateOf(0) }
               var driverCompletedCount by remember { mutableStateOf(0) }
@@ -328,19 +632,79 @@ jobs:
               var currentLongitude by remember { mutableStateOf(2.6288) }
               var isGpsDetected by remember { mutableStateOf(false) }
 
-              val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-              val locationPermissionLauncher = rememberLauncherForActivityResult(
+              var activeOrderIdForChat by remember { mutableStateOf("") }
+
+              val fusedClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+              val permLauncher = rememberLauncherForActivityResult(
                   contract = ActivityResultContracts.RequestMultiplePermissions()
               ) { permissions ->
-                  val fine = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-                  val coarse = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-                  if (fine || coarse) {
+                  if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true) {
                       try {
-                          fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                              if (loc != null) {
-                                  currentLatitude = loc.latitude
-                                  currentLongitude = loc.longitude
-                                  isGpsDetected = true
+                          fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                              .addOnSuccessListener { loc ->
+                                  if (loc != null) {
+                                      currentLatitude = loc.latitude
+                                      currentLongitude = loc.longitude
+                                      isGpsDetected = true
+                                  }
+                              }
+                      } catch (e: Exception) {
+                          // Handle safely
+                      }
+                  }
+              }
+
+              LaunchedEffect(Unit) {
+                  val permissionsNeeded = mutableListOf(
+                      Manifest.permission.ACCESS_FINE_LOCATION,
+                      Manifest.permission.ACCESS_COARSE_LOCATION
+                  )
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                      permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
+                  }
+                  permLauncher.launch(permissionsNeeded.toTypedArray())
+
+                  // Load stores dynamically from Firestore
+                  db.collection("stores").addSnapshotListener { snap, _ ->
+                      if (snap != null) {
+                          storesList.clear()
+                          for (doc in snap.documents) {
+                              val s = StoreItem(
+                                  id = doc.id,
+                                  name = doc.getString("name") ?: "متجر العفرون",
+                                  lat = doc.getDouble("lat") ?: 36.4686,
+                                  lng = doc.getDouble("lng") ?: 2.6288
+                              )
+                              storesList.add(s)
+                          }
+                          if (storesList.isEmpty()) {
+                              storesList.add(StoreItem("1", "بيتزا هاوس العفرون", 36.4690, 2.6295))
+                              storesList.add(StoreItem("2", "مطعم السلطان للشواء", 36.4675, 2.6280))
+                          }
+                      }
+                  }
+              }
+
+              // Listen to authenticated state
+              LaunchedEffect(auth.currentUser) {
+                  val user = auth.currentUser
+                  if (user != null) {
+                      currentUserUid = user.uid
+                      try {
+                          val userDoc = db.collection("users").document(user.uid).get().await()
+                          if (userDoc.exists()) {
+                              val roleStr = userDoc.getString("role") ?: "customer"
+                              currentUserName = userDoc.getString("name") ?: (user.displayName ?: "مستخدم")
+                              currentUserPhone = userDoc.getString("phoneNumber") ?: ""
+                              userRole = when (roleStr) {
+                                  "driver" -> UserRole.DRIVER
+                                  "admin" -> UserRole.ADMIN
+                                  else -> UserRole.CUSTOMER
+                              }
+                              currentScreen = when (userRole) {
+                                  UserRole.DRIVER -> AppScreen.DRIVER_DASHBOARD
+                                  UserRole.ADMIN -> AppScreen.ADMIN_PANEL
+                                  UserRole.CUSTOMER -> AppScreen.CUSTOMER_DASHBOARD
                               }
                           }
                       } catch (e: Exception) {
@@ -349,30 +713,102 @@ jobs:
                   }
               }
 
-              LaunchedEffect(Unit) {
-                  val fineGranted = ContextCompat.checkSelfPermission(
-                      context, Manifest.permission.ACCESS_FINE_LOCATION
-                  ) == PackageManager.PERMISSION_GRANTED
-                  if (fineGranted) {
-                      try {
-                          fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                              if (loc != null) {
-                                  currentLatitude = loc.latitude
-                                  currentLongitude = loc.longitude
-                                  isGpsDetected = true
+              // Realtime orders synchronization from Firebase
+              DisposableEffect(currentUserUid, userRole) {
+                  var listener: ListenerRegistration? = null
+                  if (currentUserUid.isNotEmpty()) {
+                      val query = when (userRole) {
+                          UserRole.CUSTOMER -> db.collection("orders").whereEqualTo("customerId", currentUserUid)
+                          UserRole.DRIVER -> db.collection("orders")
+                          UserRole.ADMIN -> db.collection("orders")
+                      }
+
+                      listener = query.addSnapshotListener { snapshot, error ->
+                          if (error != null || snapshot == null) return@addSnapshotListener
+                          activeOrders.clear()
+                          for (doc in snapshot.documents) {
+                              val rawItems = doc.get("items") as? List<Map<String, Any>> ?: emptyList()
+                              val parsedItems = rawItems.map {
+                                  OrderProduct(
+                                      name = it["name"] as? String ?: "",
+                                      qty = (it["qty"] as? Long)?.toInt() ?: 1
+                                  )
+                              }
+                              val ord = Order(
+                                  id = doc.id,
+                                  restaurant = doc.getString("restaurant") ?: "",
+                                  customerAddress = doc.getString("customerAddress") ?: "",
+                                  price = doc.getLong("price")?.toInt() ?: 50,
+                                  items = parsedItems,
+                                  note = doc.getString("note") ?: "",
+                                  status = doc.getString("status") ?: "pending",
+                                  driverId = doc.getString("driverId") ?: "",
+                                  driverName = doc.getString("driverName") ?: "",
+                                  driverPhone = doc.getString("driverPhone") ?: "",
+                                  customerId = doc.getString("customerId") ?: "",
+                                  customerPhone = doc.getString("customerPhone") ?: "",
+                                  storeLat = doc.getDouble("storeLat") ?: 36.4686,
+                                  storeLng = doc.getDouble("storeLng") ?: 2.6288,
+                                  custLat = doc.getDouble("lat") ?: 36.4686,
+                                  custLng = doc.getDouble("lng") ?: 2.6288,
+                                  createdAt = doc.getString("createdAt") ?: ""
+                              )
+                              activeOrders.add(ord)
+
+                              // Trigger audio & notification if a new pending order arrived for drivers
+                              if (userRole == UserRole.DRIVER && ord.status == "pending" && incomingOrderAlert == null) {
+                                  incomingOrderAlert = ord
+                                  SoundHelper.playNotificationTone(context)
+                                  DeliveryNotificationHelper.sendOrderAlert(
+                                      context,
+                                      "طلب جديد وارد الآن! 🛵",
+                                      "من: ${ord.restaurant} - السعر: ${ord.price} دج"
+                                  )
+                              }
+
+                              // Alert customer on arrival (< 200m)
+                              if (userRole == UserRole.CUSTOMER && ord.status == "received") {
+                                  SoundHelper.playArrivalTone()
                               }
                           }
-                      } catch (e: Exception) {
-                          // Ignore failure
+
+                          if (userRole == UserRole.DRIVER) {
+                              val completed = activeOrders.filter { it.driverId == currentUserUid && it.status == "completed" }
+                              driverCompletedCount = completed.size
+                              driverEarnings = completed.sumOf { it.price }
+                              val distSum = completed.sumOf {
+                                  getDistanceInKm(it.storeLat, it.storeLng, it.custLat, it.custLng)
+                              }
+                              driverDebt = (distSum * 10.0).roundToInt()
+                          }
                       }
-                  } else {
-                      locationPermissionLauncher.launch(
-                          arrayOf(
-                              Manifest.permission.ACCESS_FINE_LOCATION,
-                              Manifest.permission.ACCESS_COARSE_LOCATION
-                          )
-                      )
                   }
+                  onDispose { listener?.remove() }
+              }
+
+              // Sync Chat Messages in realtime when an order is open
+              DisposableEffect(activeOrderIdForChat) {
+                  var chatListener: ListenerRegistration? = null
+                  if (activeOrderIdForChat.isNotEmpty()) {
+                      chatListener = db.collection("orders").document(activeOrderIdForChat)
+                          .collection("messages")
+                          .orderBy("sentAt")
+                          .addSnapshotListener { snap, _ ->
+                              if (snap != null) {
+                                  chatMessages.clear()
+                                  for (m in snap.documents) {
+                                      chatMessages.add(
+                                          ChatMessage(
+                                              sender = m.getString("sender") ?: "",
+                                              text = m.getString("text") ?: "",
+                                              sentAt = m.getString("sentAt") ?: ""
+                                          )
+                                      )
+                                  }
+                              }
+                          }
+                  }
+                  onDispose { chatListener?.remove() }
               }
 
               val colorScheme = if (isDarkMode) {
@@ -396,10 +832,7 @@ jobs:
               }
 
               MaterialTheme(colorScheme = colorScheme) {
-                  Surface(
-                      modifier = Modifier.fillMaxSize(),
-                      color = MaterialTheme.colorScheme.background
-                  ) {
+                  Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                       Column(modifier = Modifier.fillMaxSize()) {
                           TopAppBar(
                               title = {
@@ -437,9 +870,18 @@ jobs:
                                           tint = if (isDarkMode) Color.Yellow else MaterialTheme.colorScheme.onSurface
                                       )
                                   }
-                                  if (userLoggedIn) {
+
+                                  if (currentUserUid.isNotEmpty()) {
+                                      IconButton(onClick = { showProfileDialog = true }) {
+                                          Icon(
+                                              imageVector = Icons.Default.Person,
+                                              contentDescription = "Profile",
+                                              tint = PrimaryColor
+                                          )
+                                      }
                                       IconButton(onClick = {
-                                          userLoggedIn = false
+                                          auth.signOut()
+                                          currentUserUid = ""
                                           currentUserName = ""
                                           currentUserPhone = ""
                                           currentScreen = AppScreen.LANDING
@@ -452,9 +894,7 @@ jobs:
                                       }
                                   }
                               },
-                              colors = TopAppBarDefaults.topAppBarColors(
-                                  containerColor = MaterialTheme.colorScheme.surface
-                              )
+                              colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
                           )
 
                           Box(modifier = Modifier.weight(1f)) {
@@ -470,18 +910,26 @@ jobs:
                                               currentScreen = AppScreen.AUTH
                                           },
                                           onOpenAdmin = {
-                                              currentScreen = AppScreen.AUTH
                                               userRole = UserRole.ADMIN
+                                              currentScreen = AppScreen.AUTH
                                           }
                                       )
                                   }
                                   AppScreen.AUTH -> {
                                       AuthScreen(
                                           role = userRole,
-                                          onLoginSuccess = { name, phone ->
+                                          onLoginSuccess = { name, phone, uid ->
                                               currentUserName = name
                                               currentUserPhone = phone
-                                              userLoggedIn = true
+                                              currentUserUid = uid
+                                              if (userRole == UserRole.DRIVER) {
+                                                  val svcIntent = Intent(context, DeliveryBackgroundService::class.java)
+                                                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                      context.startForegroundService(svcIntent)
+                                                  } else {
+                                                      context.startService(svcIntent)
+                                                  }
+                                              }
                                               currentScreen = when (userRole) {
                                                   UserRole.CUSTOMER -> AppScreen.CUSTOMER_DASHBOARD
                                                   UserRole.DRIVER -> AppScreen.DRIVER_DASHBOARD
@@ -494,19 +942,22 @@ jobs:
                                   AppScreen.CUSTOMER_DASHBOARD -> {
                                       CustomerDashboard(
                                           userName = currentUserName,
+                                          userLat = currentLatitude,
+                                          userLng = currentLongitude,
                                           activeOrders = activeOrders,
                                           onOpenNewOrder = { showOrderDialog = true },
                                           onOpenHistory = { showHistoryDialog = true },
-                                          onOpenChat = { showChatDialog = true },
+                                          onOpenChat = { orderId ->
+                                              activeOrderIdForChat = orderId
+                                              showChatDialog = true
+                                          },
                                           onConfirmDelivered = { order ->
-                                              val idx = activeOrders.indexOfFirst { it.id == order.id }
-                                              if (idx != -1) {
-                                                  activeOrders[idx] = order.copy(status = "completed")
-                                              }
+                                              db.collection("orders").document(order.id)
+                                                  .update("status", "completed")
                                               showRatingDialog = true
                                           },
                                           onCancelOrder = { order ->
-                                              activeOrders.removeAll { it.id == order.id }
+                                              db.collection("orders").document(order.id).delete()
                                           }
                                       )
                                   }
@@ -514,87 +965,74 @@ jobs:
                                       DriverDashboard(
                                           driverName = currentUserName,
                                           driverPhone = currentUserPhone,
+                                          driverUid = currentUserUid,
                                           activeOrders = activeOrders,
                                           earnings = driverEarnings,
                                           completedCount = driverCompletedCount,
                                           debt = driverDebt,
-                                          onAcceptOrder = { order ->
-                                              val idx = activeOrders.indexOfFirst { it.id == order.id }
-                                              if (idx != -1) {
-                                                  activeOrders[idx] = order.copy(
-                                                      status = "accepted",
-                                                      driverName = currentUserName,
-                                                      driverPhone = currentUserPhone
-                                                  )
-                                              }
-                                              pendingIncomingOrder = null
-                                          },
                                           onUpdateStatus = { order, newStatus ->
-                                              val idx = activeOrders.indexOfFirst { it.id == order.id }
-                                              if (idx != -1) {
-                                                  activeOrders[idx] = order.copy(status = newStatus)
-                                              }
+                                              db.collection("orders").document(order.id)
+                                                  .update("status", newStatus)
                                           },
                                           onFinishDelivery = { order ->
-                                              val idx = activeOrders.indexOfFirst { it.id == order.id }
-                                              if (idx != -1) {
-                                                  activeOrders[idx] = order.copy(status = "delivered")
-                                                  driverEarnings += order.price
-                                                  driverCompletedCount += 1
-                                                  val dist = getDistanceInKm(
-                                                      order.storeLat, order.storeLng,
-                                                      order.custLat, order.custLng
-                                                  )
-                                                  driverDebt += (dist * 10.0).roundToInt()
-                                              }
+                                              db.collection("orders").document(order.id)
+                                                  .update("status", "delivered")
                                           },
-                                          onOpenChat = { showChatDialog = true },
+                                          onOpenChat = { orderId ->
+                                              activeOrderIdForChat = orderId
+                                              showChatDialog = true
+                                          },
                                           onOpenHistory = { showHistoryDialog = true }
                                       )
                                   }
                                   AppScreen.ADMIN_PANEL -> {
                                       AdminPanelScreen(
-                                          stores = initialStores,
+                                          stores = storesList,
                                           orders = activeOrders,
                                           onAddStore = { name, lat, lng ->
-                                              initialStores.add(
-                                                  StoreItem((initialStores.size + 1).toString(), name, lat, lng)
-                                              )
+                                              val storeMap = hashMapOf("name" to name, "lat" to lat, "lng" to lng)
+                                              db.collection("stores").add(storeMap)
                                           },
                                           onBackToHome = { currentScreen = AppScreen.LANDING }
                                       )
                                   }
                               }
 
-                              pendingIncomingOrder?.let { incoming ->
+                              incomingOrderAlert?.let { incoming ->
                                   DriverIncomingOrderModal(
                                       order = incoming,
                                       onAccept = {
-                                          val idx = activeOrders.indexOfFirst { it.id == incoming.id }
-                                          if (idx != -1) {
-                                              activeOrders[idx] = incoming.copy(
-                                                  status = "accepted",
-                                                  driverName = currentUserName,
-                                                  driverPhone = currentUserPhone
+                                          db.collection("orders").document(incoming.id).update(
+                                              mapOf(
+                                                  "status" to "accepted",
+                                                  "driverId" to currentUserUid,
+                                                  "driverName" to currentUserName,
+                                                  "driverPhone" to currentUserPhone
                                               )
-                                          }
-                                          pendingIncomingOrder = null
+                                          )
+                                          incomingOrderAlert = null
                                       },
                                       onReject = {
-                                          pendingIncomingOrder = null
+                                          incomingOrderAlert = null
                                       }
                                   )
                               }
 
                               if (showOrderDialog) {
                                   CreateOrderDialog(
-                                      stores = initialStores,
+                                      stores = storesList,
                                       userLat = currentLatitude,
                                       userLng = currentLongitude,
                                       onDismiss = { showOrderDialog = false },
-                                      onSubmitOrder = { newOrder ->
-                                          activeOrders.add(newOrder)
-                                          pendingIncomingOrder = newOrder
+                                      onSubmitOrder = { newOrderMap ->
+                                          val orderData = newOrderMap.toMutableMap()
+                                          orderData["customerId"] = currentUserUid
+                                          orderData["customerName"] = currentUserName
+                                          orderData["customerPhone"] = currentUserPhone
+                                          orderData["status"] = "pending"
+                                          orderData["createdAt"] = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+
+                                          db.collection("orders").add(orderData)
                                           showOrderDialog = false
                                       }
                                   )
@@ -607,13 +1045,28 @@ jobs:
                                   )
                               }
 
+                              if (showProfileDialog) {
+                                  ProfileDialog(
+                                      name = currentUserName,
+                                      phone = currentUserPhone,
+                                      onDismiss = { showProfileDialog = false },
+                                      onSave = { newName, newPhone ->
+                                          db.collection("users").document(currentUserUid)
+                                              .update("name", newName, "phoneNumber", newPhone)
+                                          currentUserName = newName
+                                          currentUserPhone = newPhone
+                                          showProfileDialog = false
+                                      }
+                                  )
+                              }
+
                               if (showRatingDialog) {
                                   RatingDialog(
                                       onDismiss = { showRatingDialog = false },
                                       onRated = {
                                           showRatingDialog = false
-                                          infoDialogTitle = "شكراً لتقييمك"
-                                          infoDialogMessage = "تم تسجيل تقييمك لعامل التوصيل بنجاح لمساعدتنا على تحسين الخدمة."
+                                          infoTitle = "شكراً لتقييمك"
+                                          infoMessage = "تم تسجيل تقييمك لعامل التوصيل بنجاح."
                                           showInfoDialog = true
                                       }
                                   )
@@ -624,19 +1077,28 @@ jobs:
                                       senderRole = if (userRole == UserRole.CUSTOMER) "الزبون" else "السائق",
                                       messages = chatMessages,
                                       onSendMessage = { text ->
-                                          val time = "الآن"
-                                          val sender = if (userRole == UserRole.CUSTOMER) "الزبون" else "السائق"
-                                          chatMessages.add(ChatMessage(sender, text, time))
+                                          if (activeOrderIdForChat.isNotEmpty()) {
+                                              val msgMap = hashMapOf(
+                                                  "sender" to (if (userRole == UserRole.CUSTOMER) "customer" else "driver"),
+                                                  "text" to text,
+                                                  "sentAt" to java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+                                              )
+                                              db.collection("orders").document(activeOrderIdForChat)
+                                                  .collection("messages").add(msgMap)
+                                          }
                                       },
-                                      onDismiss = { showChatDialog = false }
+                                      onDismiss = {
+                                          showChatDialog = false
+                                          activeOrderIdForChat = ""
+                                      }
                                   )
                               }
 
                               if (showInfoDialog) {
                                   AlertDialog(
                                       onDismissRequest = { showInfoDialog = false },
-                                      title = { Text(text = infoDialogTitle, fontWeight = FontWeight.Bold) },
-                                      text = { Text(text = infoDialogMessage, fontSize = 13.sp) },
+                                      title = { Text(text = infoTitle, fontWeight = FontWeight.Bold) },
+                                      text = { Text(text = infoMessage, fontSize = 13.sp) },
                                       confirmButton = {
                                           TextButton(onClick = { showInfoDialog = false }) {
                                               Text(text = "حسناً", color = PrimaryColor, fontWeight = FontWeight.Bold)
@@ -648,6 +1110,56 @@ jobs:
                       }
                   }
               }
+          }
+
+          @Composable
+          fun RealtimeMapView(
+              centerLat: Double,
+              centerLng: Double,
+              destinationLat: Double? = null,
+              destinationLng: Double? = null,
+              modifier: Modifier = Modifier
+          ) {
+              AndroidView(
+                  modifier = modifier.fillMaxSize(),
+                  factory = { ctx ->
+                      MapView(ctx).apply {
+                          setTileSource(TileSourceFactory.MAPNIK)
+                          setMultiTouchControls(true)
+                          controller.setZoom(15.5)
+                          controller.setCenter(GeoPoint(centerLat, centerLng))
+                      }
+                  },
+                  update = { mapView ->
+                      mapView.overlays.clear()
+                      val centerPoint = GeoPoint(centerLat, centerLng)
+                      val centerMarker = Marker(mapView).apply {
+                          position = centerPoint
+                          setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                          title = "الموقع الحالي"
+                      }
+                      mapView.overlays.add(centerMarker)
+
+                      if (destinationLat != null && destinationLng != null) {
+                          val destPoint = GeoPoint(destinationLat, destinationLng)
+                          val destMarker = Marker(mapView).apply {
+                              position = destPoint
+                              setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                              title = "المقصد / المطعم"
+                          }
+                          mapView.overlays.add(destMarker)
+
+                          val line = Polyline(mapView).apply {
+                              addPoint(centerPoint)
+                              addPoint(destPoint)
+                              outlinePaint.color = android.graphics.Color.parseColor("#FF7E00")
+                              outlinePaint.strokeWidth = 10f
+                          }
+                          mapView.overlays.add(line)
+                      }
+                      mapView.invalidate()
+                  }
+              )
           }
 
           @Composable
@@ -691,7 +1203,7 @@ jobs:
                   Spacer(modifier = Modifier.height(10.dp))
 
                   Text(
-                      text = "المنصة الأحدث لتتبع وتوصيل طلباتك في العفرون وضواحيها بكل سلاسة، أمان وسرعة حقيقية.",
+                      text = "المنصة الأحدث لتتبع وتوصيل طلباتك في العفرون وضواحيها بكل سلاسة، أمان وسرعة حقيقية مع Firebase وOpenStreetMap.",
                       fontSize = 14.sp,
                       textAlign = TextAlign.Center,
                       color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
@@ -743,9 +1255,11 @@ jobs:
           @Composable
           fun AuthScreen(
               role: UserRole,
-              onLoginSuccess: (name: String, phone: String) -> Unit,
+              onLoginSuccess: (name: String, phone: String, uid: String) -> Unit,
               onCancel: () -> Unit
           ) {
+              val auth = Firebase.auth
+              val db = Firebase.firestore
               var isRegisterMode by remember { mutableStateOf(false) }
               var name by remember { mutableStateOf("") }
               var phone by remember { mutableStateOf("") }
@@ -755,6 +1269,7 @@ jobs:
               var termsAccepted by remember { mutableStateOf(false) }
               var ageAccepted by remember { mutableStateOf(false) }
               var errorMessage by remember { mutableStateOf("") }
+              var isLoading by remember { mutableStateOf(false) }
 
               LazyColumn(
                   modifier = Modifier
@@ -774,8 +1289,8 @@ jobs:
 
                       Text(
                           text = when (role) {
-                              UserRole.CUSTOMER -> "بوابة حسابات الزبائن"
-                              UserRole.DRIVER -> "بوابة عمال التوصيل"
+                              UserRole.CUSTOMER -> "بوابة حسابات الزبائن (Firebase Auth)"
+                              UserRole.DRIVER -> "بوابة عمال التوصيل (Firebase Auth)"
                               UserRole.ADMIN -> "تحقق رقمي محمي للإدارة"
                           },
                           fontSize = 12.sp,
@@ -878,7 +1393,7 @@ jobs:
                               errorMessage = ""
                               if (role == UserRole.ADMIN) {
                                   if (email == "admin009" && password == "abobob123") {
-                                      onLoginSuccess("المسؤول العام", "0555000000")
+                                      onLoginSuccess("المسؤول العام", "0555000000", "admin_static_uid")
                                   } else {
                                       errorMessage = "بيانات الإدارة غير صحيحة"
                                   }
@@ -902,28 +1417,77 @@ jobs:
                                       errorMessage = "يجب تأكيد السن فوق 18 سنة"
                                       return@Button
                                   }
-                                  onLoginSuccess(name, phone)
+
+                                  isLoading = true
+                                  auth.createUserWithEmailAndPassword(email.trim(), password)
+                                      .addOnSuccessListener { cred ->
+                                          val uid = cred.user?.uid ?: ""
+                                          val userMap = hashMapOf(
+                                              "name" to name.trim(),
+                                              "phoneNumber" to phone.trim(),
+                                              "email" to email.trim(),
+                                              "role" to (if (role == UserRole.DRIVER) "driver" else "customer"),
+                                              "blocked" to false,
+                                              "approved" to (role != UserRole.DRIVER),
+                                              "debt" to 0
+                                          )
+                                          db.collection("users").document(uid).set(userMap)
+                                              .addOnSuccessListener {
+                                                  isLoading = false
+                                                  onLoginSuccess(name.trim(), phone.trim(), uid)
+                                              }
+                                              .addOnFailureListener { e ->
+                                                  isLoading = false
+                                                  errorMessage = e.localizedMessage ?: "حدث خطأ أثناء حفظ الملف"
+                                              }
+                                      }
+                                      .addOnFailureListener { e ->
+                                          isLoading = false
+                                          errorMessage = e.localizedMessage ?: "فشل إنشاء الحساب"
+                                      }
                               } else {
                                   if (email.isBlank() || password.isBlank()) {
                                       errorMessage = "يرجى إدخال البريد وكلمة المرور"
                                       return@Button
                                   }
-                                  val fallbackName = if (role == UserRole.DRIVER) "سائق العفرون" else "زبون العفرون"
-                                  val fallbackPhone = "0555123456"
-                                  onLoginSuccess(fallbackName, fallbackPhone)
+                                  isLoading = true
+                                  auth.signInWithEmailAndPassword(email.trim(), password)
+                                      .addOnSuccessListener { cred ->
+                                          val uid = cred.user?.uid ?: ""
+                                          db.collection("users").document(uid).get()
+                                              .addOnSuccessListener { snap ->
+                                                  isLoading = false
+                                                  val fetchedName = snap.getString("name") ?: "مستخدم"
+                                                  val fetchedPhone = snap.getString("phoneNumber") ?: ""
+                                                  onLoginSuccess(fetchedName, fetchedPhone, uid)
+                                              }
+                                              .addOnFailureListener {
+                                                  isLoading = false
+                                                  onLoginSuccess("مستخدم", "", uid)
+                                              }
+                                      }
+                                      .addOnFailureListener { e ->
+                                          isLoading = false
+                                          errorMessage = e.localizedMessage ?: "فشل تسجيل الدخول"
+                                      }
                               }
                           },
                           modifier = Modifier
                               .fillMaxWidth()
                               .height(50.dp),
                           shape = RoundedCornerShape(14.dp),
-                          colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                          colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
+                          enabled = !isLoading
                       ) {
-                          Text(
-                              text = if (isRegisterMode) "تسجيل حساب جديد" else "تسجيل الدخول",
-                              fontWeight = FontWeight.Bold,
-                              fontSize = 14.sp
-                          )
+                          if (isLoading) {
+                              CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                          } else {
+                              Text(
+                                  text = if (isRegisterMode) "تسجيل حساب جديد" else "تسجيل الدخول",
+                                  fontWeight = FontWeight.Bold,
+                                  fontSize = 14.sp
+                              )
+                          }
                       }
 
                       if (role != UserRole.ADMIN) {
@@ -952,10 +1516,12 @@ jobs:
           @Composable
           fun CustomerDashboard(
               userName: String,
+              userLat: Double,
+              userLng: Double,
               activeOrders: List<Order>,
               onOpenNewOrder: () -> Unit,
               onOpenHistory: () -> Unit,
-              onOpenChat: () -> Unit,
+              onOpenChat: (String) -> Unit,
               onConfirmDelivered: (Order) -> Unit,
               onCancelOrder: (Order) -> Unit
           ) {
@@ -971,7 +1537,7 @@ jobs:
                       ) {
                           if (currentRunningOrder != null && currentRunningOrder.status != "pending") {
                               FloatingActionButton(
-                                  onClick = onOpenChat,
+                                  onClick = { onOpenChat(currentRunningOrder.id) },
                                   containerColor = AccentBlue,
                                   contentColor = Color.White,
                                   shape = CircleShape
@@ -1044,42 +1610,12 @@ jobs:
                           colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                           border = CardDefaults.outlinedCardBorder()
                       ) {
-                          Box(
-                              modifier = Modifier
-                                  .fillMaxSize()
-                                  .padding(16.dp),
-                              contentAlignment = Alignment.Center
-                          ) {
-                              Column(
-                                  horizontalAlignment = Alignment.CenterHorizontally,
-                                  verticalArrangement = Arrangement.Center
-                              ) {
-                                  Icon(
-                                      imageVector = Icons.Default.Map,
-                                      contentDescription = "Map Placeholder",
-                                      tint = PrimaryColor.copy(alpha = 0.6f),
-                                      modifier = Modifier.size(64.dp)
-                                  )
-                                  Spacer(modifier = Modifier.height(12.dp))
-                                  Text(
-                                      text = "خريطة تتبع العفرون الحية (2D)",
-                                      fontWeight = FontWeight.Bold,
-                                      fontSize = 15.sp
-                                  )
-                                  Spacer(modifier = Modifier.height(6.dp))
-                                  Text(
-                                      text = if (currentRunningOrder != null) {
-                                          "يتم الآن توجيه الطلب من [${currentRunningOrder.restaurant}] إلى موقعك المعتمد عبر GPS."
-                                      } else {
-                                          "اضغط على زر (اطلب الآن) لإنشاء طلبية توصيل فورية من المتاجر المقترحة."
-                                      },
-                                      fontSize = 12.sp,
-                                      textAlign = TextAlign.Center,
-                                      color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                                      modifier = Modifier.padding(horizontal = 20.dp)
-                                  )
-                              }
-                          }
+                          RealtimeMapView(
+                              centerLat = userLat,
+                              centerLng = userLng,
+                              destinationLat = currentRunningOrder?.storeLat,
+                              destinationLng = currentRunningOrder?.storeLng
+                          )
                       }
                   }
               }
@@ -1207,18 +1743,18 @@ jobs:
           fun DriverDashboard(
               driverName: String,
               driverPhone: String,
+              driverUid: String,
               activeOrders: List<Order>,
               earnings: Int,
               completedCount: Int,
               debt: Int,
-              onAcceptOrder: (Order) -> Unit,
               onUpdateStatus: (Order, String) -> Unit,
               onFinishDelivery: (Order) -> Unit,
-              onOpenChat: () -> Unit,
+              onOpenChat: (String) -> Unit,
               onOpenHistory: () -> Unit
           ) {
               val currentDelivery = activeOrders.firstOrNull {
-                  it.driverPhone == driverPhone && it.status in listOf("accepted", "to_store", "received")
+                  it.driverId == driverUid && it.status in listOf("accepted", "to_store", "received")
               }
 
               LazyColumn(
@@ -1240,7 +1776,7 @@ jobs:
                                   fontWeight = FontWeight.Bold
                               )
                               Text(
-                                  text = "جاهز لتلقي طلبات التوصيل",
+                                  text = "جاهز لتلقي طلبات التوصيل عبر Firebase",
                                   fontSize = 12.sp,
                                   color = AccentGreen
                               )
@@ -1341,7 +1877,7 @@ jobs:
                                   Spacer(modifier = Modifier.height(10.dp))
 
                                   Button(
-                                      onClick = onOpenChat,
+                                      onClick = { onOpenChat(currentDelivery.id) },
                                       modifier = Modifier.fillMaxWidth(),
                                       shape = RoundedCornerShape(10.dp),
                                       colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
@@ -1351,6 +1887,24 @@ jobs:
                                       Text(text = "محادثة الزبون", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                   }
                               }
+                          }
+                      }
+
+                      item {
+                          Card(
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .height(240.dp),
+                              shape = RoundedCornerShape(20.dp),
+                              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                              border = CardDefaults.outlinedCardBorder()
+                          ) {
+                              RealtimeMapView(
+                                  centerLat = currentDelivery.storeLat,
+                                  centerLng = currentDelivery.storeLng,
+                                  destinationLat = currentDelivery.custLat,
+                                  destinationLng = currentDelivery.custLng
+                              )
                           }
                       }
                   } else {
@@ -1524,12 +2078,12 @@ jobs:
               userLat: Double,
               userLng: Double,
               onDismiss: () -> Unit,
-              onSubmitOrder: (Order) -> Unit
+              onSubmitOrder: (Map<String, Any>) -> Unit
           ) {
               var selectedStore by remember { mutableStateOf(stores.firstOrNull()) }
-              var customerAddress by remember { mutableStateOf("حي النصر، العفرون") }
+              var customerAddress by remember { mutableStateOf("العفرون") }
               var note by remember { mutableStateOf("") }
-              val products = remember { mutableStateListOf(OrderProduct("وجبة مميزة", 1)) }
+              val products = remember { mutableStateListOf(OrderProduct("وجبة طعام", 1)) }
 
               val dist = remember(selectedStore, userLat, userLng) {
                   val s = selectedStore
@@ -1691,20 +2245,20 @@ jobs:
                               Button(
                                   onClick = {
                                       val validStore = selectedStore ?: stores.first()
-                                      val order = Order(
-                                          id = System.currentTimeMillis().toString(),
-                                          restaurant = validStore.name,
-                                          customerAddress = customerAddress,
-                                          price = calculatedPrice,
-                                          items = products.filter { it.name.isNotBlank() },
-                                          note = note,
-                                          status = "pending",
-                                          storeLat = validStore.lat,
-                                          storeLng = validStore.lng,
-                                          custLat = userLat,
-                                          custLng = userLng
+                                      val orderMap = mapOf(
+                                          "restaurant" to validStore.name,
+                                          "storeLat" to validStore.lat,
+                                          "storeLng" to validStore.lng,
+                                          "customerAddress" to customerAddress,
+                                          "lat" to userLat,
+                                          "lng" to userLng,
+                                          "price" to calculatedPrice,
+                                          "items" to products.filter { it.name.isNotBlank() }.map {
+                                              mapOf("name" to it.name, "qty" to it.qty)
+                                          },
+                                          "note" to note
                                       )
-                                      onSubmitOrder(order)
+                                      onSubmitOrder(orderMap)
                                   },
                                   modifier = Modifier
                                       .fillMaxWidth()
@@ -1776,7 +2330,8 @@ jobs:
                                   }
                               }
                               items(messages) { msg ->
-                                  val isMe = msg.sender == senderRole
+                                  val isMe = (msg.sender == "customer" && senderRole == "الزبون") ||
+                                          (msg.sender == "driver" && senderRole == "السائق")
                                   Column(
                                       modifier = Modifier.fillMaxWidth(),
                                       horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
@@ -1820,6 +2375,70 @@ jobs:
                                   }
                               ) {
                                   Icon(imageVector = Icons.Default.Send, contentDescription = "Send", tint = PrimaryColor)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun ProfileDialog(
+              name: String,
+              phone: String,
+              onDismiss: () -> Unit,
+              onSave: (String, String) -> Unit
+          ) {
+              var editName by remember { mutableStateOf(name) }
+              var editPhone by remember { mutableStateOf(phone) }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      shape = RoundedCornerShape(20.dp),
+                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                  ) {
+                      Column(
+                          modifier = Modifier.padding(20.dp),
+                          verticalArrangement = Arrangement.spacedBy(12.dp)
+                      ) {
+                          Text(text = "تعديل الملف الشخصي", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PrimaryColor)
+
+                          OutlinedTextField(
+                              value = editName,
+                              onValueChange = { editName = it },
+                              label = { Text("الاسم") },
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(10.dp)
+                          )
+
+                          OutlinedTextField(
+                              value = editPhone,
+                              onValueChange = { editPhone = it },
+                              label = { Text("رقم الهاتف") },
+                              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(10.dp)
+                          )
+
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                          ) {
+                              OutlinedButton(
+                                  onClick = onDismiss,
+                                  modifier = Modifier.weight(1f),
+                                  shape = RoundedCornerShape(10.dp)
+                              ) {
+                                  Text("إلغاء")
+                              }
+                              Button(
+                                  onClick = { onSave(editName, editPhone) },
+                                  modifier = Modifier.weight(1f),
+                                  shape = RoundedCornerShape(10.dp),
+                                  colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                              ) {
+                                  Text("حفظ", fontWeight = FontWeight.Bold)
                               }
                           }
                       }
@@ -2118,5 +2737,5 @@ jobs:
       - name: Upload Artifact APK
         uses: actions/upload-artifact@v4
         with:
-          name: ElaffrounDelivery-Debug-APK
+          name: ElaffrounDelivery-Complete-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
