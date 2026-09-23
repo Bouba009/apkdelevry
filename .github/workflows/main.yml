@@ -61,7 +61,6 @@ jobs:
           plugins {
               id("com.android.application") version "8.4.1" apply false
               id("org.jetbrains.kotlin.android") version "1.9.23" apply false
-              id("com.google.gms.google-services") version "4.4.1" apply false
           }
           EOF
 
@@ -70,7 +69,6 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">el affroun delevry</string>
-              <string name="default_web_client_id">703541527613-webclient.apps.googleusercontent.com</string>
           </resources>
           EOF
 
@@ -96,85 +94,25 @@ jobs:
               <path
                   android:fillColor="#FF5E00"
                   android:pathData="M0,0h108v108h-108z"/>
-              <!-- White Outer Ring -->
-              <path
-                  android:fillColor="#00000000"
-                  android:strokeColor="#FFFFFF"
-                  android:strokeWidth="4"
-                  android:pathData="M54,12 A42,42 0 1,1 53.9,12"/>
-              <!-- Delivery Box / Parcel on Back -->
-              <path
-                  android:fillColor="#FFCC00"
-                  android:pathData="M30,42 h16 v16 h-16 z"/>
-              <path
-                  android:strokeColor="#FFFFFF"
-                  android:strokeWidth="2"
-                  android:pathData="M30,50 h16 M38,42 v16"/>
-              <!-- Driver Helmet -->
               <path
                   android:fillColor="#FFFFFF"
-                  android:pathData="M52,36 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0"/>
-              <!-- Motorcycle Frame and Rider Body -->
-              <path
-                  android:strokeColor="#FFFFFF"
-                  android:strokeWidth="4"
-                  android:strokeCap="round"
-                  android:pathData="M44,54 L56,44 L64,54 L76,54 M56,44 L68,44"/>
-              <!-- Wheels -->
-              <path
-                  android:strokeColor="#FFFFFF"
-                  android:strokeWidth="4"
-                  android:fillColor="#00000000"
-                  android:pathData="M36,70 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0 M68,70 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0"/>
+                  android:pathData="M54,18 C34.1,18 18,34.1 18,54 C18,73.9 34.1,90 54,90 C73.9,90 90,73.9 90,54 C90,34.1 73.9,18 54,18 Z M54,82 C38.5,82 26,69.5 26,54 C26,38.5 38.5,26 54,26 C69.5,26 82,38.5 82,54 C82,69.5 69.5,82 54,82 Z"/>
               <path
                   android:fillColor="#FFFFFF"
-                  android:pathData="M46,70 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 M78,70 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"/>
-              <!-- Speed Lines -->
+                  android:pathData="M38,44 L70,44 L70,68 L38,68 Z"/>
               <path
-                  android:strokeColor="#FFFFFF"
-                  android:strokeWidth="3"
-                  android:strokeCap="round"
-                  android:pathData="M18,48 h8 M14,56 h10 M20,64 h6"/>
+                  android:fillColor="#FF5E00"
+                  android:pathData="M42,48 L66,48 L66,64 L42,64 Z"/>
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M48,52 L60,52 L60,60 L48,60 Z"/>
           </vector>
-          EOF
-
-          cat << 'EOF' > app/google-services.json
-          {
-            "project_info": {
-              "project_number": "703541527613",
-              "project_id": "filahadz-31183",
-              "storage_bucket": "filahadz-31183.firebasestorage.app"
-            },
-            "client": [
-              {
-                "client_info": {
-                  "mobilesdk_app_id": "1:703541527613:android:7d3af803ba09c894d4d654",
-                  "android_client_info": {
-                    "package_name": "com.elaffroun.delivery"
-                  }
-                },
-                "oauth_client": [],
-                "api_key": [
-                  {
-                    "current_key": "AIzaSyDXdDA6rH50zAv5pmZKRkXnqosoFnC3GjY"
-                  }
-                ],
-                "services": {
-                  "appinvite_service": {
-                    "other_platform_oauth_client": []
-                  }
-                }
-              }
-            ],
-            "configuration_version": "1"
-          }
           EOF
 
           cat << 'EOF' > app/build.gradle.kts
           plugins {
               id("com.android.application")
               id("org.jetbrains.kotlin.android")
-              id("com.google.gms.google-services")
           }
 
           android {
@@ -185,8 +123,8 @@ jobs:
                   applicationId = "com.elaffroun.delivery"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 6
-                  versionName = "6.0"
+                  versionCode = 7
+                  versionName = "7.0"
               }
 
               buildTypes {
@@ -262,7 +200,6 @@ jobs:
               <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
               <uses-permission android:name="android.permission.VIBRATE" />
               <uses-permission android:name="android.permission.CALL_PHONE" />
 
@@ -286,8 +223,7 @@ jobs:
 
                   <service
                       android:name=".DeliveryBackgroundService"
-                      android:exported="false"
-                      android:foregroundServiceType="location" />
+                      android:exported="false" />
               </application>
 
           </manifest>
@@ -385,7 +321,6 @@ jobs:
           import android.content.Intent
           import android.os.IBinder
           import androidx.core.app.NotificationCompat
-          import com.google.firebase.auth.ktx.auth
           import com.google.firebase.firestore.DocumentChange
           import com.google.firebase.firestore.ListenerRegistration
           import com.google.firebase.firestore.ktx.firestore
@@ -606,7 +541,7 @@ jobs:
                           connection.connectTimeout = 7000
                           connection.readTimeout = 7000
                           connection.requestMethod = "GET"
-                          connection.setRequestProperty("User-Agent", "elaffroundelevry/6.0")
+                          connection.setRequestProperty("User-Agent", "elaffroundelevry/7.0")
 
                           if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                               val reader = BufferedReader(InputStreamReader(connection.inputStream))
@@ -628,7 +563,7 @@ jobs:
                               }
                           }
                       } catch (e: Exception) {
-                          // Try next mirror
+                          // Try mirror
                       }
                   }
 
@@ -649,7 +584,6 @@ jobs:
           import androidx.compose.runtime.Composable
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.geometry.Offset
-          import androidx.compose.ui.geometry.Rect
           import androidx.compose.ui.geometry.Size
           import androidx.compose.ui.graphics.Color
           import androidx.compose.ui.graphics.Path
@@ -660,8 +594,8 @@ jobs:
           @Composable
           fun GoogleOfficialIcon(size: Dp = 22.dp) {
               Canvas(modifier = Modifier.size(size)) {
-                  val w = this.size.width
-                  val h = this.size.height
+                  val w = this.size.width.coerceAtLeast(1f)
+                  val h = this.size.height.coerceAtLeast(1f)
                   val center = Offset(w / 2f, h / 2f)
                   val radius = w * 0.44f
 
@@ -675,32 +609,32 @@ jobs:
                       startAngle = 180f,
                       sweepAngle = 90f,
                       useCenter = true,
-                      size = Size(radius * 2f, radius * 2f),
-                      topLeft = Offset(center.x - radius, center.y - radius)
+                      topLeft = Offset(center.x - radius, center.y - radius),
+                      size = Size(radius * 2f, radius * 2f)
                   )
                   drawArc(
                       color = yellow,
                       startAngle = 90f,
                       sweepAngle = 90f,
                       useCenter = true,
-                      size = Size(radius * 2f, radius * 2f),
-                      topLeft = Offset(center.x - radius, center.y - radius)
+                      topLeft = Offset(center.x - radius, center.y - radius),
+                      size = Size(radius * 2f, radius * 2f)
                   )
                   drawArc(
                       color = green,
                       startAngle = 0f,
                       sweepAngle = 90f,
                       useCenter = true,
-                      size = Size(radius * 2f, radius * 2f),
-                      topLeft = Offset(center.x - radius, center.y - radius)
+                      topLeft = Offset(center.x - radius, center.y - radius),
+                      size = Size(radius * 2f, radius * 2f)
                   )
                   drawArc(
                       color = blue,
                       startAngle = 270f,
                       sweepAngle = 90f,
                       useCenter = true,
-                      size = Size(radius * 2f, radius * 2f),
-                      topLeft = Offset(center.x - radius, center.y - radius)
+                      topLeft = Offset(center.x - radius, center.y - radius),
+                      size = Size(radius * 2f, radius * 2f)
                   )
 
                   drawCircle(
@@ -720,8 +654,8 @@ jobs:
           @Composable
           fun FacebookOfficialIcon(size: Dp = 22.dp) {
               Canvas(modifier = Modifier.size(size)) {
-                  val w = this.size.width
-                  val h = this.size.height
+                  val w = this.size.width.coerceAtLeast(1f)
+                  val h = this.size.height.coerceAtLeast(1f)
                   val blue = Color(0xFF1877F2.toInt())
                   val white = Color.White
 
@@ -802,6 +736,8 @@ jobs:
           import com.google.android.gms.common.api.ApiException
           import com.google.android.gms.location.LocationServices
           import com.google.android.gms.location.Priority
+          import com.google.firebase.FirebaseApp
+          import com.google.firebase.FirebaseOptions
           import com.google.firebase.auth.GoogleAuthProvider
           import com.google.firebase.auth.OAuthProvider
           import com.google.firebase.auth.ktx.auth
@@ -885,6 +821,22 @@ jobs:
                   super.onCreate(savedInstanceState)
                   Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
                   Configuration.getInstance().userAgentValue = packageName
+                  DeliveryNotificationHelper.initChannels(this)
+
+                  try {
+                      if (FirebaseApp.getApps(this).isEmpty()) {
+                          val options = FirebaseOptions.Builder()
+                              .setApiKey("AIzaSyDXdDA6rH50zAv5pmZKRkXnqosoFnC3GjY")
+                              .setApplicationId("1:703541527613:android:7d3af803ba09c894d4d654")
+                              .setProjectId("filahadz-31183")
+                              .setStorageBucket("filahadz-31183.firebasestorage.app")
+                              .setGcmSenderId("703541527613")
+                              .build()
+                          FirebaseApp.initializeApp(this, options)
+                      }
+                  } catch (e: Exception) {
+                      // Handled safely
+                  }
 
                   setContent {
                       QuickDeliverMergedApp()
@@ -1691,7 +1643,8 @@ jobs:
               var errorMessage by remember { mutableStateOf("") }
               var isLoading by remember { mutableStateOf(false) }
 
-              // Genuine Google Sign-In with real Firebase credential verification
+              val defaultWebClientId = "703541527613-webclient.apps.googleusercontent.com"
+
               val googleSignInLauncher = rememberLauncherForActivityResult(
                   contract = ActivityResultContracts.StartActivityForResult()
               ) { result ->
@@ -1763,11 +1716,10 @@ jobs:
                               modifier = Modifier.fillMaxWidth(),
                               horizontalArrangement = Arrangement.spacedBy(10.dp)
                           ) {
-                              // Real Google Button with Official Multi-Color Logo
                               Button(
                                   onClick = {
                                       val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                                          .requestIdToken(context.getString(R.string.default_web_client_id))
+                                          .requestIdToken(defaultWebClientId)
                                           .requestEmail()
                                           .build()
                                       val client = GoogleSignIn.getClient(context, gso)
@@ -1785,7 +1737,6 @@ jobs:
                                   Text("Google", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = QdTextDark)
                               }
 
-                              // Real Facebook Button with Official Brand Logo
                               Button(
                                   onClick = {
                                       val provider = OAuthProvider.newBuilder("facebook.com")
@@ -1969,7 +1920,6 @@ jobs:
               onSelectStore: (StoreModel) -> Unit,
               onOrderBannerClick: () -> Unit
           ) {
-              // Real Filtering logic by search and category
               val filteredStores = stores.filter { item ->
                   val matchesCategory = (selectedCategory == "الكل" || item.category == selectedCategory)
                   val matchesSearch = (searchQuery.isBlank() ||
@@ -1987,7 +1937,6 @@ jobs:
               ) {
                   item {
                       Spacer(modifier = Modifier.height(8.dp))
-                      // Working Search Bar
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -2020,7 +1969,6 @@ jobs:
                   }
 
                   item {
-                      // 5 Selectable Interactive Categories including "سلع وبضائع"
                       LazyRow(
                           modifier = Modifier.fillMaxWidth(),
                           horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -2069,7 +2017,6 @@ jobs:
                   }
 
                   item {
-                      // Promo Banner
                       Card(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -2157,7 +2104,7 @@ jobs:
                       .clip(RoundedCornerShape(16.dp))
                       .background(if (isSelected) QdOrange else Color.White)
                       .border(1.dp, if (isSelected) QdOrange else QdBorder, RoundedCornerShape(16.dp))
-                      .clickable { onClick() }
+                      .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onClick() }
                       .padding(horizontal = 14.dp, vertical = 10.dp)
               ) {
                   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -2275,7 +2222,6 @@ jobs:
                           Text(text = "تأكيد الطلب والتوصيل", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                       }
 
-                      // Store Info
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -2307,7 +2253,6 @@ jobs:
                           }
                       }
 
-                      // Delivery Address
                       Row(
                           modifier = Modifier
                               .fillMaxWidth()
@@ -2339,7 +2284,6 @@ jobs:
                           )
                       }
 
-                      // Note field
                       OutlinedTextField(
                           value = orderNote,
                           onValueChange = { orderNote = it },
@@ -2350,7 +2294,6 @@ jobs:
 
                       Divider(color = QdBorder)
 
-                      // Pricing Breakdown (50 DA / 500m logic)
                       Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                               Text(text = "المبلغ المبدئي للمنتجات", color = QdTextMuted, fontSize = 13.sp)
@@ -2565,7 +2508,7 @@ jobs:
                                           .size(42.dp)
                                           .clip(CircleShape)
                                           .background(QdOrange)
-                                  ) {
+                              ) {
                                       Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                                   }
                                   IconButton(
@@ -2580,7 +2523,6 @@ jobs:
                               }
                           }
                       } else {
-                          // Placeholder when waiting for driver acceptance
                           Row(
                               modifier = Modifier.padding(16.dp),
                               verticalAlignment = Alignment.CenterVertically,
@@ -3035,7 +2977,7 @@ jobs:
                       modifier = Modifier
                           .size(44.dp)
                           .clip(CircleShape)
-                      .background(QdOrange.copy(alpha = 0.12f)),
+                          .background(QdOrange.copy(alpha = 0.12f)),
                       contentAlignment = Alignment.Center
                   ) {
                       Icon(icon, contentDescription = null, tint = QdOrange, modifier = Modifier.size(22.dp))
@@ -3671,5 +3613,5 @@ jobs:
       - name: Upload Artifact APK
         uses: actions/upload-artifact@v4
         with:
-          name: el-affroun-delevry-Debug-APK
+          name: el-affroun-delevry-Complete-APK
           path: app/build/outputs/apk/debug/app-debug.apk
