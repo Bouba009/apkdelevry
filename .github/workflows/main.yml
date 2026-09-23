@@ -70,6 +70,7 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">العفرون أونلاين ديليفري</string>
+              <string name="default_web_client_id">703541527613-webclient.apps.googleusercontent.com</string>
           </resources>
           EOF
 
@@ -77,8 +78,9 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <style name="Theme.ElaffrounDelivery" parent="android:Theme.Material.Light.NoActionBar">
-                  <item name="android:statusBarColor">#FF7E00</item>
+                  <item name="android:statusBarColor">#0F111A</item>
                   <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:navigationBarColor">#0F111A</item>
               </style>
           </resources>
           EOF
@@ -131,7 +133,7 @@ jobs:
                   minSdk = 26
                   targetSdk = 34
                   versionCode = 1
-                  versionName = "1.0"
+                  versionName = "2.0"
               }
 
               buildTypes {
@@ -190,8 +192,9 @@ jobs:
               implementation("com.google.firebase:firebase-auth-ktx")
               implementation("com.google.firebase:firebase-firestore-ktx")
 
-              implementation("org.osmdroid:osmdroid-android:6.1.18")
+              implementation("com.google.android.gms:play-services-auth:21.0.0")
               implementation("com.google.android.gms:play-services-location:21.2.0")
+              implementation("org.osmdroid:osmdroid-android:6.1.18")
           }
           EOF
 
@@ -472,10 +475,110 @@ jobs:
           }
           EOF
 
+          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/MapUtils.kt
+          package com.elaffroun.delivery
+
+          import android.graphics.Bitmap
+          import android.graphics.Canvas
+          import android.graphics.Paint
+          import android.graphics.RectF
+          import android.graphics.drawable.BitmapDrawable
+          import android.content.Context
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.withContext
+          import org.json.JSONObject
+          import org.osmdroid.util.GeoPoint
+          import java.io.BufferedReader
+          import java.io.InputStreamReader
+          import java.net.HttpURLConnection
+          import java.net.URL
+
+          object MapUtils {
+              fun createCustomPinDrawable(
+                  context: Context,
+                  bgColor: Int,
+                  symbol: String,
+                  sizePx: Int = 110
+              ): BitmapDrawable {
+                  val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+                  val canvas = Canvas(bitmap)
+
+                  val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                      color = android.graphics.Color.parseColor("#40000000")
+                  }
+                  canvas.drawCircle(sizePx / 2f, sizePx / 2f + 4f, sizePx / 2f - 6f, shadowPaint)
+
+                  val outerCirclePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                      color = android.graphics.Color.WHITE
+                  }
+                  canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f - 6f, outerCirclePaint)
+
+                  val innerCirclePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                      color = bgColor
+                  }
+                  canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f - 14f, innerCirclePaint)
+
+                  val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                      color = android.graphics.Color.WHITE
+                      textSize = sizePx * 0.42f
+                      textAlign = Paint.Align.CENTER
+                  }
+                  val yPos = (canvas.height / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2f)
+                  canvas.drawText(symbol, sizePx / 2f, yPos, textPaint)
+
+                  return BitmapDrawable(context.resources, bitmap)
+              }
+
+              suspend fun fetchOsrmRoadPath(
+                  startLat: Double, startLng: Double,
+                  endLat: Double, endLng: Double
+              ): List<GeoPoint> = withContext(Dispatchers.IO) {
+                  val points = mutableListOf<GeoPoint>()
+                  try {
+                      val urlString = "https://router.project-osrm.org/route/v1/driving/$startLng,$startLat;$endLng,$endLat?overview=full&geometries=geojson"
+                      val url = URL(urlString)
+                      val connection = url.openConnection() as HttpURLConnection
+                      connection.connectTimeout = 6000
+                      connection.readTimeout = 6000
+                      connection.requestMethod = "GET"
+
+                      if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                          val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                          val response = reader.use { it.readText() }
+                          val json = JSONObject(response)
+                          val routes = json.optJSONArray("routes")
+                          if (routes != null && routes.length() > 0) {
+                              val geometry = routes.getJSONObject(0).getJSONObject("geometry")
+                              val coords = geometry.getJSONArray("coordinates")
+                              for (i in 0 until coords.length()) {
+                                  val pair = coords.getJSONArray(i)
+                                  val lng = pair.getDouble(0)
+                                  val lat = pair.getDouble(1)
+                                  points.add(GeoPoint(lat, lng))
+                              }
+                          }
+                      }
+                  } catch (e: Exception) {
+                      // Fallback straight path
+                      points.clear()
+                      points.add(GeoPoint(startLat, startLng))
+                      points.add(GeoPoint(endLat, endLng))
+                  }
+
+                  if (points.isEmpty()) {
+                      points.add(GeoPoint(startLat, startLng))
+                      points.add(GeoPoint(endLat, endLng))
+                  }
+                  points
+              }
+          }
+          EOF
+
           cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/MainActivity.kt
           package com.elaffroun.delivery
 
           import android.Manifest
+          import android.app.Activity
           import android.content.Context
           import android.content.Intent
           import android.content.pm.PackageManager
@@ -508,6 +611,7 @@ jobs:
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.draw.clip
           import androidx.compose.ui.draw.scale
+          import androidx.compose.ui.draw.shadow
           import androidx.compose.ui.graphics.Brush
           import androidx.compose.ui.graphics.Color
           import androidx.compose.ui.graphics.vector.ImageVector
@@ -521,8 +625,13 @@ jobs:
           import androidx.compose.ui.viewinterop.AndroidView
           import androidx.compose.ui.window.Dialog
           import androidx.core.content.ContextCompat
+          import com.google.android.gms.auth.api.signin.GoogleSignIn
+          import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+          import com.google.android.gms.common.api.ApiException
           import com.google.android.gms.location.LocationServices
           import com.google.android.gms.location.Priority
+          import com.google.firebase.auth.GoogleAuthProvider
+          import com.google.firebase.auth.OAuthProvider
           import com.google.firebase.auth.ktx.auth
           import com.google.firebase.firestore.ListenerRegistration
           import com.google.firebase.firestore.ktx.firestore
@@ -539,12 +648,12 @@ jobs:
 
           val PrimaryColor = Color(0xFFFF7E00.toInt())
           val PrimaryDarkColor = Color(0xFFE06B00.toInt())
-          val AppDarkBackground = Color(0xFF0D0D11.toInt())
-          val CardDarkBackground = Color(0xFF16161E.toInt())
-          val CardBorderDark = Color(0xFF262630.toInt())
+          val AppDarkBackground = Color(0xFF0F111A.toInt())
+          val CardDarkBackground = Color(0xFF171A26.toInt())
           val AccentGreen = Color(0xFF10B981.toInt())
           val AccentRed = Color(0xFFEF4444.toInt())
           val AccentBlue = Color(0xFF3B82F6.toInt())
+          val GoldenStar = Color(0xFFFFB800.toInt())
 
           data class StoreItem(val id: String = "", val name: String = "", val lat: Double = 36.4686, val lng: Double = 2.6288)
           data class OrderProduct(val name: String = "", val qty: Int = 1)
@@ -964,16 +1073,20 @@ jobs:
                                       ) {
                                           Box(
                                               modifier = Modifier
-                                                  .size(34.dp)
+                                                  .size(36.dp)
                                                   .clip(CircleShape)
-                                                  .background(PrimaryColor),
+                                                  .background(
+                                                      Brush.linearGradient(
+                                                          listOf(PrimaryColor, PrimaryDarkColor)
+                                                      )
+                                                  ),
                                               contentAlignment = Alignment.Center
                                           ) {
                                               Icon(
                                                   imageVector = Icons.Default.DeliveryDining,
                                                   contentDescription = "Logo",
                                                   tint = Color.White,
-                                                  modifier = Modifier.size(20.dp)
+                                                  modifier = Modifier.size(22.dp)
                                               )
                                           }
                                           Text(
@@ -1005,7 +1118,7 @@ jobs:
                                           Icon(
                                               imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
                                               contentDescription = "Theme",
-                                              tint = if (isDarkMode) Color.Yellow else MaterialTheme.colorScheme.onSurface
+                                              tint = if (isDarkMode) GoldenStar else MaterialTheme.colorScheme.onSurface
                                           )
                                       }
 
@@ -1286,6 +1399,21 @@ jobs:
               destinationLng: Double? = null,
               modifier: Modifier = Modifier
           ) {
+              val context = LocalContext.current
+              val scope = rememberCoroutineScope()
+              var roadWaypoints by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+
+              LaunchedEffect(centerLat, centerLng, destinationLat, destinationLng) {
+                  if (destinationLat != null && destinationLng != null) {
+                      roadWaypoints = MapUtils.fetchOsrmRoadPath(
+                          centerLat, centerLng,
+                          destinationLat, destinationLng
+                      )
+                  } else {
+                      roadWaypoints = emptyList()
+                  }
+              }
+
               AndroidView(
                   modifier = modifier.fillMaxSize(),
                   factory = { ctx ->
@@ -1303,6 +1431,11 @@ jobs:
                           position = centerPoint
                           setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                           title = "الموقع الحالي"
+                          icon = MapUtils.createCustomPinDrawable(
+                              context,
+                              android.graphics.Color.parseColor("#3B82F6"),
+                              "📍"
+                          )
                       }
                       mapView.overlays.add(centerMarker)
 
@@ -1312,16 +1445,22 @@ jobs:
                               position = destPoint
                               setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                               title = "المقصد / المطعم"
+                              icon = MapUtils.createCustomPinDrawable(
+                                  context,
+                                  android.graphics.Color.parseColor("#FF7E00"),
+                                  "🍲"
+                              )
                           }
                           mapView.overlays.add(destMarker)
 
-                          val line = Polyline(mapView).apply {
-                              addPoint(centerPoint)
-                              addPoint(destPoint)
-                              outlinePaint.color = android.graphics.Color.parseColor("#FF7E00")
-                              outlinePaint.strokeWidth = 10f
+                          if (roadWaypoints.isNotEmpty()) {
+                              val line = Polyline(mapView).apply {
+                                  roadWaypoints.forEach { addPoint(it) }
+                                  outlinePaint.color = android.graphics.Color.parseColor("#FF7E00")
+                                  outlinePaint.strokeWidth = 14f
+                              }
+                              mapView.overlays.add(line)
                           }
-                          mapView.overlays.add(line)
                       }
                       mapView.invalidate()
                   }
@@ -1440,8 +1579,11 @@ jobs:
               onLoginSuccess: (name: String, phone: String, uid: String) -> Unit,
               onCancel: () -> Unit
           ) {
+              val context = LocalContext.current
               val auth = Firebase.auth
               val db = Firebase.firestore
+              val scope = rememberCoroutineScope()
+
               var isRegisterMode by remember { mutableStateOf(false) }
               var name by remember { mutableStateOf("") }
               var phone by remember { mutableStateOf("") }
@@ -1452,6 +1594,48 @@ jobs:
               var ageAccepted by remember { mutableStateOf(false) }
               var errorMessage by remember { mutableStateOf("") }
               var isLoading by remember { mutableStateOf(false) }
+
+              // Google Sign-In setup
+              val googleSignInLauncher = rememberLauncherForActivityResult(
+                  contract = ActivityResultContracts.StartActivityForResult()
+              ) { result ->
+                  if (result.resultCode == Activity.RESULT_OK) {
+                      val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                      try {
+                          val account = task.getResult(ApiException::class.java)
+                          val idToken = account.idToken
+                          if (idToken != null) {
+                              isLoading = true
+                              val credential = GoogleAuthProvider.getCredential(idToken, null)
+                              auth.signInWithCredential(credential)
+                                  .addOnSuccessListener { authResult ->
+                                      val user = authResult.user
+                                      val uid = user?.uid ?: ""
+                                      val userMap = hashMapOf(
+                                          "name" to (account.displayName ?: "زبون Google"),
+                                          "email" to (account.email ?: ""),
+                                          "phoneNumber" to "",
+                                          "role" to "customer",
+                                          "blocked" to false,
+                                          "approved" to true,
+                                          "debt" to 0
+                                      )
+                                      db.collection("users").document(uid).set(userMap)
+                                          .addOnSuccessListener {
+                                              isLoading = false
+                                              onLoginSuccess(account.displayName ?: "زبون Google", "", uid)
+                                          }
+                                  }
+                                  .addOnFailureListener { e ->
+                                      isLoading = false
+                                      errorMessage = e.localizedMessage ?: "فشل تسجيل الدخول بـ Google"
+                                  }
+                          }
+                      } catch (e: Exception) {
+                          errorMessage = "فشل المصادقة عبر Google"
+                      }
+                  }
+              }
 
               LazyColumn(
                   modifier = Modifier
@@ -1471,7 +1655,7 @@ jobs:
 
                       Text(
                           text = when (role) {
-                              UserRole.CUSTOMER -> "بوابة الزبائن - تسجيل سريع"
+                              UserRole.CUSTOMER -> "بوابة الزبائن - تسجيل سريع وآمن"
                               UserRole.DRIVER -> "بوابة عمال التوصيل"
                               UserRole.ADMIN -> "تحقق رقمي محمي للإدارة"
                           },
@@ -1487,28 +1671,42 @@ jobs:
                           ) {
                               OutlinedButton(
                                   onClick = {
-                                      val dummyUid = "google_user_${System.currentTimeMillis()}"
-                                      onLoginSuccess("زبون عبر Google", "0555112233", dummyUid)
+                                      val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                          .requestIdToken(context.getString(R.string.default_web_client_id))
+                                          .requestEmail()
+                                          .build()
+                                      val client = GoogleSignIn.getClient(context, gso)
+                                      googleSignInLauncher.launch(client.signInIntent)
                                   },
                                   modifier = Modifier.weight(1f),
-                                  shape = RoundedCornerShape(12.dp)
+                                  shape = RoundedCornerShape(14.dp)
                               ) {
                                   Icon(imageVector = Icons.Default.Mail, contentDescription = null, tint = AccentRed)
                                   Spacer(modifier = Modifier.width(6.dp))
-                                  Text("Gmail", fontSize = 12.sp)
+                                  Text("Google", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                               }
 
                               OutlinedButton(
                                   onClick = {
-                                      val dummyUid = "fb_user_${System.currentTimeMillis()}"
-                                      onLoginSuccess("زبون عبر Facebook", "0555445566", dummyUid)
+                                      val provider = OAuthProvider.newBuilder("facebook.com")
+                                      val activity = context as Activity
+                                      auth.startActivityForSignInWithProvider(activity, provider.build())
+                                          .addOnSuccessListener { authResult ->
+                                              val user = authResult.user
+                                              val uid = user?.uid ?: ""
+                                              val fbName = user?.displayName ?: "زبون Facebook"
+                                              onLoginSuccess(fbName, "", uid)
+                                          }
+                                          .addOnFailureListener { e ->
+                                              errorMessage = e.localizedMessage ?: "فشل تسجيل الدخول بـ Facebook"
+                                          }
                                   },
                                   modifier = Modifier.weight(1f),
-                                  shape = RoundedCornerShape(12.dp)
+                                  shape = RoundedCornerShape(14.dp)
                               ) {
                                   Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = AccentBlue)
                                   Spacer(modifier = Modifier.width(6.dp))
-                                  Text("Facebook", fontSize = 12.sp)
+                                  Text("Facebook", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                               }
                           }
 
@@ -1764,7 +1962,7 @@ jobs:
               Scaffold(
                   floatingActionButton = {
                       Column(
-                          verticalArrangement = Arrangement.spacedBy(10.dp),
+                          verticalArrangement = Arrangement.spacedBy(12.dp),
                           horizontalAlignment = Alignment.End
                       ) {
                           if (currentRunningOrder != null && currentRunningOrder.status != "pending") {
@@ -1782,7 +1980,7 @@ jobs:
                               onClick = onOpenNewOrder,
                               containerColor = PrimaryColor,
                               contentColor = Color.White,
-                              shape = RoundedCornerShape(20.dp)
+                              shape = RoundedCornerShape(22.dp)
                           ) {
                               Icon(imageVector = Icons.Default.AddShoppingCart, contentDescription = null)
                               Spacer(modifier = Modifier.width(8.dp))
@@ -1838,7 +2036,7 @@ jobs:
                           modifier = Modifier
                               .fillMaxWidth()
                               .weight(1f),
-                          shape = RoundedCornerShape(24.dp),
+                          shape = RoundedCornerShape(26.dp),
                           colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                           border = CardDefaults.outlinedCardBorder()
                       ) {
@@ -2008,7 +2206,7 @@ jobs:
                                   fontWeight = FontWeight.Bold
                               )
                               Text(
-                                  text = "لوحة تحكم السائقين - مباشر",
+                                  text = "لوحة تحكم السائقين - مباشر مع مسارات الطرق",
                                   fontSize = 12.sp,
                                   color = AccentGreen
                               )
@@ -2052,7 +2250,7 @@ jobs:
                       item {
                           Card(
                               modifier = Modifier.fillMaxWidth(),
-                              shape = RoundedCornerShape(20.dp),
+                              shape = RoundedCornerShape(22.dp),
                               colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                               border = CardDefaults.outlinedCardBorder()
                           ) {
@@ -2126,8 +2324,8 @@ jobs:
                           Card(
                               modifier = Modifier
                                   .fillMaxWidth()
-                                  .height(240.dp),
-                              shape = RoundedCornerShape(20.dp),
+                                  .height(280.dp),
+                              shape = RoundedCornerShape(22.dp),
                               colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                               border = CardDefaults.outlinedCardBorder()
                           ) {
@@ -2898,7 +3096,7 @@ jobs:
                                       Icon(
                                           imageVector = if (i <= selectedStars) Icons.Default.Star else Icons.Default.StarBorder,
                                           contentDescription = null,
-                                          tint = Color(0xFFFFC107.toInt()),
+                                          tint = GoldenStar,
                                           modifier = Modifier.size(32.dp)
                                       )
                                   }
@@ -3078,5 +3276,5 @@ jobs:
       - name: Upload Artifact APK
         uses: actions/upload-artifact@v4
         with:
-          name: ElaffrounDelivery-Native-APK
+          name: ElaffrounDelivery-2026-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
