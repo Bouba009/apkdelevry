@@ -1,0 +1,2122 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle 8.7
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: Accept Android Licenses & Setup SDK
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Scaffold Complete Native Project
+        run: |
+          mkdir -p .gradle
+          cat << 'EOF' > gradle.properties
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          EOF
+
+          cat << 'EOF' > settings.gradle.kts
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "ElaffrounDelivery"
+          include(":app")
+          EOF
+
+          cat << 'EOF' > build.gradle.kts
+          plugins {
+              id("com.android.application") version "8.4.1" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.23" apply false
+          }
+          EOF
+
+          mkdir -p app/src/main/res/values
+          cat << 'EOF' > app/src/main/res/values/strings.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">العفرون أونلاين ديليفري</string>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/themes.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.ElaffrounDelivery" parent="android:Theme.Material.Light.NoActionBar">
+                  <item name="android:statusBarColor">#FF7E00</item>
+                  <item name="android:windowLightStatusBar">false</item>
+              </style>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/build.gradle.kts
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "com.elaffroun.delivery"
+              compileSdk = 34
+
+              defaultConfig {
+                  applicationId = "com.elaffroun.delivery"
+                  minSdk = 26
+                  targetSdk = 34
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      isMinifyEnabled = false
+                      proguardFiles(
+                          getDefaultProguardFile("proguard-android-optimize.txt"),
+                          "proguard-rules.pro"
+                      )
+                  }
+                  debug {
+                      isDebuggable = true
+                  }
+              }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+
+              buildFeatures {
+                  compose = true
+              }
+
+              composeOptions {
+                  kotlinCompilerExtensionVersion = "1.5.11"
+              }
+
+              lint {
+                  abortOnError = false
+                  checkReleaseBuilds = false
+              }
+          }
+
+          dependencies {
+              val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
+              implementation(composeBom)
+              androidTestImplementation(composeBom)
+
+              implementation("androidx.core:core-ktx:1.12.0")
+              implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+              implementation("androidx.activity:activity-compose:1.8.2")
+              implementation("androidx.compose.ui:ui")
+              implementation("androidx.compose.ui:ui-graphics")
+              implementation("androidx.compose.ui:ui-tooling-preview")
+              implementation("androidx.compose.material3:material3")
+              implementation("androidx.compose.material:material-icons-core")
+              implementation("androidx.compose.material:material-icons-extended")
+              implementation("com.google.android.gms:play-services-location:21.2.0")
+          }
+          EOF
+
+          mkdir -p app/src/main
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.CALL_PHONE" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@android:drawable/sym_def_app_icon"
+                  android:label="@string/app_name"
+                  android:roundIcon="@android:drawable/sym_def_app_icon"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.ElaffrounDelivery">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+                      android:theme="@style/Theme.ElaffrounDelivery">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+
+          </manifest>
+          EOF
+
+          mkdir -p app/src/main/java/com/elaffroun/delivery
+          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/MainActivity.kt
+          package com.elaffroun.delivery
+
+          import android.Manifest
+          import android.content.Intent
+          import android.content.pm.PackageManager
+          import android.net.Uri
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.rememberLauncherForActivityResult
+          import androidx.activity.compose.setContent
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.compose.animation.*
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.border
+          import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.interaction.MutableInteractionSource
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.foundation.shape.CircleShape
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.foundation.text.KeyboardOptions
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.filled.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.draw.clip
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.vector.ImageVector
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.text.input.KeyboardType
+          import androidx.compose.ui.text.input.PasswordVisualTransformation
+          import androidx.compose.ui.text.style.TextAlign
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.compose.ui.window.Dialog
+          import androidx.core.content.ContextCompat
+          import com.google.android.gms.location.LocationServices
+          import kotlin.math.*
+
+          val PrimaryColor = Color(0xFFFF7E00.toInt())
+          val PrimaryDarkColor = Color(0xFFE06B00.toInt())
+          val AppDarkBackground = Color(0xFF0D0D11.toInt())
+          val CardDarkBackground = Color(0xFF16161E.toInt())
+          val CardBorderDark = Color(0xFF262630.toInt())
+          val AccentGreen = Color(0xFF10B981.toInt())
+          val AccentRed = Color(0xFFEF4444.toInt())
+          val AccentBlue = Color(0xFF3B82F6.toInt())
+
+          data class StoreItem(val id: String, val name: String, val lat: Double, val lng: Double)
+          data class OrderProduct(val name: String, val qty: Int)
+          data class ChatMessage(val sender: String, val text: String, val time: String)
+          data class Order(
+              val id: String,
+              val restaurant: String,
+              val customerAddress: String,
+              val price: Int,
+              val items: List<OrderProduct>,
+              val note: String,
+              val status: String,
+              val driverName: String = "",
+              val driverPhone: String = "",
+              val storeLat: Double = 36.4686,
+              val storeLng: Double = 2.6288,
+              val custLat: Double = 36.4686,
+              val custLng: Double = 2.6288
+          )
+
+          enum class AppScreen { LANDING, AUTH, CUSTOMER_DASHBOARD, DRIVER_DASHBOARD, ADMIN_PANEL }
+          enum class UserRole { CUSTOMER, DRIVER, ADMIN }
+
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContent {
+                      ElaffrounAppRoot()
+                  }
+              }
+          }
+
+          fun calculateDeliveryPrice(distKm: Double): Int {
+              val blocks = ceil(distKm / 0.5).toInt()
+              val price = blocks * 50
+              return if (price < 50) 50 else price
+          }
+
+          fun getDistanceInKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+              val r = 6371.0
+              val dLat = Math.toRadians(lat2 - lat1)
+              val dLon = Math.toRadians(lon2 - lon1)
+              val a = sin(dLat / 2.0).pow(2.0) +
+                      cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
+                      sin(dLon / 2.0).pow(2.0)
+              val c = 2.0 * atan2(sqrt(a), sqrt(1.0 - a))
+              return r * c
+          }
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun ElaffrounAppRoot() {
+              val context = LocalContext.current
+              var isDarkMode by remember { mutableStateOf(true) }
+              var currentScreen by remember { mutableStateOf(AppScreen.LANDING) }
+              var userRole by remember { mutableStateOf(UserRole.CUSTOMER) }
+              var userLoggedIn by remember { mutableStateOf(false) }
+              var currentUserName by remember { mutableStateOf("") }
+              var currentUserPhone by remember { mutableStateOf("") }
+
+              val initialStores = remember {
+                  mutableStateListOf(
+                      StoreItem("1", "بيتزا هاوس العفرون", 36.4690, 2.6295),
+                      StoreItem("2", "مطعم السلطان للشواء", 36.4675, 2.6280),
+                      StoreItem("3", "فاست فود السعادة", 36.4710, 2.6320),
+                      StoreItem("4", "طاكوس وحلويات الأصيل", 36.4660, 2.6250)
+                  )
+              }
+
+              val activeOrders = remember { mutableStateListOf<Order>() }
+              val chatMessages = remember { mutableStateListOf<ChatMessage>() }
+              var pendingIncomingOrder by remember { mutableStateOf<Order?>(null) }
+
+              var showOrderDialog by remember { mutableStateOf(false) }
+              var showHistoryDialog by remember { mutableStateOf(false) }
+              var showRatingDialog by remember { mutableStateOf(false) }
+              var showChatDialog by remember { mutableStateOf(false) }
+              var showInfoDialog by remember { mutableStateOf(false) }
+              var infoDialogTitle by remember { mutableStateOf("") }
+              var infoDialogMessage by remember { mutableStateOf("") }
+
+              var driverEarnings by remember { mutableStateOf(0) }
+              var driverCompletedCount by remember { mutableStateOf(0) }
+              var driverDebt by remember { mutableStateOf(0) }
+
+              var currentLatitude by remember { mutableStateOf(36.4686) }
+              var currentLongitude by remember { mutableStateOf(2.6288) }
+              var isGpsDetected by remember { mutableStateOf(false) }
+
+              val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+              val locationPermissionLauncher = rememberLauncherForActivityResult(
+                  contract = ActivityResultContracts.RequestMultiplePermissions()
+              ) { permissions ->
+                  val fine = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+                  val coarse = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+                  if (fine || coarse) {
+                      try {
+                          fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                              if (loc != null) {
+                                  currentLatitude = loc.latitude
+                                  currentLongitude = loc.longitude
+                                  isGpsDetected = true
+                              }
+                          }
+                      } catch (e: Exception) {
+                          // Handle safely
+                      }
+                  }
+              }
+
+              LaunchedEffect(Unit) {
+                  val fineGranted = ContextCompat.checkSelfPermission(
+                      context, Manifest.permission.ACCESS_FINE_LOCATION
+                  ) == PackageManager.PERMISSION_GRANTED
+                  if (fineGranted) {
+                      try {
+                          fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                              if (loc != null) {
+                                  currentLatitude = loc.latitude
+                                  currentLongitude = loc.longitude
+                                  isGpsDetected = true
+                              }
+                          }
+                      } catch (e: Exception) {
+                          // Ignore failure
+                      }
+                  } else {
+                      locationPermissionLauncher.launch(
+                          arrayOf(
+                              Manifest.permission.ACCESS_FINE_LOCATION,
+                              Manifest.permission.ACCESS_COARSE_LOCATION
+                          )
+                      )
+                  }
+              }
+
+              val colorScheme = if (isDarkMode) {
+                  darkColorScheme(
+                      primary = PrimaryColor,
+                      background = AppDarkBackground,
+                      surface = CardDarkBackground,
+                      onPrimary = Color.White,
+                      onBackground = Color.White,
+                      onSurface = Color.White
+                  )
+              } else {
+                  lightColorScheme(
+                      primary = PrimaryColor,
+                      background = Color(0xFFF8FAFC.toInt()),
+                      surface = Color.White,
+                      onPrimary = Color.White,
+                      onBackground = Color(0xFF0F172A.toInt()),
+                      onSurface = Color(0xFF0F172A.toInt())
+                  )
+              }
+
+              MaterialTheme(colorScheme = colorScheme) {
+                  Surface(
+                      modifier = Modifier.fillMaxSize(),
+                      color = MaterialTheme.colorScheme.background
+                  ) {
+                      Column(modifier = Modifier.fillMaxSize()) {
+                          TopAppBar(
+                              title = {
+                                  Row(
+                                      verticalAlignment = Alignment.CenterVertically,
+                                      horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                  ) {
+                                      Box(
+                                          modifier = Modifier
+                                              .size(36.dp)
+                                              .clip(CircleShape)
+                                              .background(PrimaryColor),
+                                          contentAlignment = Alignment.Center
+                                      ) {
+                                          Icon(
+                                              imageVector = Icons.Default.TwoWheeler,
+                                              contentDescription = "Logo",
+                                              tint = Color.White,
+                                              modifier = Modifier.size(20.dp)
+                                          )
+                                      }
+                                      Text(
+                                          text = "العفرون ديليفري",
+                                          fontSize = 17.sp,
+                                          fontWeight = FontWeight.Black,
+                                          color = PrimaryColor
+                                      )
+                                  }
+                              },
+                              actions = {
+                                  IconButton(onClick = { isDarkMode = !isDarkMode }) {
+                                      Icon(
+                                          imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                          contentDescription = "Theme",
+                                          tint = if (isDarkMode) Color.Yellow else MaterialTheme.colorScheme.onSurface
+                                      )
+                                  }
+                                  if (userLoggedIn) {
+                                      IconButton(onClick = {
+                                          userLoggedIn = false
+                                          currentUserName = ""
+                                          currentUserPhone = ""
+                                          currentScreen = AppScreen.LANDING
+                                      }) {
+                                          Icon(
+                                              imageVector = Icons.Default.ExitToApp,
+                                              contentDescription = "Logout",
+                                              tint = AccentRed
+                                          )
+                                      }
+                                  }
+                              },
+                              colors = TopAppBarDefaults.topAppBarColors(
+                                  containerColor = MaterialTheme.colorScheme.surface
+                              )
+                          )
+
+                          Box(modifier = Modifier.weight(1f)) {
+                              when (currentScreen) {
+                                  AppScreen.LANDING -> {
+                                      LandingScreen(
+                                          onOrderNow = {
+                                              userRole = UserRole.CUSTOMER
+                                              currentScreen = AppScreen.AUTH
+                                          },
+                                          onJoinDriver = {
+                                              userRole = UserRole.DRIVER
+                                              currentScreen = AppScreen.AUTH
+                                          },
+                                          onOpenAdmin = {
+                                              currentScreen = AppScreen.AUTH
+                                              userRole = UserRole.ADMIN
+                                          }
+                                      )
+                                  }
+                                  AppScreen.AUTH -> {
+                                      AuthScreen(
+                                          role = userRole,
+                                          onLoginSuccess = { name, phone ->
+                                              currentUserName = name
+                                              currentUserPhone = phone
+                                              userLoggedIn = true
+                                              currentScreen = when (userRole) {
+                                                  UserRole.CUSTOMER -> AppScreen.CUSTOMER_DASHBOARD
+                                                  UserRole.DRIVER -> AppScreen.DRIVER_DASHBOARD
+                                                  UserRole.ADMIN -> AppScreen.ADMIN_PANEL
+                                              }
+                                          },
+                                          onCancel = { currentScreen = AppScreen.LANDING }
+                                      )
+                                  }
+                                  AppScreen.CUSTOMER_DASHBOARD -> {
+                                      CustomerDashboard(
+                                          userName = currentUserName,
+                                          activeOrders = activeOrders,
+                                          onOpenNewOrder = { showOrderDialog = true },
+                                          onOpenHistory = { showHistoryDialog = true },
+                                          onOpenChat = { showChatDialog = true },
+                                          onConfirmDelivered = { order ->
+                                              val idx = activeOrders.indexOfFirst { it.id == order.id }
+                                              if (idx != -1) {
+                                                  activeOrders[idx] = order.copy(status = "completed")
+                                              }
+                                              showRatingDialog = true
+                                          },
+                                          onCancelOrder = { order ->
+                                              activeOrders.removeAll { it.id == order.id }
+                                          }
+                                      )
+                                  }
+                                  AppScreen.DRIVER_DASHBOARD -> {
+                                      DriverDashboard(
+                                          driverName = currentUserName,
+                                          driverPhone = currentUserPhone,
+                                          activeOrders = activeOrders,
+                                          earnings = driverEarnings,
+                                          completedCount = driverCompletedCount,
+                                          debt = driverDebt,
+                                          onAcceptOrder = { order ->
+                                              val idx = activeOrders.indexOfFirst { it.id == order.id }
+                                              if (idx != -1) {
+                                                  activeOrders[idx] = order.copy(
+                                                      status = "accepted",
+                                                      driverName = currentUserName,
+                                                      driverPhone = currentUserPhone
+                                                  )
+                                              }
+                                              pendingIncomingOrder = null
+                                          },
+                                          onUpdateStatus = { order, newStatus ->
+                                              val idx = activeOrders.indexOfFirst { it.id == order.id }
+                                              if (idx != -1) {
+                                                  activeOrders[idx] = order.copy(status = newStatus)
+                                              }
+                                          },
+                                          onFinishDelivery = { order ->
+                                              val idx = activeOrders.indexOfFirst { it.id == order.id }
+                                              if (idx != -1) {
+                                                  activeOrders[idx] = order.copy(status = "delivered")
+                                                  driverEarnings += order.price
+                                                  driverCompletedCount += 1
+                                                  val dist = getDistanceInKm(
+                                                      order.storeLat, order.storeLng,
+                                                      order.custLat, order.custLng
+                                                  )
+                                                  driverDebt += (dist * 10.0).roundToInt()
+                                              }
+                                          },
+                                          onOpenChat = { showChatDialog = true },
+                                          onOpenHistory = { showHistoryDialog = true }
+                                      )
+                                  }
+                                  AppScreen.ADMIN_PANEL -> {
+                                      AdminPanelScreen(
+                                          stores = initialStores,
+                                          orders = activeOrders,
+                                          onAddStore = { name, lat, lng ->
+                                              initialStores.add(
+                                                  StoreItem((initialStores.size + 1).toString(), name, lat, lng)
+                                              )
+                                          },
+                                          onBackToHome = { currentScreen = AppScreen.LANDING }
+                                      )
+                                  }
+                              }
+
+                              pendingIncomingOrder?.let { incoming ->
+                                  DriverIncomingOrderModal(
+                                      order = incoming,
+                                      onAccept = {
+                                          val idx = activeOrders.indexOfFirst { it.id == incoming.id }
+                                          if (idx != -1) {
+                                              activeOrders[idx] = incoming.copy(
+                                                  status = "accepted",
+                                                  driverName = currentUserName,
+                                                  driverPhone = currentUserPhone
+                                              )
+                                          }
+                                          pendingIncomingOrder = null
+                                      },
+                                      onReject = {
+                                          pendingIncomingOrder = null
+                                      }
+                                  )
+                              }
+
+                              if (showOrderDialog) {
+                                  CreateOrderDialog(
+                                      stores = initialStores,
+                                      userLat = currentLatitude,
+                                      userLng = currentLongitude,
+                                      onDismiss = { showOrderDialog = false },
+                                      onSubmitOrder = { newOrder ->
+                                          activeOrders.add(newOrder)
+                                          pendingIncomingOrder = newOrder
+                                          showOrderDialog = false
+                                      }
+                                  )
+                              }
+
+                              if (showHistoryDialog) {
+                                  HistoryDialog(
+                                      orders = activeOrders,
+                                      onDismiss = { showHistoryDialog = false }
+                                  )
+                              }
+
+                              if (showRatingDialog) {
+                                  RatingDialog(
+                                      onDismiss = { showRatingDialog = false },
+                                      onRated = {
+                                          showRatingDialog = false
+                                          infoDialogTitle = "شكراً لتقييمك"
+                                          infoDialogMessage = "تم تسجيل تقييمك لعامل التوصيل بنجاح لمساعدتنا على تحسين الخدمة."
+                                          showInfoDialog = true
+                                      }
+                                  )
+                              }
+
+                              if (showChatDialog) {
+                                  ChatDialog(
+                                      senderRole = if (userRole == UserRole.CUSTOMER) "الزبون" else "السائق",
+                                      messages = chatMessages,
+                                      onSendMessage = { text ->
+                                          val time = "الآن"
+                                          val sender = if (userRole == UserRole.CUSTOMER) "الزبون" else "السائق"
+                                          chatMessages.add(ChatMessage(sender, text, time))
+                                      },
+                                      onDismiss = { showChatDialog = false }
+                                  )
+                              }
+
+                              if (showInfoDialog) {
+                                  AlertDialog(
+                                      onDismissRequest = { showInfoDialog = false },
+                                      title = { Text(text = infoDialogTitle, fontWeight = FontWeight.Bold) },
+                                      text = { Text(text = infoDialogMessage, fontSize = 13.sp) },
+                                      confirmButton = {
+                                          TextButton(onClick = { showInfoDialog = false }) {
+                                              Text(text = "حسناً", color = PrimaryColor, fontWeight = FontWeight.Bold)
+                                          }
+                                      }
+                                  )
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun LandingScreen(
+              onOrderNow: () -> Unit,
+              onJoinDriver: () -> Unit,
+              onOpenAdmin: () -> Unit
+          ) {
+              Column(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .padding(24.dp),
+                  verticalArrangement = Arrangement.Center,
+                  horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                  Box(
+                      modifier = Modifier
+                          .size(110.dp)
+                          .clip(CircleShape)
+                          .background(PrimaryColor),
+                      contentAlignment = Alignment.Center
+                  ) {
+                      Icon(
+                          imageVector = Icons.Default.TwoWheeler,
+                          contentDescription = "Logo",
+                          tint = Color.White,
+                          modifier = Modifier.size(60.dp)
+                      )
+                  }
+
+                  Spacer(modifier = Modifier.height(24.dp))
+
+                  Text(
+                      text = "العفرون أونلاين ديليفري",
+                      fontSize = 26.sp,
+                      fontWeight = FontWeight.Black,
+                      color = PrimaryColor,
+                      textAlign = TextAlign.Center
+                  )
+
+                  Spacer(modifier = Modifier.height(10.dp))
+
+                  Text(
+                      text = "المنصة الأحدث لتتبع وتوصيل طلباتك في العفرون وضواحيها بكل سلاسة، أمان وسرعة حقيقية.",
+                      fontSize = 14.sp,
+                      textAlign = TextAlign.Center,
+                      color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                      lineHeight = 22.sp
+                  )
+
+                  Spacer(modifier = Modifier.height(36.dp))
+
+                  Button(
+                      onClick = onOrderNow,
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .height(54.dp),
+                      shape = RoundedCornerShape(16.dp),
+                      colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                  ) {
+                      Icon(imageVector = Icons.Default.ShoppingBag, contentDescription = null)
+                      Spacer(modifier = Modifier.width(8.dp))
+                      Text(text = "اطلب الآن (زبون)", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                  }
+
+                  Spacer(modifier = Modifier.height(12.dp))
+
+                  OutlinedButton(
+                      onClick = onJoinDriver,
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .height(54.dp),
+                      shape = RoundedCornerShape(16.dp),
+                      colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryColor)
+                  ) {
+                      Icon(imageVector = Icons.Default.DeliveryDining, contentDescription = null)
+                      Spacer(modifier = Modifier.width(8.dp))
+                      Text(text = "انضم كعامل توصيل", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                  }
+
+                  Spacer(modifier = Modifier.height(28.dp))
+
+                  TextButton(onClick = onOpenAdmin) {
+                      Text(
+                          text = "دخول بوابة الإدارة",
+                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                          fontSize = 12.sp
+                      )
+                  }
+              }
+          }
+
+          @Composable
+          fun AuthScreen(
+              role: UserRole,
+              onLoginSuccess: (name: String, phone: String) -> Unit,
+              onCancel: () -> Unit
+          ) {
+              var isRegisterMode by remember { mutableStateOf(false) }
+              var name by remember { mutableStateOf("") }
+              var phone by remember { mutableStateOf("") }
+              var email by remember { mutableStateOf("") }
+              var password by remember { mutableStateOf("") }
+              var confirmPassword by remember { mutableStateOf("") }
+              var termsAccepted by remember { mutableStateOf(false) }
+              var ageAccepted by remember { mutableStateOf(false) }
+              var errorMessage by remember { mutableStateOf("") }
+
+              LazyColumn(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .padding(24.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  verticalArrangement = Arrangement.Center
+              ) {
+                  item {
+                      Text(
+                          text = if (role == UserRole.ADMIN) "تسجيل دخول الإدارة"
+                          else if (isRegisterMode) "إنشاء حساب جديد" else "تسجيل الدخول",
+                          fontSize = 22.sp,
+                          fontWeight = FontWeight.Black,
+                          color = PrimaryColor
+                      )
+
+                      Text(
+                          text = when (role) {
+                              UserRole.CUSTOMER -> "بوابة حسابات الزبائن"
+                              UserRole.DRIVER -> "بوابة عمال التوصيل"
+                              UserRole.ADMIN -> "تحقق رقمي محمي للإدارة"
+                          },
+                          fontSize = 12.sp,
+                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                          modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
+                      )
+
+                      if (isRegisterMode) {
+                          OutlinedTextField(
+                              value = name,
+                              onValueChange = { name = it },
+                              label = { Text("الاسم الكامل") },
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp)
+                          )
+                          Spacer(modifier = Modifier.height(10.dp))
+                          OutlinedTextField(
+                              value = phone,
+                              onValueChange = { phone = it },
+                              label = { Text("رقم الهاتف") },
+                              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp)
+                          )
+                          Spacer(modifier = Modifier.height(10.dp))
+                      }
+
+                      OutlinedTextField(
+                          value = email,
+                          onValueChange = { email = it },
+                          label = { Text(if (role == UserRole.ADMIN) "اسم المستخدم" else "البريد الإلكتروني") },
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(12.dp)
+                      )
+
+                      Spacer(modifier = Modifier.height(10.dp))
+
+                      OutlinedTextField(
+                          value = password,
+                          onValueChange = { password = it },
+                          label = { Text("كلمة المرور") },
+                          visualTransformation = PasswordVisualTransformation(),
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(12.dp)
+                      )
+
+                      if (isRegisterMode) {
+                          Spacer(modifier = Modifier.height(10.dp))
+                          OutlinedTextField(
+                              value = confirmPassword,
+                              onValueChange = { confirmPassword = it },
+                              label = { Text("تأكيد كلمة المرور") },
+                              visualTransformation = PasswordVisualTransformation(),
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp)
+                          )
+                          Spacer(modifier = Modifier.height(14.dp))
+
+                          Row(
+                              verticalAlignment = Alignment.CenterVertically,
+                              modifier = Modifier.fillMaxWidth()
+                          ) {
+                              Checkbox(checked = termsAccepted, onCheckedChange = { termsAccepted = it })
+                              Text(
+                                  text = "أوافق على سياسة الاستخدام والأسعار (50 دج / 500م)",
+                                  fontSize = 11.sp,
+                                  lineHeight = 16.sp
+                              )
+                          }
+
+                          if (role == UserRole.DRIVER) {
+                              Row(
+                                  verticalAlignment = Alignment.CenterVertically,
+                                  modifier = Modifier.fillMaxWidth()
+                              ) {
+                                  Checkbox(checked = ageAccepted, onCheckedChange = { ageAccepted = it })
+                                  Text(
+                                      text = "أصرح أن عمري فوق 18 سنة وألتزم بسداد ديون المنصة",
+                                      fontSize = 11.sp,
+                                      lineHeight = 16.sp
+                                  )
+                              }
+                          }
+                      }
+
+                      if (errorMessage.isNotEmpty()) {
+                          Text(
+                              text = errorMessage,
+                              color = AccentRed,
+                              fontSize = 12.sp,
+                              fontWeight = FontWeight.Bold,
+                              modifier = Modifier.padding(vertical = 8.dp)
+                          )
+                      }
+
+                      Spacer(modifier = Modifier.height(18.dp))
+
+                      Button(
+                          onClick = {
+                              errorMessage = ""
+                              if (role == UserRole.ADMIN) {
+                                  if (email == "admin009" && password == "abobob123") {
+                                      onLoginSuccess("المسؤول العام", "0555000000")
+                                  } else {
+                                      errorMessage = "بيانات الإدارة غير صحيحة"
+                                  }
+                                  return@Button
+                              }
+
+                              if (isRegisterMode) {
+                                  if (name.isBlank() || phone.isBlank() || email.isBlank() || password.isBlank()) {
+                                      errorMessage = "يرجى ملء جميع الحقول المطلوبة"
+                                      return@Button
+                                  }
+                                  if (password != confirmPassword) {
+                                      errorMessage = "كلمتا المرور غير متطابقتين"
+                                      return@Button
+                                  }
+                                  if (!termsAccepted) {
+                                      errorMessage = "يجب الموافقة على شروط الاستخدام"
+                                      return@Button
+                                  }
+                                  if (role == UserRole.DRIVER && !ageAccepted) {
+                                      errorMessage = "يجب تأكيد السن فوق 18 سنة"
+                                      return@Button
+                                  }
+                                  onLoginSuccess(name, phone)
+                              } else {
+                                  if (email.isBlank() || password.isBlank()) {
+                                      errorMessage = "يرجى إدخال البريد وكلمة المرور"
+                                      return@Button
+                                  }
+                                  val fallbackName = if (role == UserRole.DRIVER) "سائق العفرون" else "زبون العفرون"
+                                  val fallbackPhone = "0555123456"
+                                  onLoginSuccess(fallbackName, fallbackPhone)
+                              }
+                          },
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .height(50.dp),
+                          shape = RoundedCornerShape(14.dp),
+                          colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                      ) {
+                          Text(
+                              text = if (isRegisterMode) "تسجيل حساب جديد" else "تسجيل الدخول",
+                              fontWeight = FontWeight.Bold,
+                              fontSize = 14.sp
+                          )
+                      }
+
+                      if (role != UserRole.ADMIN) {
+                          TextButton(onClick = { isRegisterMode = !isRegisterMode }) {
+                              Text(
+                                  text = if (isRegisterMode) "لديك حساب بالفعل؟ سجل دخولك" else "ليس لديك حساب؟ أنشئ حسابك الآن",
+                                  fontSize = 12.sp,
+                                  color = PrimaryColor
+                              )
+                          }
+                      }
+
+                      Spacer(modifier = Modifier.height(10.dp))
+
+                      OutlinedButton(
+                          onClick = onCancel,
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(12.dp)
+                      ) {
+                          Text(text = "إلغاء والعودة للرئيسية", fontSize = 13.sp)
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun CustomerDashboard(
+              userName: String,
+              activeOrders: List<Order>,
+              onOpenNewOrder: () -> Unit,
+              onOpenHistory: () -> Unit,
+              onOpenChat: () -> Unit,
+              onConfirmDelivered: (Order) -> Unit,
+              onCancelOrder: (Order) -> Unit
+          ) {
+              val currentRunningOrder = activeOrders.lastOrNull {
+                  it.status in listOf("pending", "accepted", "to_store", "received", "delivered")
+              }
+
+              Scaffold(
+                  floatingActionButton = {
+                      Column(
+                          verticalArrangement = Arrangement.spacedBy(10.dp),
+                          horizontalAlignment = Alignment.End
+                      ) {
+                          if (currentRunningOrder != null && currentRunningOrder.status != "pending") {
+                              FloatingActionButton(
+                                  onClick = onOpenChat,
+                                  containerColor = AccentBlue,
+                                  contentColor = Color.White,
+                                  shape = CircleShape
+                              ) {
+                                  Icon(imageVector = Icons.Default.Chat, contentDescription = "Chat")
+                              }
+                          }
+
+                          ExtendedFloatingActionButton(
+                              onClick = onOpenNewOrder,
+                              containerColor = PrimaryColor,
+                              contentColor = Color.White,
+                              shape = RoundedCornerShape(20.dp)
+                          ) {
+                              Icon(imageVector = Icons.Default.AddShoppingCart, contentDescription = null)
+                              Spacer(modifier = Modifier.width(8.dp))
+                              Text(text = "اطلب الآن", fontWeight = FontWeight.Black)
+                          }
+                      }
+                  }
+              ) { padding ->
+                  Column(
+                      modifier = Modifier
+                          .fillMaxSize()
+                          .padding(padding)
+                          .padding(16.dp)
+                  ) {
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.SpaceBetween,
+                          verticalAlignment = Alignment.CenterVertically
+                      ) {
+                          Column {
+                              Text(
+                                  text = "أهلاً بك، $userName 👋",
+                                  fontSize = 18.sp,
+                                  fontWeight = FontWeight.Bold
+                              )
+                              Text(
+                                  text = "خدمة التوصيل المباشر في العفرون",
+                                  fontSize = 12.sp,
+                                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                              )
+                          }
+                          IconButton(onClick = onOpenHistory) {
+                              Icon(
+                                  imageVector = Icons.Default.History,
+                                  contentDescription = "History",
+                                  tint = PrimaryColor
+                              )
+                          }
+                      }
+
+                      Spacer(modifier = Modifier.height(16.dp))
+
+                      if (currentRunningOrder != null) {
+                          ActiveOrderBanner(
+                              order = currentRunningOrder,
+                              onConfirmDelivered = { onConfirmDelivered(currentRunningOrder) },
+                              onCancel = { onCancelOrder(currentRunningOrder) }
+                          )
+                          Spacer(modifier = Modifier.height(16.dp))
+                      }
+
+                      Card(
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .weight(1f),
+                          shape = RoundedCornerShape(24.dp),
+                          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                          border = CardDefaults.outlinedCardBorder()
+                      ) {
+                          Box(
+                              modifier = Modifier
+                                  .fillMaxSize()
+                                  .padding(16.dp),
+                              contentAlignment = Alignment.Center
+                          ) {
+                              Column(
+                                  horizontalAlignment = Alignment.CenterHorizontally,
+                                  verticalArrangement = Arrangement.Center
+                              ) {
+                                  Icon(
+                                      imageVector = Icons.Default.Map,
+                                      contentDescription = "Map Placeholder",
+                                      tint = PrimaryColor.copy(alpha = 0.6f),
+                                      modifier = Modifier.size(64.dp)
+                                  )
+                                  Spacer(modifier = Modifier.height(12.dp))
+                                  Text(
+                                      text = "خريطة تتبع العفرون الحية (2D)",
+                                      fontWeight = FontWeight.Bold,
+                                      fontSize = 15.sp
+                                  )
+                                  Spacer(modifier = Modifier.height(6.dp))
+                                  Text(
+                                      text = if (currentRunningOrder != null) {
+                                          "يتم الآن توجيه الطلب من [${currentRunningOrder.restaurant}] إلى موقعك المعتمد عبر GPS."
+                                      } else {
+                                          "اضغط على زر (اطلب الآن) لإنشاء طلبية توصيل فورية من المتاجر المقترحة."
+                                      },
+                                      fontSize = 12.sp,
+                                      textAlign = TextAlign.Center,
+                                      color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                                      modifier = Modifier.padding(horizontal = 20.dp)
+                                  )
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun ActiveOrderBanner(
+              order: Order,
+              onConfirmDelivered: () -> Unit,
+              onCancel: () -> Unit
+          ) {
+              val context = LocalContext.current
+              val statusBg = when (order.status) {
+                  "pending" -> AccentRed
+                  "accepted" -> AccentBlue
+                  "to_store" -> Color(0xFFF59E0B.toInt())
+                  "received" -> PrimaryColor
+                  "delivered" -> AccentGreen
+                  else -> CardDarkBackground
+              }
+
+              val statusText = when (order.status) {
+                  "pending" -> "جاري البحث عن عامل توصيل قريب... ⏳"
+                  "accepted" -> "تم قبول طلبك بواسطة ${order.driverName} ✅"
+                  "to_store" -> "${order.driverName}: في الطريق للمحل لاستلام طلبك 🏃‍♂️"
+                  "received" -> "${order.driverName}: تم استلام الطلب وبطريقي إليك 🛵"
+                  "delivered" -> "وصلت طلبيتك بنجاح! يرجى تأكيد الاستلام 🎁"
+                  else -> "حالة الطلب غير معروفة"
+              }
+
+              Card(
+                  modifier = Modifier.fillMaxWidth(),
+                  shape = RoundedCornerShape(18.dp),
+                  colors = CardDefaults.cardColors(containerColor = statusBg)
+              ) {
+                  Column(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(14.dp)
+                  ) {
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.SpaceBetween,
+                          verticalAlignment = Alignment.CenterVertically
+                      ) {
+                          Text(
+                              text = "رقم الطلب #${order.id.takeLast(4)}",
+                              fontWeight = FontWeight.Bold,
+                              fontSize = 12.sp,
+                              color = Color.White.copy(alpha = 0.85f)
+                          )
+                          Text(
+                              text = "${order.price} دج",
+                              fontWeight = FontWeight.Black,
+                              fontSize = 15.sp,
+                              color = Color.White
+                          )
+                      }
+
+                      Spacer(modifier = Modifier.height(6.dp))
+
+                      Text(
+                          text = statusText,
+                          color = Color.White,
+                          fontWeight = FontWeight.ExtraBold,
+                          fontSize = 13.sp
+                      )
+
+                      Spacer(modifier = Modifier.height(10.dp))
+
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.spacedBy(8.dp)
+                      ) {
+                          if (order.driverPhone.isNotBlank() && order.status != "pending") {
+                              Button(
+                                  onClick = {
+                                      val intent = Intent(Intent.ACTION_DIAL).apply {
+                                          data = Uri.parse("tel:${order.driverPhone}")
+                                      }
+                                      context.startActivity(intent)
+                                  },
+                                  colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                                  shape = RoundedCornerShape(10.dp),
+                                  modifier = Modifier.weight(1f)
+                              ) {
+                                  Icon(
+                                      imageVector = Icons.Default.Phone,
+                                      contentDescription = null,
+                                      tint = Color.Black,
+                                      modifier = Modifier.size(16.dp)
+                                  )
+                                  Spacer(modifier = Modifier.width(4.dp))
+                                  Text(text = "اتصال", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                              }
+                          }
+
+                          if (order.status == "delivered") {
+                              Button(
+                                  onClick = onConfirmDelivered,
+                                  colors = ButtonDefaults.buttonColors(containerColor = AccentGreen),
+                                  shape = RoundedCornerShape(10.dp),
+                                  modifier = Modifier.weight(1.5f)
+                              ) {
+                                  Text(text = "تأكيد الاستلام والتقييم", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                              }
+                          }
+
+                          if (order.status == "pending") {
+                              Button(
+                                  onClick = onCancel,
+                                  colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
+                                  shape = RoundedCornerShape(10.dp),
+                                  modifier = Modifier.weight(1f)
+                              ) {
+                                  Text(text = "إلغاء الطلب", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun DriverDashboard(
+              driverName: String,
+              driverPhone: String,
+              activeOrders: List<Order>,
+              earnings: Int,
+              completedCount: Int,
+              debt: Int,
+              onAcceptOrder: (Order) -> Unit,
+              onUpdateStatus: (Order, String) -> Unit,
+              onFinishDelivery: (Order) -> Unit,
+              onOpenChat: () -> Unit,
+              onOpenHistory: () -> Unit
+          ) {
+              val currentDelivery = activeOrders.firstOrNull {
+                  it.driverPhone == driverPhone && it.status in listOf("accepted", "to_store", "received")
+              }
+
+              LazyColumn(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .padding(16.dp),
+                  verticalArrangement = Arrangement.spacedBy(16.dp)
+              ) {
+                  item {
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.SpaceBetween,
+                          verticalAlignment = Alignment.CenterVertically
+                      ) {
+                          Column {
+                              Text(
+                                  text = "كابتن $driverName 🛵",
+                                  fontSize = 18.sp,
+                                  fontWeight = FontWeight.Bold
+                              )
+                              Text(
+                                  text = "جاهز لتلقي طلبات التوصيل",
+                                  fontSize = 12.sp,
+                                  color = AccentGreen
+                              )
+                          }
+                          IconButton(onClick = onOpenHistory) {
+                              Icon(imageVector = Icons.Default.History, contentDescription = "History", tint = PrimaryColor)
+                          }
+                      }
+                  }
+
+                  item {
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.spacedBy(10.dp)
+                      ) {
+                          StatCard(
+                              title = "الأرباح",
+                              value = "$earnings دج",
+                              color = AccentGreen,
+                              icon = Icons.Default.AccountBalanceWallet,
+                              modifier = Modifier.weight(1f)
+                          )
+                          StatCard(
+                              title = "المكتملة",
+                              value = "$completedCount",
+                              color = AccentBlue,
+                              icon = Icons.Default.CheckCircle,
+                              modifier = Modifier.weight(1f)
+                          )
+                          StatCard(
+                              title = "دين المنصة",
+                              value = "$debt دج",
+                              color = AccentRed,
+                              icon = Icons.Default.MonetizationOn,
+                              modifier = Modifier.weight(1f)
+                          )
+                      }
+                  }
+
+                  if (currentDelivery != null) {
+                      item {
+                          Card(
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(20.dp),
+                              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                              border = CardDefaults.outlinedCardBorder()
+                          ) {
+                              Column(modifier = Modifier.padding(16.dp)) {
+                                  Text(
+                                      text = "الطلب النشط حالياً",
+                                      fontWeight = FontWeight.Black,
+                                      fontSize = 15.sp,
+                                      color = PrimaryColor
+                                  )
+                                  Spacer(modifier = Modifier.height(8.dp))
+                                  Text(text = "المطعم: ${currentDelivery.restaurant}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                  Text(text = "العنوان: ${currentDelivery.customerAddress}", fontSize = 12.sp)
+                                  Text(text = "السعر الإجمالي: ${currentDelivery.price} دج", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+
+                                  Spacer(modifier = Modifier.height(14.dp))
+
+                                  Row(
+                                      modifier = Modifier.fillMaxWidth(),
+                                      horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                  ) {
+                                      Button(
+                                          onClick = { onUpdateStatus(currentDelivery, "to_store") },
+                                          modifier = Modifier.weight(1f),
+                                          shape = RoundedCornerShape(10.dp),
+                                          colors = ButtonDefaults.buttonColors(
+                                              containerColor = if (currentDelivery.status == "to_store") PrimaryColor else Color.Gray.copy(alpha = 0.2f)
+                                          )
+                                      ) {
+                                          Text(text = "للمطعم", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                      }
+
+                                      Button(
+                                          onClick = { onUpdateStatus(currentDelivery, "received") },
+                                          modifier = Modifier.weight(1f),
+                                          shape = RoundedCornerShape(10.dp),
+                                          colors = ButtonDefaults.buttonColors(
+                                              containerColor = if (currentDelivery.status == "received") PrimaryColor else Color.Gray.copy(alpha = 0.2f)
+                                          )
+                                      ) {
+                                          Text(text = "استلمت", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                      }
+
+                                      Button(
+                                          onClick = { onFinishDelivery(currentDelivery) },
+                                          modifier = Modifier.weight(1f),
+                                          shape = RoundedCornerShape(10.dp),
+                                          colors = ButtonDefaults.buttonColors(containerColor = AccentGreen)
+                                      ) {
+                                          Text(text = "تم التسليم", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                      }
+                                  }
+
+                                  Spacer(modifier = Modifier.height(10.dp))
+
+                                  Button(
+                                      onClick = onOpenChat,
+                                      modifier = Modifier.fillMaxWidth(),
+                                      shape = RoundedCornerShape(10.dp),
+                                      colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                                  ) {
+                                      Icon(imageVector = Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                                      Spacer(modifier = Modifier.width(6.dp))
+                                      Text(text = "محادثة الزبون", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                  }
+                              }
+                          }
+                      }
+                  } else {
+                      item {
+                          Card(
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .height(160.dp),
+                              shape = RoundedCornerShape(20.dp),
+                              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                              border = CardDefaults.outlinedCardBorder()
+                          ) {
+                              Box(
+                                  modifier = Modifier.fillMaxSize(),
+                                  contentAlignment = Alignment.Center
+                              ) {
+                                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                      Icon(
+                                          imageVector = Icons.Default.NotificationsNone,
+                                          contentDescription = null,
+                                          tint = PrimaryColor,
+                                          modifier = Modifier.size(40.dp)
+                                      )
+                                      Spacer(modifier = Modifier.height(8.dp))
+                                      Text(
+                                          text = "لا توجد طلبات جارية الآن. أنت جاهز لاستقبال العروض!",
+                                          fontSize = 12.sp,
+                                          textAlign = TextAlign.Center,
+                                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                      )
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun StatCard(
+              title: String,
+              value: String,
+              color: Color,
+              icon: ImageVector,
+              modifier: Modifier = Modifier
+          ) {
+              Card(
+                  modifier = modifier,
+                  shape = RoundedCornerShape(16.dp),
+                  colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                  border = CardDefaults.outlinedCardBorder()
+              ) {
+                  Column(
+                      modifier = Modifier.padding(12.dp),
+                      horizontalAlignment = Alignment.CenterHorizontally
+                  ) {
+                      Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+                      Spacer(modifier = Modifier.height(4.dp))
+                      Text(text = value, fontWeight = FontWeight.Black, fontSize = 14.sp, color = color)
+                      Text(text = title, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                  }
+              }
+          }
+
+          @Composable
+          fun DriverIncomingOrderModal(
+              order: Order,
+              onAccept: () -> Unit,
+              onReject: () -> Unit
+          ) {
+              Dialog(onDismissRequest = onReject) {
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      shape = RoundedCornerShape(24.dp),
+                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                  ) {
+                      Column(
+                          modifier = Modifier.padding(20.dp),
+                          horizontalAlignment = Alignment.CenterHorizontally
+                      ) {
+                          Box(
+                              modifier = Modifier
+                                  .size(60.dp)
+                                  .clip(CircleShape)
+                                  .background(PrimaryColor.copy(alpha = 0.15f)),
+                              contentAlignment = Alignment.Center
+                          ) {
+                              Icon(
+                                  imageVector = Icons.Default.DeliveryDining,
+                                  contentDescription = null,
+                                  tint = PrimaryColor,
+                                  modifier = Modifier.size(34.dp)
+                              )
+                          }
+
+                          Spacer(modifier = Modifier.height(12.dp))
+
+                          Text(
+                              text = "طلب توصيل جديد عاجل!",
+                              fontWeight = FontWeight.Black,
+                              fontSize = 17.sp,
+                              color = PrimaryColor
+                          )
+
+                          Spacer(modifier = Modifier.height(16.dp))
+
+                          Text(text = "المطعم: ${order.restaurant}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                          Text(text = "مكان التوصيل: ${order.customerAddress}", fontSize = 12.sp)
+                          Spacer(modifier = Modifier.height(8.dp))
+
+                          Column(modifier = Modifier.fillMaxWidth()) {
+                              order.items.forEach { item ->
+                                  Text(
+                                      text = "• ${item.name} (${item.qty})",
+                                      fontSize = 12.sp,
+                                      color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                  )
+                              }
+                          }
+
+                          if (order.note.isNotBlank()) {
+                              Spacer(modifier = Modifier.height(6.dp))
+                              Text(
+                                  text = "ملاحظة: ${order.note}",
+                                  fontSize = 11.sp,
+                                  color = Color.Gray
+                              )
+                          }
+
+                          Spacer(modifier = Modifier.height(16.dp))
+
+                          Text(
+                              text = "السعر المقدر: ${order.price} دج",
+                              fontWeight = FontWeight.Black,
+                              fontSize = 16.sp,
+                              color = AccentGreen
+                          )
+
+                          Spacer(modifier = Modifier.height(20.dp))
+
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                          ) {
+                              OutlinedButton(
+                                  onClick = onReject,
+                                  modifier = Modifier.weight(1f),
+                                  shape = RoundedCornerShape(12.dp)
+                              ) {
+                                  Text(text = "رفض", color = AccentRed)
+                              }
+
+                              Button(
+                                  onClick = onAccept,
+                                  modifier = Modifier.weight(1f),
+                                  shape = RoundedCornerShape(12.dp),
+                                  colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                              ) {
+                                  Text(text = "قبول الطلب", fontWeight = FontWeight.Bold)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          fun CreateOrderDialog(
+              stores: List<StoreItem>,
+              userLat: Double,
+              userLng: Double,
+              onDismiss: () -> Unit,
+              onSubmitOrder: (Order) -> Unit
+          ) {
+              var selectedStore by remember { mutableStateOf(stores.firstOrNull()) }
+              var customerAddress by remember { mutableStateOf("حي النصر، العفرون") }
+              var note by remember { mutableStateOf("") }
+              val products = remember { mutableStateListOf(OrderProduct("وجبة مميزة", 1)) }
+
+              val dist = remember(selectedStore, userLat, userLng) {
+                  val s = selectedStore
+                  if (s != null) getDistanceInKm(s.lat, s.lng, userLat, userLng) else 1.0
+              }
+              val calculatedPrice = remember(dist) { calculateDeliveryPrice(dist) }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .fillMaxHeight(0.88f),
+                      shape = RoundedCornerShape(24.dp),
+                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                  ) {
+                      LazyColumn(
+                          modifier = Modifier
+                              .fillMaxSize()
+                              .padding(20.dp),
+                          verticalArrangement = Arrangement.spacedBy(12.dp)
+                      ) {
+                          item {
+                              Row(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  horizontalArrangement = Arrangement.SpaceBetween,
+                                  verticalAlignment = Alignment.CenterVertically
+                              ) {
+                                  Text(
+                                      text = "إنشاء طلب توصيل جديد",
+                                      fontWeight = FontWeight.Black,
+                                      fontSize = 16.sp,
+                                      color = PrimaryColor
+                                  )
+                                  IconButton(onClick = onDismiss) {
+                                      Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                                  }
+                              }
+                          }
+
+                          item {
+                              Text(text = "اختر المتجر أو المطعم:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                              Spacer(modifier = Modifier.height(4.dp))
+                              stores.forEach { store ->
+                                  Row(
+                                      modifier = Modifier
+                                          .fillMaxWidth()
+                                          .clickable { selectedStore = store }
+                                          .padding(vertical = 4.dp),
+                                      verticalAlignment = Alignment.CenterVertically
+                                  ) {
+                                      RadioButton(
+                                          selected = (selectedStore?.id == store.id),
+                                          onClick = { selectedStore = store }
+                                      )
+                                      Text(text = store.name, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                  }
+                              }
+                          }
+
+                          item {
+                              OutlinedTextField(
+                                  value = customerAddress,
+                                  onValueChange = { customerAddress = it },
+                                  label = { Text("عنوان التوصيل الخاص بك") },
+                                  modifier = Modifier.fillMaxWidth(),
+                                  shape = RoundedCornerShape(12.dp)
+                              )
+                          }
+
+                          item {
+                              Row(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  horizontalArrangement = Arrangement.SpaceBetween,
+                                  verticalAlignment = Alignment.CenterVertically
+                              ) {
+                                  Text(text = "الوجبات والمنتجات المطلوبة:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                  TextButton(onClick = { products.add(OrderProduct("", 1)) }) {
+                                      Text(text = "+ منتج إضافي", fontSize = 11.sp, color = PrimaryColor)
+                                  }
+                              }
+                          }
+
+                          items(products.indices.toList()) { index ->
+                              val p = products[index]
+                              Row(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                  verticalAlignment = Alignment.CenterVertically
+                              ) {
+                                  OutlinedTextField(
+                                      value = p.name,
+                                      onValueChange = { newName ->
+                                          products[index] = p.copy(name = newName)
+                                      },
+                                      placeholder = { Text("اسم الوجبة", fontSize = 11.sp) },
+                                      modifier = Modifier.weight(1f),
+                                      shape = RoundedCornerShape(10.dp)
+                                  )
+                                  OutlinedTextField(
+                                      value = p.qty.toString(),
+                                      onValueChange = { newQty ->
+                                          val q = newQty.toIntOrNull() ?: 1
+                                          products[index] = p.copy(qty = q)
+                                      },
+                                      keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                      modifier = Modifier.width(60.dp),
+                                      shape = RoundedCornerShape(10.dp)
+                                  )
+                                  if (products.size > 1) {
+                                      IconButton(onClick = { products.removeAt(index) }) {
+                                          Icon(imageVector = Icons.Default.Delete, contentDescription = null, tint = AccentRed)
+                                      }
+                                  }
+                              }
+                          }
+
+                          item {
+                              OutlinedTextField(
+                                  value = note,
+                                  onValueChange = { note = it },
+                                  label = { Text("ملاحظة لعامل التوصيل (اختياري)") },
+                                  modifier = Modifier.fillMaxWidth(),
+                                  shape = RoundedCornerShape(12.dp)
+                              )
+                          }
+
+                          item {
+                              Card(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  shape = RoundedCornerShape(14.dp),
+                                  colors = CardDefaults.cardColors(containerColor = PrimaryColor.copy(alpha = 0.1f))
+                              ) {
+                                  Row(
+                                      modifier = Modifier
+                                          .fillMaxWidth()
+                                          .padding(14.dp),
+                                      horizontalArrangement = Arrangement.SpaceBetween,
+                                      verticalAlignment = Alignment.CenterVertically
+                                  ) {
+                                      Column {
+                                          Text(text = "سعر التوصيل المقدر:", fontSize = 11.sp, color = Color.Gray)
+                                          Text(
+                                              text = "المسافة التقريبية: ${"%.2f".format(dist)} كم",
+                                              fontSize = 10.sp,
+                                              color = Color.Gray
+                                          )
+                                      }
+                                      Text(
+                                          text = "$calculatedPrice دج",
+                                          fontSize = 17.sp,
+                                          fontWeight = FontWeight.Black,
+                                          color = PrimaryColor
+                                      )
+                                  }
+                              }
+                          }
+
+                          item {
+                              Button(
+                                  onClick = {
+                                      val validStore = selectedStore ?: stores.first()
+                                      val order = Order(
+                                          id = System.currentTimeMillis().toString(),
+                                          restaurant = validStore.name,
+                                          customerAddress = customerAddress,
+                                          price = calculatedPrice,
+                                          items = products.filter { it.name.isNotBlank() },
+                                          note = note,
+                                          status = "pending",
+                                          storeLat = validStore.lat,
+                                          storeLng = validStore.lng,
+                                          custLat = userLat,
+                                          custLng = userLng
+                                      )
+                                      onSubmitOrder(order)
+                                  },
+                                  modifier = Modifier
+                                      .fillMaxWidth()
+                                      .height(50.dp),
+                                  shape = RoundedCornerShape(14.dp),
+                                  colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                              ) {
+                                  Text(text = "تأكيد وإرسال الطلب", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun ChatDialog(
+              senderRole: String,
+              messages: List<ChatMessage>,
+              onSendMessage: (String) -> Unit,
+              onDismiss: () -> Unit
+          ) {
+              var inputMessage by remember { mutableStateOf("") }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .fillMaxHeight(0.7f),
+                      shape = RoundedCornerShape(20.dp),
+                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                  ) {
+                      Column(
+                          modifier = Modifier
+                              .fillMaxSize()
+                              .padding(16.dp)
+                      ) {
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.SpaceBetween,
+                              verticalAlignment = Alignment.CenterVertically
+                          ) {
+                              Text(text = "محادثة الطلب الفورية", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                              IconButton(onClick = onDismiss) {
+                                  Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                              }
+                          }
+
+                          LazyColumn(
+                              modifier = Modifier
+                                  .weight(1f)
+                                  .fillMaxWidth(),
+                              verticalArrangement = Arrangement.spacedBy(8.dp)
+                          ) {
+                              if (messages.isEmpty()) {
+                                  item {
+                                      Box(
+                                          modifier = Modifier
+                                              .fillMaxWidth()
+                                              .padding(top = 40.dp),
+                                          contentAlignment = Alignment.Center
+                                      ) {
+                                          Text(
+                                              text = "لا توجد رسائل سابقة. ابدأ المحادثة الآن!",
+                                              fontSize = 11.sp,
+                                              color = Color.Gray
+                                          )
+                                      }
+                                  }
+                              }
+                              items(messages) { msg ->
+                                  val isMe = msg.sender == senderRole
+                                  Column(
+                                      modifier = Modifier.fillMaxWidth(),
+                                      horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
+                                  ) {
+                                      Box(
+                                          modifier = Modifier
+                                              .clip(RoundedCornerShape(12.dp))
+                                              .background(if (isMe) PrimaryColor else Color.Gray.copy(alpha = 0.2f))
+                                              .padding(horizontal = 12.dp, vertical = 8.dp)
+                                      ) {
+                                          Text(
+                                              text = msg.text,
+                                              fontSize = 12.sp,
+                                              color = if (isMe) Color.White else MaterialTheme.colorScheme.onSurface
+                                          )
+                                      }
+                                  }
+                              }
+                          }
+
+                          Spacer(modifier = Modifier.height(8.dp))
+
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              verticalAlignment = Alignment.CenterVertically,
+                              horizontalArrangement = Arrangement.spacedBy(8.dp)
+                          ) {
+                              OutlinedTextField(
+                                  value = inputMessage,
+                                  onValueChange = { inputMessage = it },
+                                  placeholder = { Text("اكتب رسالتك...", fontSize = 11.sp) },
+                                  modifier = Modifier.weight(1f),
+                                  shape = RoundedCornerShape(12.dp)
+                              )
+                              IconButton(
+                                  onClick = {
+                                      if (inputMessage.isNotBlank()) {
+                                          onSendMessage(inputMessage.trim())
+                                          inputMessage = ""
+                                      }
+                                  }
+                              ) {
+                                  Icon(imageVector = Icons.Default.Send, contentDescription = "Send", tint = PrimaryColor)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun HistoryDialog(
+              orders: List<Order>,
+              onDismiss: () -> Unit
+          ) {
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .fillMaxHeight(0.7f),
+                      shape = RoundedCornerShape(20.dp),
+                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                  ) {
+                      Column(
+                          modifier = Modifier
+                              .fillMaxSize()
+                              .padding(16.dp)
+                      ) {
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.SpaceBetween,
+                              verticalAlignment = Alignment.CenterVertically
+                          ) {
+                              Text(text = "أرشيف الطلبات والرحلات", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                              IconButton(onClick = onDismiss) {
+                                  Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                              }
+                          }
+
+                          if (orders.isEmpty()) {
+                              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                  Text(text = "لا توجد سجلات محفوظة حتى الآن", fontSize = 12.sp, color = Color.Gray)
+                              }
+                          } else {
+                              LazyColumn(
+                                  modifier = Modifier.fillMaxSize(),
+                                  verticalArrangement = Arrangement.spacedBy(10.dp)
+                              ) {
+                                  items(orders) { o ->
+                                      Card(
+                                          modifier = Modifier.fillMaxWidth(),
+                                          shape = RoundedCornerShape(12.dp),
+                                          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                          border = CardDefaults.outlinedCardBorder()
+                                      ) {
+                                          Row(
+                                              modifier = Modifier
+                                                  .fillMaxWidth()
+                                                  .padding(12.dp),
+                                              horizontalArrangement = Arrangement.SpaceBetween,
+                                              verticalAlignment = Alignment.CenterVertically
+                                          ) {
+                                              Column {
+                                                  Text(text = o.restaurant, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                  Text(text = o.customerAddress, fontSize = 11.sp, color = Color.Gray)
+                                                  Text(
+                                                      text = "الحالة: ${o.status}",
+                                                      fontSize = 10.sp,
+                                                      color = if (o.status == "completed") AccentGreen else PrimaryColor
+                                                  )
+                                              }
+                                              Text(
+                                                  text = "${o.price} دج",
+                                                  fontWeight = FontWeight.Black,
+                                                  fontSize = 14.sp,
+                                                  color = PrimaryColor
+                                              )
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun RatingDialog(
+              onDismiss: () -> Unit,
+              onRated: (Int) -> Unit
+          ) {
+              var selectedStars by remember { mutableStateOf(5) }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      shape = RoundedCornerShape(20.dp),
+                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                  ) {
+                      Column(
+                          modifier = Modifier.padding(20.dp),
+                          horizontalAlignment = Alignment.CenterHorizontally
+                      ) {
+                          Text(text = "تقييم عامل التوصيل", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                          Spacer(modifier = Modifier.height(8.dp))
+                          Text(
+                              text = "يرجى تقييم تجربة التوصيل وجودة الخدمة المقدمة",
+                              fontSize = 12.sp,
+                              color = Color.Gray,
+                              textAlign = TextAlign.Center
+                          )
+
+                          Spacer(modifier = Modifier.height(16.dp))
+
+                          Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                              for (i in 1..5) {
+                                  IconButton(onClick = { selectedStars = i }) {
+                                      Icon(
+                                          imageVector = if (i <= selectedStars) Icons.Default.Star else Icons.Default.StarBorder,
+                                          contentDescription = null,
+                                          tint = Color(0xFFFFC107.toInt()),
+                                          modifier = Modifier.size(32.dp)
+                                      )
+                                  }
+                              }
+                          }
+
+                          Spacer(modifier = Modifier.height(20.dp))
+
+                          Button(
+                              onClick = { onRated(selectedStars) },
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp),
+                              colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                          ) {
+                              Text(text = "تأكيد التقييم", fontWeight = FontWeight.Bold)
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun AdminPanelScreen(
+              stores: List<StoreItem>,
+              orders: List<Order>,
+              onAddStore: (name: String, lat: Double, lng: Double) -> Unit,
+              onBackToHome: () -> Unit
+          ) {
+              var newStoreName by remember { mutableStateOf("") }
+              var newStoreLat by remember { mutableStateOf("36.4686") }
+              var newStoreLng by remember { mutableStateOf("2.6288") }
+
+              val totalVolume = orders.filter { it.status == "completed" }.sumOf { it.price }
+              val commission = (totalVolume * 0.20).roundToInt()
+
+              LazyColumn(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .padding(16.dp),
+                  verticalArrangement = Arrangement.spacedBy(16.dp)
+              ) {
+                  item {
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.SpaceBetween,
+                          verticalAlignment = Alignment.CenterVertically
+                      ) {
+                          Column {
+                              Text(text = "لوحة الإدارة والرقابة 🛡️", fontWeight = FontWeight.Black, fontSize = 18.sp, color = PrimaryColor)
+                              Text(text = "إدارة المتاجر وحساب العمولات", fontSize = 11.sp, color = Color.Gray)
+                          }
+                          Button(
+                              onClick = onBackToHome,
+                              shape = RoundedCornerShape(10.dp),
+                              colors = ButtonDefaults.buttonColors(containerColor = Color.Gray.copy(alpha = 0.2f))
+                          ) {
+                              Text(text = "خروج", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+                          }
+                      }
+                  }
+
+                  item {
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.spacedBy(10.dp)
+                      ) {
+                          StatCard(
+                              title = "إجمالي التداولات",
+                              value = "$totalVolume دج",
+                              color = PrimaryColor,
+                              icon = Icons.Default.TrendingUp,
+                              modifier = Modifier.weight(1f)
+                          )
+                          StatCard(
+                              title = "عمولة التطبيق (20%)",
+                              value = "$commission دج",
+                              color = AccentGreen,
+                              icon = Icons.Default.PieChart,
+                              modifier = Modifier.weight(1f)
+                          )
+                          StatCard(
+                              title = "الطلبات المكتملة",
+                              value = "${orders.count { it.status == "completed" }}",
+                              color = AccentBlue,
+                              icon = Icons.Default.ShoppingBag,
+                              modifier = Modifier.weight(1f)
+                          )
+                      }
+                  }
+
+                  item {
+                      Card(
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(16.dp),
+                          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                          border = CardDefaults.outlinedCardBorder()
+                      ) {
+                          Column(modifier = Modifier.padding(16.dp)) {
+                              Text(text = "إضافة متجر جديد لقائمة العفرون", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                              Spacer(modifier = Modifier.height(10.dp))
+                              OutlinedTextField(
+                                  value = newStoreName,
+                                  onValueChange = { newStoreName = it },
+                                  label = { Text("اسم المتجر أو المطعم") },
+                                  modifier = Modifier.fillMaxWidth(),
+                                  shape = RoundedCornerShape(10.dp)
+                              )
+                              Spacer(modifier = Modifier.height(8.dp))
+                              Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                  OutlinedTextField(
+                                      value = newStoreLat,
+                                      onValueChange = { newStoreLat = it },
+                                      label = { Text("Latitude") },
+                                      modifier = Modifier.weight(1f),
+                                      shape = RoundedCornerShape(10.dp)
+                                  )
+                                  OutlinedTextField(
+                                      value = newStoreLng,
+                                      onValueChange = { newStoreLng = it },
+                                      label = { Text("Longitude") },
+                                      modifier = Modifier.weight(1f),
+                                      shape = RoundedCornerShape(10.dp)
+                                  )
+                              }
+                              Spacer(modifier = Modifier.height(12.dp))
+                              Button(
+                                  onClick = {
+                                      val lat = newStoreLat.toDoubleOrNull() ?: 36.4686
+                                      val lng = newStoreLng.toDoubleOrNull() ?: 2.6288
+                                      if (newStoreName.isNotBlank()) {
+                                          onAddStore(newStoreName.trim(), lat, lng)
+                                          newStoreName = ""
+                                      }
+                                  },
+                                  modifier = Modifier.fillMaxWidth(),
+                                  shape = RoundedCornerShape(10.dp),
+                                  colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                              ) {
+                                  Text(text = "حفظ المتجر", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                              }
+                          }
+                      }
+                  }
+
+                  item {
+                      Text(text = "قائمة المتاجر المسجلة حالياً:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                  }
+
+                  items(stores) { s ->
+                      Card(
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(12.dp),
+                          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                          border = CardDefaults.outlinedCardBorder()
+                      ) {
+                          Row(
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .padding(12.dp),
+                              horizontalArrangement = Arrangement.SpaceBetween,
+                              verticalAlignment = Alignment.CenterVertically
+                          ) {
+                              Text(text = s.name, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                              Text(text = "${s.lat}, ${s.lng}", fontSize = 10.sp, color = Color.Gray)
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+      - name: Build Debug APK
+        run: |
+          chmod +x gradlew || gradle wrapper
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Artifact APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ElaffrounDelivery-Debug-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
