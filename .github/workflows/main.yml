@@ -78,9 +78,9 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <style name="Theme.ElaffrounDelivery" parent="android:Theme.Material.Light.NoActionBar">
-                  <item name="android:statusBarColor">#0F111A</item>
+                  <item name="android:statusBarColor">#0A0B10</item>
                   <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:navigationBarColor">#0F111A</item>
+                  <item name="android:navigationBarColor">#0A0B10</item>
               </style>
           </resources>
           EOF
@@ -132,8 +132,8 @@ jobs:
                   applicationId = "com.elaffroun.delivery"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 1
-                  versionName = "2.0"
+                  versionCode = 2
+                  versionName = "2.1"
               }
 
               buildTypes {
@@ -274,7 +274,7 @@ jobs:
                       ).apply {
                           description = "إشعارات بالصوت والاهتزاز عند تلقي طلب توصيل جديد"
                           enableVibration(true)
-                          vibrationPattern = longArrayOf(0, 500, 200, 500)
+                          vibrationPattern = longArrayOf(0, 400, 150, 400)
                           setSound(soundUri, audioAttr)
                       }
 
@@ -311,7 +311,7 @@ jobs:
                       .setPriority(NotificationCompat.PRIORITY_MAX)
                       .setCategory(NotificationCompat.CATEGORY_ALARM)
                       .setSound(soundUri)
-                      .setVibrate(longArrayOf(0, 500, 200, 500))
+                      .setVibrate(longArrayOf(0, 400, 150, 400))
                       .setAutoCancel(true)
                       .setContentIntent(pendingIntent)
                       .build()
@@ -403,73 +403,81 @@ jobs:
           cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/SoundHelper.kt
           package com.elaffroun.delivery
 
-          import android.content.Context
           import android.media.AudioAttributes
           import android.media.AudioFormat
           import android.media.AudioTrack
-          import android.media.RingtoneManager
           import kotlinx.coroutines.CoroutineScope
           import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.delay
           import kotlinx.coroutines.launch
+          import kotlin.math.exp
           import kotlin.math.sin
 
           object SoundHelper {
-              fun playNotificationTone(context: Context) {
-                  try {
-                      val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                      val r = RingtoneManager.getRingtone(context, uri)
-                      r.play()
-                  } catch (e: Exception) {
-                      generateToneBeep(880.0, 300)
+              // نغمة راقية ثنائية تشبه نغمات التنبيهات العصرية للهواتف الفاخرة (Chime Tone)
+              fun playNotificationTone() {
+                  CoroutineScope(Dispatchers.IO).launch {
+                      playHarmonicTone(1046.50, 160) // C6
+                      delay(40)
+                      playHarmonicTone(1318.51, 240) // E6
                   }
               }
 
+              // نغمة وصول ثلاثية صاعدة مبهجة جداً (Success Triad Chime)
               fun playArrivalTone() {
-                  generateToneBeep(1200.0, 450)
+                  CoroutineScope(Dispatchers.IO).launch {
+                      playHarmonicTone(880.00, 120)  // A5
+                      delay(30)
+                      playHarmonicTone(1174.66, 120) // D6
+                      delay(30)
+                      playHarmonicTone(1760.00, 320) // A6
+                  }
               }
 
-              private fun generateToneBeep(freqOfTone: Double, durationMs: Int) {
-                  CoroutineScope(Dispatchers.IO).launch {
-                      try {
-                          val sampleRate = 8000
-                          val numSamples = durationMs * sampleRate / 1000
-                          val soundData = DoubleArray(numSamples)
-                          val generatedSnd = ByteArray(2 * numSamples)
+              private fun playHarmonicTone(freqOfTone: Double, durationMs: Int) {
+                  try {
+                      val sampleRate = 44100
+                      val numSamples = durationMs * sampleRate / 1000
+                      val soundData = DoubleArray(numSamples)
+                      val generatedSnd = ByteArray(2 * numSamples)
 
-                          for (i in 0 until numSamples) {
-                              soundData[i] = sin(2.0 * Math.PI * i.toDouble() / (sampleRate / freqOfTone))
-                          }
-
-                          var idx = 0
-                          for (dVal in soundData) {
-                              val valShort = (dVal * 32767).toInt().toShort()
-                              generatedSnd[idx++] = (valShort.toInt() and 0x00ff).toByte()
-                              generatedSnd[idx++] = ((valShort.toInt() and 0xff00) ushr 8).toByte()
-                          }
-
-                          val audioTrack = AudioTrack.Builder()
-                              .setAudioAttributes(
-                                  AudioAttributes.Builder()
-                                      .setUsage(AudioAttributes.USAGE_ALARM)
-                                      .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                                      .build()
-                              )
-                              .setAudioFormat(
-                                  AudioFormat.Builder()
-                                      .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                                      .setSampleRate(sampleRate)
-                                      .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                                      .build()
-                              )
-                              .setBufferSizeInBytes(generatedSnd.size)
-                              .setTransferMode(AudioTrack.MODE_STATIC)
-                              .build()
-
-                          audioTrack.write(generatedSnd, 0, generatedSnd.size)
-                          audioTrack.play()
-                      } catch (e: Exception) {
-                          // Handle safely
+                      for (i in 0 until numSamples) {
+                          val t = i.toDouble() / sampleRate
+                          val decay = exp(-4.5 * t / (durationMs / 1000.0))
+                          val wave = sin(2.0 * Math.PI * freqOfTone * t) +
+                                  0.25 * sin(4.0 * Math.PI * freqOfTone * t)
+                          soundData[i] = wave * decay * 0.7
                       }
+
+                      var idx = 0
+                      for (dVal in soundData) {
+                          val valShort = (dVal.coerceIn(-1.0, 1.0) * 32767).toInt().toShort()
+                          generatedSnd[idx++] = (valShort.toInt() and 0x00ff).toByte()
+                          generatedSnd[idx++] = ((valShort.toInt() and 0xff00) ushr 8).toByte()
+                      }
+
+                      val audioTrack = AudioTrack.Builder()
+                          .setAudioAttributes(
+                              AudioAttributes.Builder()
+                                  .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                                  .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                  .build()
+                          )
+                          .setAudioFormat(
+                              AudioFormat.Builder()
+                                  .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                                  .setSampleRate(sampleRate)
+                                  .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                                  .build()
+                          )
+                          .setBufferSizeInBytes(generatedSnd.size)
+                          .setTransferMode(AudioTrack.MODE_STATIC)
+                          .build()
+
+                      audioTrack.write(generatedSnd, 0, generatedSnd.size)
+                      audioTrack.play()
+                  } catch (e: Exception) {
+                      // Handled safely
                   }
               }
           }
@@ -481,7 +489,6 @@ jobs:
           import android.graphics.Bitmap
           import android.graphics.Canvas
           import android.graphics.Paint
-          import android.graphics.RectF
           import android.graphics.drawable.BitmapDrawable
           import android.content.Context
           import kotlinx.coroutines.Dispatchers
@@ -498,29 +505,33 @@ jobs:
                   context: Context,
                   bgColor: Int,
                   symbol: String,
-                  sizePx: Int = 110
+                  sizePx: Int = 120
               ): BitmapDrawable {
                   val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
                   val canvas = Canvas(bitmap)
 
+                  // Radial Glow Shadow
                   val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                      color = android.graphics.Color.parseColor("#40000000")
+                      color = android.graphics.Color.parseColor("#45000000")
                   }
-                  canvas.drawCircle(sizePx / 2f, sizePx / 2f + 4f, sizePx / 2f - 6f, shadowPaint)
+                  canvas.drawCircle(sizePx / 2f, sizePx / 2f + 5f, sizePx / 2f - 4f, shadowPaint)
 
+                  // White Outer Frame
                   val outerCirclePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                       color = android.graphics.Color.WHITE
                   }
                   canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f - 6f, outerCirclePaint)
 
+                  // Vibrant Inner Circle
                   val innerCirclePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                       color = bgColor
                   }
                   canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f - 14f, innerCirclePaint)
 
+                  // Crisp Centered Icon Emoji
                   val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                       color = android.graphics.Color.WHITE
-                      textSize = sizePx * 0.42f
+                      textSize = sizePx * 0.44f
                       textAlign = Paint.Align.CENTER
                   }
                   val yPos = (canvas.height / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2f)
@@ -529,47 +540,169 @@ jobs:
                   return BitmapDrawable(context.resources, bitmap)
               }
 
+              // OSRM Multi-Server Fallback Engine لحساب المسارات الحقيقية بالاعتماد على شبكة الطرق
               suspend fun fetchOsrmRoadPath(
                   startLat: Double, startLng: Double,
                   endLat: Double, endLng: Double
               ): List<GeoPoint> = withContext(Dispatchers.IO) {
-                  val points = mutableListOf<GeoPoint>()
-                  try {
-                      val urlString = "https://router.project-osrm.org/route/v1/driving/$startLng,$startLat;$endLng,$endLat?overview=full&geometries=geojson"
-                      val url = URL(urlString)
-                      val connection = url.openConnection() as HttpURLConnection
-                      connection.connectTimeout = 6000
-                      connection.readTimeout = 6000
-                      connection.requestMethod = "GET"
+                  val servers = listOf(
+                      "https://router.project-osrm.org",
+                      "https://routing.openstreetmap.de/routed-car"
+                  )
 
-                      if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                          val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                          val response = reader.use { it.readText() }
-                          val json = JSONObject(response)
-                          val routes = json.optJSONArray("routes")
-                          if (routes != null && routes.length() > 0) {
-                              val geometry = routes.getJSONObject(0).getJSONObject("geometry")
-                              val coords = geometry.getJSONArray("coordinates")
-                              for (i in 0 until coords.length()) {
-                                  val pair = coords.getJSONArray(i)
-                                  val lng = pair.getDouble(0)
-                                  val lat = pair.getDouble(1)
-                                  points.add(GeoPoint(lat, lng))
+                  for (baseUrl in servers) {
+                      val points = mutableListOf<GeoPoint>()
+                      try {
+                          val urlString = "$baseUrl/route/v1/driving/$startLng,$startLat;$endLng,$endLat?overview=full&geometries=geojson"
+                          val url = URL(urlString)
+                          val connection = url.openConnection() as HttpURLConnection
+                          connection.connectTimeout = 7000
+                          connection.readTimeout = 7000
+                          connection.requestMethod = "GET"
+                          connection.setRequestProperty("User-Agent", "ElaffrounDeliveryNative/2.1")
+
+                          if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                              val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                              val response = reader.use { it.readText() }
+                              val json = JSONObject(response)
+                              val routes = json.optJSONArray("routes")
+                              if (routes != null && routes.length() > 0) {
+                                  val geometry = routes.getJSONObject(0).getJSONObject("geometry")
+                                  val coords = geometry.getJSONArray("coordinates")
+                                  for (i in 0 until coords.length()) {
+                                      val pair = coords.getJSONArray(i)
+                                      val lng = pair.getDouble(0)
+                                      val lat = pair.getDouble(1)
+                                      points.add(GeoPoint(lat, lng))
+                                  }
+                                  if (points.isNotEmpty()) {
+                                      return@withContext points
+                                  }
                               }
                           }
+                      } catch (e: Exception) {
+                          // Try next reliable mirror
                       }
-                  } catch (e: Exception) {
-                      // Fallback straight path
-                      points.clear()
-                      points.add(GeoPoint(startLat, startLng))
-                      points.add(GeoPoint(endLat, endLng))
                   }
 
-                  if (points.isEmpty()) {
-                      points.add(GeoPoint(startLat, startLng))
-                      points.add(GeoPoint(endLat, endLng))
+                  // Fallback: Segmented straight path with midpoints
+                  val fallback = mutableListOf<GeoPoint>()
+                  fallback.add(GeoPoint(startLat, startLng))
+                  fallback.add(GeoPoint((startLat + endLat) / 2.0, (startLng + endLng) / 2.0))
+                  fallback.add(GeoPoint(endLat, endLng))
+                  fallback
+              }
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/BrandIcons.kt
+          package com.elaffroun.delivery
+
+          import androidx.compose.foundation.Canvas
+          import androidx.compose.foundation.layout.size
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.geometry.Offset
+          import androidx.compose.ui.geometry.Size
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.Path
+          import androidx.compose.ui.graphics.drawscope.Fill
+          import androidx.compose.ui.unit.Dp
+          import androidx.compose.ui.unit.dp
+
+          @Composable
+          fun GoogleOfficialIcon(size: Dp = 22.dp) {
+              Canvas(modifier = Modifier.size(size)) {
+                  val w = this.size.width
+                  val h = this.size.height
+                  val center = Offset(w / 2f, h / 2f)
+                  val radius = w * 0.44f
+
+                  // Four-color segments of Google Logo
+                  val red = Color(0xFFEA4335.toInt())
+                  val blue = Color(0xFF4285F4.toInt())
+                  val green = Color(0xFF34A853.toInt())
+                  val yellow = Color(0xFFFBBC05.toInt())
+
+                  drawArc(
+                      color = red,
+                      startAngle = 180f,
+                      sweepAngle = 90f,
+                      useCenter = true,
+                      size = Size(radius * 2f, radius * 2f),
+                      topLeft = Offset(center.x - radius, center.y - radius)
+                  )
+                  drawArc(
+                      color = yellow,
+                      startAngle = 90f,
+                      sweepAngle = 90f,
+                      useCenter = true,
+                      size = Size(radius * 2f, radius * 2f),
+                      topLeft = Offset(center.x - radius, center.y - radius)
+                  )
+                  drawArc(
+                      color = green,
+                      startAngle = 0f,
+                      sweepAngle = 90f,
+                      useCenter = true,
+                      size = Size(radius * 2f, radius * 2f),
+                      topLeft = Offset(center.x - radius, center.y - radius)
+                  )
+                  drawArc(
+                      color = blue,
+                      startAngle = 270f,
+                      sweepAngle = 90f,
+                      useCenter = true,
+                      size = Size(radius * 2f, radius * 2f),
+                      topLeft = Offset(center.x - radius, center.y - radius)
+                  )
+
+                  // Inner Circle cutout
+                  drawCircle(
+                      color = Color(0xFF171A26.toInt()),
+                      radius = radius * 0.58f,
+                      center = center
+                  )
+
+                  // Blue horizontal bar
+                  drawRect(
+                      color = blue,
+                      topLeft = Offset(center.x, center.y - (radius * 0.22f)),
+                      size = Size(radius * 0.95f, radius * 0.44f)
+                  )
+              }
+          }
+
+          @Composable
+          fun FacebookOfficialIcon(size: Dp = 22.dp) {
+              Canvas(modifier = Modifier.size(size)) {
+                  val w = this.size.width
+                  val h = this.size.height
+                  val blue = Color(0xFF1877F2.toInt())
+                  val white = Color.White
+
+                  // Blue round background
+                  drawCircle(color = blue, radius = w / 2f)
+
+                  // Classic lowercase 'f'
+                  val path = Path().apply {
+                      moveTo(w * 0.58f, h * 0.90f)
+                      lineTo(w * 0.58f, h * 0.54f)
+                      lineTo(w * 0.70f, h * 0.54f)
+                      lineTo(w * 0.72f, h * 0.40f)
+                      lineTo(w * 0.58f, h * 0.40f)
+                      lineTo(w * 0.58f, h * 0.31f)
+                      cubicTo(w * 0.58f, h * 0.24f, w * 0.61f, h * 0.20f, w * 0.72f, h * 0.20f)
+                      lineTo(w * 0.72f, h * 0.08f)
+                      cubicTo(w * 0.64f, h * 0.07f, w * 0.54f, h * 0.07f, w * 0.47f, h * 0.14f)
+                      cubicTo(w * 0.40f, h * 0.20f, w * 0.42f, h * 0.29f, w * 0.42f, h * 0.40f)
+                      lineTo(w * 0.32f, h * 0.40f)
+                      lineTo(w * 0.32f, h * 0.54f)
+                      lineTo(w * 0.42f, h * 0.54f)
+                      lineTo(w * 0.42f, h * 0.90f)
+                      close()
                   }
-                  points
+                  drawPath(path = path, color = white, style = Fill)
               }
           }
           EOF
@@ -648,12 +781,21 @@ jobs:
 
           val PrimaryColor = Color(0xFFFF7E00.toInt())
           val PrimaryDarkColor = Color(0xFFE06B00.toInt())
-          val AppDarkBackground = Color(0xFF0F111A.toInt())
-          val CardDarkBackground = Color(0xFF171A26.toInt())
+          val AppDarkBackground = Color(0xFF0A0B10.toInt())
+          val GlassDarkSurface = Color(0xCC151926.toInt())
+          val GlassBorderColor = Color(0x33FFFFFF.toInt())
+          val CardDarkBackground = Color(0xFF161A26.toInt())
           val AccentGreen = Color(0xFF10B981.toInt())
           val AccentRed = Color(0xFFEF4444.toInt())
           val AccentBlue = Color(0xFF3B82F6.toInt())
           val GoldenStar = Color(0xFFFFB800.toInt())
+
+          val MainGradientBrush = Brush.linearGradient(
+              listOf(Color(0xFF0F111A.toInt()), Color(0xFF171926.toInt()), Color(0xFF0A0B10.toInt()))
+          )
+          val OrangeGradientBrush = Brush.linearGradient(
+              listOf(PrimaryColor, PrimaryDarkColor)
+          )
 
           data class StoreItem(val id: String = "", val name: String = "", val lat: Double = 36.4686, val lng: Double = 2.6288)
           data class OrderProduct(val name: String = "", val qty: Int = 1)
@@ -763,7 +905,7 @@ jobs:
                                   }
                               }
                       } catch (e: Exception) {
-                          // Handle safely
+                          // Handled safely
                       }
                   }
               }
@@ -822,7 +964,7 @@ jobs:
                               }
                           }
                       } catch (e: Exception) {
-                          // Handle safely
+                          // Handled safely
                       }
                   }
               }
@@ -870,7 +1012,7 @@ jobs:
 
                               if (userRole == UserRole.DRIVER && ord.status == "pending" && incomingOrderAlert == null) {
                                   incomingOrderAlert = ord
-                                  SoundHelper.playNotificationTone(context)
+                                  SoundHelper.playNotificationTone()
                                   DeliveryNotificationHelper.sendOrderAlert(
                                       context,
                                       "طلب جديد وارد الآن! 🛵",
@@ -933,7 +1075,7 @@ jobs:
               } else {
                   lightColorScheme(
                       primary = PrimaryColor,
-                      background = Color(0xFFF8FAFC.toInt()),
+                      background = Color(0xFFF4F6FB.toInt()),
                       surface = Color.White,
                       onPrimary = Color.White,
                       onBackground = Color(0xFF0F172A.toInt()),
@@ -947,32 +1089,43 @@ jobs:
                       gesturesEnabled = true,
                       drawerContent = {
                           ModalDrawerSheet(
-                              modifier = Modifier.width(300.dp),
-                              drawerContainerColor = MaterialTheme.colorScheme.surface
+                              modifier = Modifier.width(310.dp),
+                              drawerContainerColor = Color(0xFF10131F.toInt())
                           ) {
                               Column(
                                   modifier = Modifier
                                       .fillMaxSize()
-                                      .padding(20.dp),
-                                  verticalArrangement = Arrangement.spacedBy(8.dp)
+                                      .padding(22.dp),
+                                  verticalArrangement = Arrangement.spacedBy(10.dp)
                               ) {
                                   Row(
                                       modifier = Modifier.fillMaxWidth(),
                                       horizontalArrangement = Arrangement.SpaceBetween,
                                       verticalAlignment = Alignment.CenterVertically
                                   ) {
-                                      Text(
-                                          text = "العفرون ديليفري",
-                                          fontSize = 18.sp,
-                                          fontWeight = FontWeight.Black,
-                                          color = PrimaryColor
-                                      )
+                                      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                          Box(
+                                              modifier = Modifier
+                                                  .size(38.dp)
+                                                  .clip(CircleShape)
+                                                  .background(OrangeGradientBrush),
+                                              contentAlignment = Alignment.Center
+                                          ) {
+                                              Icon(imageVector = Icons.Default.TwoWheeler, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                          }
+                                          Text(
+                                              text = "العفرون ديليفري",
+                                              fontSize = 18.sp,
+                                              fontWeight = FontWeight.Black,
+                                              color = PrimaryColor
+                                          )
+                                      }
                                       IconButton(onClick = { scope.launch { drawerState.close() } }) {
-                                          Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                                          Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                                       }
                                   }
 
-                                  Divider(modifier = Modifier.padding(vertical = 8.dp))
+                                  Divider(modifier = Modifier.padding(vertical = 8.dp), color = GlassBorderColor)
 
                                   DrawerMenuItem(
                                       title = "الرئيسية",
@@ -1041,11 +1194,12 @@ jobs:
                                           },
                                           modifier = Modifier
                                               .fillMaxWidth()
-                                              .height(50.dp),
-                                          shape = RoundedCornerShape(14.dp),
+                                              .height(52.dp)
+                                              .shadow(12.dp, RoundedCornerShape(16.dp)),
+                                          shape = RoundedCornerShape(16.dp),
                                           colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
                                       ) {
-                                          Icon(imageVector = Icons.Default.TwoWheeler, contentDescription = null)
+                                          Icon(imageVector = Icons.Default.DeliveryDining, contentDescription = null)
                                           Spacer(modifier = Modifier.width(8.dp))
                                           Text(
                                               text = "انضم إلينا كعامل توصيل",
@@ -1058,12 +1212,17 @@ jobs:
                           }
                       }
                   ) {
-                      Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                      Box(
+                          modifier = Modifier
+                              .fillMaxSize()
+                              .background(MainGradientBrush)
+                      ) {
                           Column(modifier = Modifier.fillMaxSize()) {
+                              // Modern Frosted App Bar
                               TopAppBar(
                                   navigationIcon = {
                                       IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                          Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu")
+                                          Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
                                       }
                                   },
                                   title = {
@@ -1075,11 +1234,7 @@ jobs:
                                               modifier = Modifier
                                                   .size(36.dp)
                                                   .clip(CircleShape)
-                                                  .background(
-                                                      Brush.linearGradient(
-                                                          listOf(PrimaryColor, PrimaryDarkColor)
-                                                      )
-                                                  ),
+                                                  .background(OrangeGradientBrush),
                                               contentAlignment = Alignment.Center
                                           ) {
                                               Icon(
@@ -1091,7 +1246,7 @@ jobs:
                                           }
                                           Text(
                                               text = "العفرون ديليفري",
-                                              fontSize = 17.sp,
+                                              fontSize = 18.sp,
                                               fontWeight = FontWeight.Black,
                                               color = PrimaryColor
                                           )
@@ -1109,7 +1264,7 @@ jobs:
                                               Icon(
                                                   imageVector = Icons.Default.Notifications,
                                                   contentDescription = "Notifications",
-                                                  tint = MaterialTheme.colorScheme.onSurface
+                                                  tint = Color.White
                                               )
                                           }
                                       }
@@ -1118,7 +1273,7 @@ jobs:
                                           Icon(
                                               imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
                                               contentDescription = "Theme",
-                                              tint = if (isDarkMode) GoldenStar else MaterialTheme.colorScheme.onSurface
+                                              tint = if (isDarkMode) GoldenStar else Color.White
                                           )
                                       }
 
@@ -1130,30 +1285,40 @@ jobs:
                                                   tint = PrimaryColor
                                               )
                                           }
-                                          IconButton(onClick = {
-                                              auth.signOut()
-                                              currentUserUid = ""
-                                              currentUserName = ""
-                                              currentUserPhone = ""
-                                              currentScreen = AppScreen.LANDING
-                                          }) {
+                                          // Distinctive Premium Glass Logout Button
+                                          IconButton(
+                                              onClick = {
+                                                  auth.signOut()
+                                                  currentUserUid = ""
+                                                  currentUserName = ""
+                                                  currentUserPhone = ""
+                                                  currentScreen = AppScreen.LANDING
+                                              },
+                                              modifier = Modifier
+                                                  .padding(end = 4.dp)
+                                                  .size(36.dp)
+                                                  .clip(CircleShape)
+                                                  .background(AccentRed.copy(alpha = 0.18f))
+                                                  .border(1.dp, AccentRed.copy(alpha = 0.4f), CircleShape)
+                                          ) {
                                               Icon(
-                                                  imageVector = Icons.Default.ExitToApp,
+                                                  imageVector = Icons.Default.PowerSettingsNew,
                                                   contentDescription = "Logout",
-                                                  tint = AccentRed
+                                                  tint = AccentRed,
+                                                  modifier = Modifier.size(18.dp)
                                               )
                                           }
                                       }
                                   },
-                                  colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                                  colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                               )
 
                               Box(modifier = Modifier.weight(1f)) {
                                   AnimatedContent(
                                       targetState = currentScreen,
                                       transitionSpec = {
-                                          fadeIn(animationSpec = tween(350)) + scaleIn(initialScale = 0.94f) togetherWith
-                                                  fadeOut(animationSpec = tween(250)) + scaleOut(targetScale = 1.04f)
+                                          fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.93f) togetherWith
+                                                  fadeOut(animationSpec = tween(280)) + scaleOut(targetScale = 1.05f)
                                       },
                                       label = "ScreenTransition"
                                   ) { targetScreen ->
@@ -1380,14 +1545,14 @@ jobs:
               Row(
                   modifier = Modifier
                       .fillMaxWidth()
-                      .clip(RoundedCornerShape(12.dp))
+                      .clip(RoundedCornerShape(14.dp))
                       .clickable { onClick() }
                       .padding(12.dp),
                   verticalAlignment = Alignment.CenterVertically,
                   horizontalArrangement = Arrangement.spacedBy(14.dp)
               ) {
-                  Icon(imageVector = icon, contentDescription = null, tint = PrimaryColor, modifier = Modifier.size(20.dp))
-                  Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                  Icon(imageVector = icon, contentDescription = null, tint = PrimaryColor, modifier = Modifier.size(22.dp))
+                  Text(text = title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
               }
           }
 
@@ -1400,8 +1565,19 @@ jobs:
               modifier: Modifier = Modifier
           ) {
               val context = LocalContext.current
-              val scope = rememberCoroutineScope()
               var roadWaypoints by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+
+              // Pulse Animation Effect around Driver
+              val infiniteTransition = rememberInfiniteTransition(label = "MarkerPulse")
+              val animatedRadiusRatio by infiniteTransition.animateFloat(
+                  initialValue = 0.85f,
+                  targetValue = 1.15f,
+                  animationSpec = infiniteRepeatable(
+                      animation = tween(1400, easing = FastOutSlowInEasing),
+                      repeatMode = RepeatMode.Reverse
+                  ),
+                  label = "Radius"
+              )
 
               LaunchedEffect(centerLat, centerLng, destinationLat, destinationLng) {
                   if (destinationLat != null && destinationLng != null) {
@@ -1414,57 +1590,68 @@ jobs:
                   }
               }
 
-              AndroidView(
-                  modifier = modifier.fillMaxSize(),
-                  factory = { ctx ->
-                      MapView(ctx).apply {
-                          setTileSource(TileSourceFactory.MAPNIK)
-                          setMultiTouchControls(true)
-                          controller.setZoom(15.5)
-                          controller.setCenter(GeoPoint(centerLat, centerLng))
-                      }
-                  },
-                  update = { mapView ->
-                      mapView.overlays.clear()
-                      val centerPoint = GeoPoint(centerLat, centerLng)
-                      val centerMarker = Marker(mapView).apply {
-                          position = centerPoint
-                          setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                          title = "الموقع الحالي"
-                          icon = MapUtils.createCustomPinDrawable(
-                              context,
-                              android.graphics.Color.parseColor("#3B82F6"),
-                              "📍"
-                          )
-                      }
-                      mapView.overlays.add(centerMarker)
-
-                      if (destinationLat != null && destinationLng != null) {
-                          val destPoint = GeoPoint(destinationLat, destinationLng)
-                          val destMarker = Marker(mapView).apply {
-                              position = destPoint
+              Box(modifier = modifier.fillMaxSize()) {
+                  AndroidView(
+                      modifier = Modifier.fillMaxSize(),
+                      factory = { ctx ->
+                          MapView(ctx).apply {
+                              setTileSource(TileSourceFactory.MAPNIK)
+                              setMultiTouchControls(true)
+                              controller.setZoom(15.5)
+                              controller.setCenter(GeoPoint(centerLat, centerLng))
+                          }
+                      },
+                      update = { mapView ->
+                          mapView.overlays.clear()
+                          val centerPoint = GeoPoint(centerLat, centerLng)
+                          val centerMarker = Marker(mapView).apply {
+                              position = centerPoint
                               setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                              title = "المقصد / المطعم"
+                              title = "الموقع الحالي"
                               icon = MapUtils.createCustomPinDrawable(
                                   context,
-                                  android.graphics.Color.parseColor("#FF7E00"),
-                                  "🍲"
+                                  android.graphics.Color.parseColor("#3B82F6"),
+                                  "🛵",
+                                  (120 * animatedRadiusRatio).toInt().coerceAtLeast(80)
                               )
                           }
-                          mapView.overlays.add(destMarker)
+                          mapView.overlays.add(centerMarker)
 
-                          if (roadWaypoints.isNotEmpty()) {
-                              val line = Polyline(mapView).apply {
-                                  roadWaypoints.forEach { addPoint(it) }
-                                  outlinePaint.color = android.graphics.Color.parseColor("#FF7E00")
-                                  outlinePaint.strokeWidth = 14f
+                          if (destinationLat != null && destinationLng != null) {
+                              val destPoint = GeoPoint(destinationLat, destinationLng)
+                              val destMarker = Marker(mapView).apply {
+                                  position = destPoint
+                                  setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                  title = "المقصد / المطعم"
+                                  icon = MapUtils.createCustomPinDrawable(
+                                      context,
+                                      android.graphics.Color.parseColor("#FF7E00"),
+                                      "🍲"
+                                  )
                               }
-                              mapView.overlays.add(line)
+                              mapView.overlays.add(destMarker)
+
+                              if (roadWaypoints.isNotEmpty()) {
+                                  // Road-matched Outer Polyline
+                                  val glowLine = Polyline(mapView).apply {
+                                      roadWaypoints.forEach { addPoint(it) }
+                                      outlinePaint.color = android.graphics.Color.parseColor("#50FF7E00")
+                                      outlinePaint.strokeWidth = 22f
+                                  }
+                                  // Road-matched Inner Solid Line
+                                  val coreLine = Polyline(mapView).apply {
+                                      roadWaypoints.forEach { addPoint(it) }
+                                      outlinePaint.color = android.graphics.Color.parseColor("#FF7E00")
+                                      outlinePaint.strokeWidth = 12f
+                                  }
+                                  mapView.overlays.add(glowLine)
+                                  mapView.overlays.add(coreLine)
+                              }
                           }
+                          mapView.invalidate()
                       }
-                      mapView.invalidate()
-                  }
-              )
+                  )
+              }
           }
 
           @Composable
@@ -1475,10 +1662,10 @@ jobs:
           ) {
               val infiniteTransition = rememberInfiniteTransition(label = "Pulse")
               val scale by infiniteTransition.animateFloat(
-                  initialValue = 0.95f,
-                  targetValue = 1.05f,
+                  initialValue = 0.94f,
+                  targetValue = 1.06f,
                   animationSpec = infiniteRepeatable(
-                      animation = tween(1200, easing = FastOutSlowInEasing),
+                      animation = tween(1300, easing = FastOutSlowInEasing),
                       repeatMode = RepeatMode.Reverse
                   ),
                   label = "Scale"
@@ -1493,29 +1680,30 @@ jobs:
               ) {
                   Box(
                       modifier = Modifier
-                          .size(110.dp)
+                          .size(116.dp)
                           .scale(scale)
                           .clip(CircleShape)
                           .background(
                               Brush.radialGradient(
                                   listOf(PrimaryColor, PrimaryDarkColor)
                               )
-                          ),
+                          )
+                          .shadow(20.dp, CircleShape),
                       contentAlignment = Alignment.Center
                   ) {
                       Icon(
                           imageVector = Icons.Default.TwoWheeler,
                           contentDescription = "Logo",
                           tint = Color.White,
-                          modifier = Modifier.size(60.dp)
+                          modifier = Modifier.size(64.dp)
                       )
                   }
 
-                  Spacer(modifier = Modifier.height(24.dp))
+                  Spacer(modifier = Modifier.height(26.dp))
 
                   Text(
                       text = "العفرون أونلاين ديليفري",
-                      fontSize = 26.sp,
+                      fontSize = 28.sp,
                       fontWeight = FontWeight.Black,
                       color = PrimaryColor,
                       textAlign = TextAlign.Center
@@ -1524,21 +1712,22 @@ jobs:
                   Spacer(modifier = Modifier.height(10.dp))
 
                   Text(
-                      text = "المنصة الأحدث لتتبع وتوصيل طلباتك في العفرون وضواحيها بكل سلاسة، أمان وسرعة حقيقية.",
+                      text = "المنصة الذكية الرائدة لتوصيل وتتبع الطلبات بمدينة العفرون وضواحيها بكل أمان، احترافية وشفافية مطلقة.",
                       fontSize = 14.sp,
                       textAlign = TextAlign.Center,
-                      color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                      color = Color.White.copy(alpha = 0.75f),
                       lineHeight = 22.sp
                   )
 
-                  Spacer(modifier = Modifier.height(36.dp))
+                  Spacer(modifier = Modifier.height(38.dp))
 
                   Button(
                       onClick = onOrderNow,
                       modifier = Modifier
                           .fillMaxWidth()
-                          .height(54.dp),
-                      shape = RoundedCornerShape(16.dp),
+                          .height(56.dp)
+                          .shadow(14.dp, RoundedCornerShape(18.dp)),
+                      shape = RoundedCornerShape(18.dp),
                       colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
                   ) {
                       Icon(imageVector = Icons.Default.ShoppingBag, contentDescription = null)
@@ -1546,14 +1735,15 @@ jobs:
                       Text(text = "اطلب الآن (زبون)", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                   }
 
-                  Spacer(modifier = Modifier.height(12.dp))
+                  Spacer(modifier = Modifier.height(14.dp))
 
                   OutlinedButton(
                       onClick = onJoinDriver,
                       modifier = Modifier
                           .fillMaxWidth()
-                          .height(54.dp),
-                      shape = RoundedCornerShape(16.dp),
+                          .height(56.dp)
+                          .border(1.5.dp, PrimaryColor, RoundedCornerShape(18.dp)),
+                      shape = RoundedCornerShape(18.dp),
                       colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryColor)
                   ) {
                       Icon(imageVector = Icons.Default.DeliveryDining, contentDescription = null)
@@ -1561,12 +1751,12 @@ jobs:
                       Text(text = "انضم كعامل توصيل", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                   }
 
-                  Spacer(modifier = Modifier.height(28.dp))
+                  Spacer(modifier = Modifier.height(30.dp))
 
                   TextButton(onClick = onOpenAdmin) {
                       Text(
                           text = "دخول بوابة الإدارة",
-                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                          color = Color.White.copy(alpha = 0.45f),
                           fontSize = 12.sp
                       )
                   }
@@ -1582,7 +1772,6 @@ jobs:
               val context = LocalContext.current
               val auth = Firebase.auth
               val db = Firebase.firestore
-              val scope = rememberCoroutineScope()
 
               var isRegisterMode by remember { mutableStateOf(false) }
               var name by remember { mutableStateOf("") }
@@ -1648,7 +1837,7 @@ jobs:
                       Text(
                           text = if (role == UserRole.ADMIN) "تسجيل دخول الإدارة"
                           else if (isRegisterMode) "إنشاء حساب جديد" else "تسجيل الدخول",
-                          fontSize = 22.sp,
+                          fontSize = 24.sp,
                           fontWeight = FontWeight.Black,
                           color = PrimaryColor
                       )
@@ -1657,19 +1846,20 @@ jobs:
                           text = when (role) {
                               UserRole.CUSTOMER -> "بوابة الزبائن - تسجيل سريع وآمن"
                               UserRole.DRIVER -> "بوابة عمال التوصيل"
-                              UserRole.ADMIN -> "تحقق رقمي محمي للإدارة"
+                              UserRole.ADMIN -> "تحقق رقمي مشفر للإدارة"
                           },
                           fontSize = 12.sp,
-                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                          modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                          color = Color.White.copy(alpha = 0.6f),
+                          modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
                       )
 
                       if (role == UserRole.CUSTOMER) {
                           Row(
                               modifier = Modifier.fillMaxWidth(),
-                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                              horizontalArrangement = Arrangement.spacedBy(12.dp)
                           ) {
-                              OutlinedButton(
+                              // Official Google Branded Button
+                              Button(
                                   onClick = {
                                       val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                                           .requestIdToken(context.getString(R.string.default_web_client_id))
@@ -1678,15 +1868,20 @@ jobs:
                                       val client = GoogleSignIn.getClient(context, gso)
                                       googleSignInLauncher.launch(client.signInIntent)
                                   },
-                                  modifier = Modifier.weight(1f),
-                                  shape = RoundedCornerShape(14.dp)
+                                  modifier = Modifier
+                                      .weight(1f)
+                                      .height(48.dp)
+                                      .border(1.dp, GlassBorderColor, RoundedCornerShape(14.dp)),
+                                  shape = RoundedCornerShape(14.dp),
+                                  colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF171A26.toInt()))
                               ) {
-                                  Icon(imageVector = Icons.Default.Mail, contentDescription = null, tint = AccentRed)
-                                  Spacer(modifier = Modifier.width(6.dp))
-                                  Text("Google", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                  GoogleOfficialIcon(size = 20.dp)
+                                  Spacer(modifier = Modifier.width(8.dp))
+                                  Text("Google", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                               }
 
-                              OutlinedButton(
+                              // Official Facebook Branded Button
+                              Button(
                                   onClick = {
                                       val provider = OAuthProvider.newBuilder("facebook.com")
                                       val activity = context as Activity
@@ -1701,31 +1896,35 @@ jobs:
                                               errorMessage = e.localizedMessage ?: "فشل تسجيل الدخول بـ Facebook"
                                           }
                                   },
-                                  modifier = Modifier.weight(1f),
-                                  shape = RoundedCornerShape(14.dp)
+                                  modifier = Modifier
+                                      .weight(1f)
+                                      .height(48.dp)
+                                      .border(1.dp, GlassBorderColor, RoundedCornerShape(14.dp)),
+                                  shape = RoundedCornerShape(14.dp),
+                                  colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF171A26.toInt()))
                               ) {
-                                  Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = AccentBlue)
-                                  Spacer(modifier = Modifier.width(6.dp))
-                                  Text("Facebook", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                  FacebookOfficialIcon(size = 20.dp)
+                                  Spacer(modifier = Modifier.width(8.dp))
+                                  Text("Facebook", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                               }
                           }
 
-                          Spacer(modifier = Modifier.height(14.dp))
+                          Spacer(modifier = Modifier.height(16.dp))
 
                           Row(
                               verticalAlignment = Alignment.CenterVertically,
                               modifier = Modifier.fillMaxWidth()
                           ) {
-                              Divider(modifier = Modifier.weight(1f))
+                              Divider(modifier = Modifier.weight(1f), color = GlassBorderColor)
                               Text(
                                   text = " أو عبر البريد الإلكتروني ",
                                   fontSize = 11.sp,
-                                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                  color = Color.White.copy(alpha = 0.5f)
                               )
-                              Divider(modifier = Modifier.weight(1f))
+                              Divider(modifier = Modifier.weight(1f), color = GlassBorderColor)
                           }
 
-                          Spacer(modifier = Modifier.height(14.dp))
+                          Spacer(modifier = Modifier.height(16.dp))
                       }
 
                       if (isRegisterMode) {
@@ -1787,7 +1986,8 @@ jobs:
                               Text(
                                   text = "أوافق على سياسة الاستخدام والأسعار (50 دج / 500م)",
                                   fontSize = 11.sp,
-                                  lineHeight = 16.sp
+                                  lineHeight = 16.sp,
+                                  color = Color.White
                               )
                           }
 
@@ -1800,8 +2000,9 @@ jobs:
                                   Text(
                                       text = "أصرح أن عمري فوق 18 سنة وألتزم بسداد ديون المنصة",
                                       fontSize = 11.sp,
-                                      lineHeight = 16.sp
-                                  )
+                                      lineHeight = 16.sp,
+                                      color = Color.White
+                              )
                               }
                           }
                       }
@@ -1904,7 +2105,8 @@ jobs:
                           },
                           modifier = Modifier
                               .fillMaxWidth()
-                              .height(50.dp),
+                              .height(52.dp)
+                              .shadow(12.dp, RoundedCornerShape(14.dp)),
                           shape = RoundedCornerShape(14.dp),
                           colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
                           enabled = !isLoading
@@ -1960,6 +2162,7 @@ jobs:
               }
 
               Scaffold(
+                  containerColor = Color.Transparent,
                   floatingActionButton = {
                       Column(
                           verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1970,7 +2173,8 @@ jobs:
                                   onClick = { onOpenChat(currentRunningOrder.id) },
                                   containerColor = AccentBlue,
                                   contentColor = Color.White,
-                                  shape = CircleShape
+                                  shape = CircleShape,
+                                  modifier = Modifier.shadow(12.dp, CircleShape)
                               ) {
                                   Icon(imageVector = Icons.Default.Chat, contentDescription = "Chat")
                               }
@@ -1980,7 +2184,8 @@ jobs:
                               onClick = onOpenNewOrder,
                               containerColor = PrimaryColor,
                               contentColor = Color.White,
-                              shape = RoundedCornerShape(22.dp)
+                              shape = RoundedCornerShape(22.dp),
+                              modifier = Modifier.shadow(16.dp, RoundedCornerShape(22.dp))
                           ) {
                               Icon(imageVector = Icons.Default.AddShoppingCart, contentDescription = null)
                               Spacer(modifier = Modifier.width(8.dp))
@@ -2003,13 +2208,14 @@ jobs:
                           Column {
                               Text(
                                   text = "أهلاً بك، $userName 👋",
-                                  fontSize = 18.sp,
-                                  fontWeight = FontWeight.Bold
+                                  fontSize = 19.sp,
+                                  fontWeight = FontWeight.Bold,
+                                  color = Color.White
                               )
                               Text(
-                                  text = "بوابة الزبائن - التوصيل المباشر في العفرون",
+                                  text = "بوابة الزبائن - تتبع مباشر وطلب سريع",
                                   fontSize = 12.sp,
-                                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                  color = Color.White.copy(alpha = 0.6f)
                               )
                           }
                           IconButton(onClick = onOpenHistory) {
@@ -2035,9 +2241,10 @@ jobs:
                       Card(
                           modifier = Modifier
                               .fillMaxWidth()
-                              .weight(1f),
-                          shape = RoundedCornerShape(26.dp),
-                          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                              .weight(1f)
+                              .shadow(16.dp, RoundedCornerShape(28.dp)),
+                          shape = RoundedCornerShape(28.dp),
+                          colors = CardDefaults.cardColors(containerColor = CardDarkBackground),
                           border = CardDefaults.outlinedCardBorder()
                       ) {
                           RealtimeMapView(
@@ -2077,8 +2284,10 @@ jobs:
               }
 
               Card(
-                  modifier = Modifier.fillMaxWidth(),
-                  shape = RoundedCornerShape(18.dp),
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .shadow(14.dp, RoundedCornerShape(20.dp)),
+                  shape = RoundedCornerShape(20.dp),
                   colors = CardDefaults.cardColors(containerColor = statusBg)
               ) {
                   Column(
@@ -2129,7 +2338,7 @@ jobs:
                                       context.startActivity(intent)
                                   },
                                   colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                                  shape = RoundedCornerShape(10.dp),
+                                  shape = RoundedCornerShape(12.dp),
                                   modifier = Modifier.weight(1f)
                               ) {
                                   Icon(
@@ -2147,7 +2356,7 @@ jobs:
                               Button(
                                   onClick = onConfirmDelivered,
                                   colors = ButtonDefaults.buttonColors(containerColor = AccentGreen),
-                                  shape = RoundedCornerShape(10.dp),
+                                  shape = RoundedCornerShape(12.dp),
                                   modifier = Modifier.weight(1.5f)
                               ) {
                                   Text(text = "تأكيد الاستلام والتقييم", fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -2158,7 +2367,7 @@ jobs:
                               Button(
                                   onClick = onCancel,
                                   colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
-                                  shape = RoundedCornerShape(10.dp),
+                                  shape = RoundedCornerShape(12.dp),
                                   modifier = Modifier.weight(1f)
                               ) {
                                   Text(text = "إلغاء الطلب", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -2202,11 +2411,12 @@ jobs:
                           Column {
                               Text(
                                   text = "كابتن $driverName 🛵",
-                                  fontSize = 18.sp,
-                                  fontWeight = FontWeight.Bold
+                                  fontSize = 19.sp,
+                                  fontWeight = FontWeight.Bold,
+                                  color = Color.White
                               )
                               Text(
-                                  text = "لوحة تحكم السائقين - مباشر مع مسارات الطرق",
+                                  text = "لوحة تحكم السائقين - مباشر مع مسارات الطرق الحقيقية",
                                   fontSize = 12.sp,
                                   color = AccentGreen
                               )
@@ -2249,9 +2459,11 @@ jobs:
                   if (currentDelivery != null) {
                       item {
                           Card(
-                              modifier = Modifier.fillMaxWidth(),
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .shadow(14.dp, RoundedCornerShape(22.dp)),
                               shape = RoundedCornerShape(22.dp),
-                              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                              colors = CardDefaults.cardColors(containerColor = CardDarkBackground),
                               border = CardDefaults.outlinedCardBorder()
                           ) {
                               Column(modifier = Modifier.padding(16.dp)) {
@@ -2262,9 +2474,9 @@ jobs:
                                       color = PrimaryColor
                                   )
                                   Spacer(modifier = Modifier.height(8.dp))
-                                  Text(text = "المطعم: ${currentDelivery.restaurant}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                  Text(text = "العنوان: ${currentDelivery.customerAddress}", fontSize = 12.sp)
-                                  Text(text = "السعر الإجمالي: ${currentDelivery.price} دج", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                  Text(text = "المطعم: ${currentDelivery.restaurant}", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+                                  Text(text = "العنوان: ${currentDelivery.customerAddress}", fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
+                                  Text(text = "السعر الإجمالي: ${currentDelivery.price} دج", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AccentGreen)
 
                                   Spacer(modifier = Modifier.height(14.dp))
 
@@ -2309,7 +2521,7 @@ jobs:
                                   Button(
                                       onClick = { onOpenChat(currentDelivery.id) },
                                       modifier = Modifier.fillMaxWidth(),
-                                      shape = RoundedCornerShape(10.dp),
+                                      shape = RoundedCornerShape(12.dp),
                                       colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
                                   ) {
                                       Icon(imageVector = Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -2324,9 +2536,10 @@ jobs:
                           Card(
                               modifier = Modifier
                                   .fillMaxWidth()
-                                  .height(280.dp),
-                              shape = RoundedCornerShape(22.dp),
-                              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                  .height(290.dp)
+                                  .shadow(16.dp, RoundedCornerShape(24.dp)),
+                              shape = RoundedCornerShape(24.dp),
+                              colors = CardDefaults.cardColors(containerColor = CardDarkBackground),
                               border = CardDefaults.outlinedCardBorder()
                           ) {
                               RealtimeMapView(
@@ -2343,8 +2556,8 @@ jobs:
                               modifier = Modifier
                                   .fillMaxWidth()
                                   .height(160.dp),
-                              shape = RoundedCornerShape(20.dp),
-                              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                              shape = RoundedCornerShape(22.dp),
+                              colors = CardDefaults.cardColors(containerColor = CardDarkBackground),
                               border = CardDefaults.outlinedCardBorder()
                           ) {
                               Box(
@@ -2356,14 +2569,14 @@ jobs:
                                           imageVector = Icons.Default.NotificationsNone,
                                           contentDescription = null,
                                           tint = PrimaryColor,
-                                          modifier = Modifier.size(40.dp)
+                                          modifier = Modifier.size(42.dp)
                                       )
                                       Spacer(modifier = Modifier.height(8.dp))
                                       Text(
                                           text = "لا توجد طلبات جارية الآن. أنت جاهز لاستقبال العروض!",
                                           fontSize = 12.sp,
                                           textAlign = TextAlign.Center,
-                                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                          color = Color.White.copy(alpha = 0.6f)
                                       )
                                   }
                               }
@@ -2382,9 +2595,9 @@ jobs:
               modifier: Modifier = Modifier
           ) {
               Card(
-                  modifier = modifier,
-                  shape = RoundedCornerShape(16.dp),
-                  colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                  modifier = modifier.shadow(8.dp, RoundedCornerShape(18.dp)),
+                  shape = RoundedCornerShape(18.dp),
+                  colors = CardDefaults.cardColors(containerColor = CardDarkBackground),
                   border = CardDefaults.outlinedCardBorder()
               ) {
                   Column(
@@ -2394,7 +2607,7 @@ jobs:
                       Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
                       Spacer(modifier = Modifier.height(4.dp))
                       Text(text = value, fontWeight = FontWeight.Black, fontSize = 14.sp, color = color)
-                      Text(text = title, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                      Text(text = title, fontSize = 10.sp, color = Color.White.copy(alpha = 0.6f))
                   }
               }
           }
@@ -2407,42 +2620,45 @@ jobs:
           ) {
               Dialog(onDismissRequest = onReject) {
                   Card(
-                      modifier = Modifier.fillMaxWidth(),
-                      shape = RoundedCornerShape(24.dp),
-                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .border(1.dp, GlassBorderColor, RoundedCornerShape(26.dp))
+                          .shadow(24.dp, RoundedCornerShape(26.dp)),
+                      shape = RoundedCornerShape(26.dp),
+                      colors = CardDefaults.cardColors(containerColor = GlassDarkSurface)
                   ) {
                       Column(
-                          modifier = Modifier.padding(20.dp),
+                          modifier = Modifier.padding(22.dp),
                           horizontalAlignment = Alignment.CenterHorizontally
                       ) {
                           Box(
                               modifier = Modifier
-                                  .size(60.dp)
+                                  .size(64.dp)
                                   .clip(CircleShape)
-                                  .background(PrimaryColor.copy(alpha = 0.15f)),
+                                  .background(OrangeGradientBrush),
                               contentAlignment = Alignment.Center
                           ) {
                               Icon(
                                   imageVector = Icons.Default.DeliveryDining,
                                   contentDescription = null,
-                                  tint = PrimaryColor,
-                                  modifier = Modifier.size(34.dp)
+                                  tint = Color.White,
+                                  modifier = Modifier.size(36.dp)
                               )
                           }
 
-                          Spacer(modifier = Modifier.height(12.dp))
+                          Spacer(modifier = Modifier.height(14.dp))
 
                           Text(
                               text = "طلب توصيل جديد عاجل!",
                               fontWeight = FontWeight.Black,
-                              fontSize = 17.sp,
+                              fontSize = 18.sp,
                               color = PrimaryColor
                           )
 
                           Spacer(modifier = Modifier.height(16.dp))
 
-                          Text(text = "المطعم: ${order.restaurant}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                          Text(text = "مكان التوصيل: ${order.customerAddress}", fontSize = 12.sp)
+                          Text(text = "المطعم: ${order.restaurant}", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                          Text(text = "مكان التوصيل: ${order.customerAddress}", fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
                           Spacer(modifier = Modifier.height(8.dp))
 
                           Column(modifier = Modifier.fillMaxWidth()) {
@@ -2450,7 +2666,7 @@ jobs:
                                   Text(
                                       text = "• ${item.name} (${item.qty})",
                                       fontSize = 12.sp,
-                                      color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                      color = Color.White.copy(alpha = 0.8f)
                                   )
                               }
                           }
@@ -2469,7 +2685,7 @@ jobs:
                           Text(
                               text = "السعر المقدر: ${order.price} دج",
                               fontWeight = FontWeight.Black,
-                              fontSize = 16.sp,
+                              fontSize = 17.sp,
                               color = AccentGreen
                           )
 
@@ -2482,7 +2698,7 @@ jobs:
                               OutlinedButton(
                                   onClick = onReject,
                                   modifier = Modifier.weight(1f),
-                                  shape = RoundedCornerShape(12.dp)
+                                  shape = RoundedCornerShape(14.dp)
                               ) {
                                   Text(text = "رفض", color = AccentRed)
                               }
@@ -2490,7 +2706,7 @@ jobs:
                               Button(
                                   onClick = onAccept,
                                   modifier = Modifier.weight(1f),
-                                  shape = RoundedCornerShape(12.dp),
+                                  shape = RoundedCornerShape(14.dp),
                                   colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
                               ) {
                                   Text(text = "قبول الطلب", fontWeight = FontWeight.Bold)
@@ -2525,9 +2741,10 @@ jobs:
                   Card(
                       modifier = Modifier
                           .fillMaxWidth()
-                          .fillMaxHeight(0.88f),
-                      shape = RoundedCornerShape(24.dp),
-                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                          .fillMaxHeight(0.88f)
+                          .border(1.dp, GlassBorderColor, RoundedCornerShape(26.dp)),
+                      shape = RoundedCornerShape(26.dp),
+                      colors = CardDefaults.cardColors(containerColor = GlassDarkSurface)
                   ) {
                       LazyColumn(
                           modifier = Modifier
@@ -2544,17 +2761,17 @@ jobs:
                                   Text(
                                       text = "إنشاء طلب توصيل جديد",
                                       fontWeight = FontWeight.Black,
-                                      fontSize = 16.sp,
+                                      fontSize = 17.sp,
                                       color = PrimaryColor
                                   )
                                   IconButton(onClick = onDismiss) {
-                                      Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                                      Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                                   }
                               }
                           }
 
                           item {
-                              Text(text = "اختر المتجر أو المطعم:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                              Text(text = "اختر المتجر أو المطعم:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
                               Spacer(modifier = Modifier.height(8.dp))
                               LazyRow(
                                   horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2564,8 +2781,8 @@ jobs:
                                       val isSelected = selectedStore?.id == store.id
                                       Box(
                                           modifier = Modifier
-                                              .clip(RoundedCornerShape(12.dp))
-                                              .background(if (isSelected) PrimaryColor else Color.Gray.copy(alpha = 0.15f))
+                                              .clip(RoundedCornerShape(14.dp))
+                                              .background(if (isSelected) PrimaryColor else Color.White.copy(alpha = 0.08f))
                                               .clickable { selectedStore = store }
                                               .padding(horizontal = 14.dp, vertical = 10.dp)
                                       ) {
@@ -2573,7 +2790,7 @@ jobs:
                                               text = store.name,
                                               fontSize = 12.sp,
                                               fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                              color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                              color = Color.White
                                           )
                                       }
                                   }
@@ -2586,7 +2803,7 @@ jobs:
                                   onValueChange = { customerAddress = it },
                                   label = { Text("عنوان التوصيل الخاص بك") },
                                   modifier = Modifier.fillMaxWidth(),
-                                  shape = RoundedCornerShape(12.dp)
+                                  shape = RoundedCornerShape(14.dp)
                               )
                           }
 
@@ -2596,7 +2813,7 @@ jobs:
                                   horizontalArrangement = Arrangement.SpaceBetween,
                                   verticalAlignment = Alignment.CenterVertically
                               ) {
-                                  Text(text = "الوجبات والمنتجات المطلوبة:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                  Text(text = "الوجبات والمنتجات المطلوبة:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
                                   TextButton(onClick = { products.add(OrderProduct("", 1)) }) {
                                       Text(text = "+ منتج إضافي", fontSize = 11.sp, color = PrimaryColor)
                                   }
@@ -2617,7 +2834,7 @@ jobs:
                                       },
                                       placeholder = { Text("اسم الوجبة", fontSize = 11.sp) },
                                       modifier = Modifier.weight(1f),
-                                      shape = RoundedCornerShape(10.dp)
+                                      shape = RoundedCornerShape(12.dp)
                                   )
                                   OutlinedTextField(
                                       value = p.qty.toString(),
@@ -2626,8 +2843,8 @@ jobs:
                                           products[index] = p.copy(qty = q)
                                       },
                                       keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                      modifier = Modifier.width(60.dp),
-                                      shape = RoundedCornerShape(10.dp)
+                                      modifier = Modifier.width(64.dp),
+                                      shape = RoundedCornerShape(12.dp)
                                   )
                                   if (products.size > 1) {
                                       IconButton(onClick = { products.removeAt(index) }) {
@@ -2643,15 +2860,15 @@ jobs:
                                   onValueChange = { note = it },
                                   label = { Text("ملاحظة لعامل التوصيل (اختياري)") },
                                   modifier = Modifier.fillMaxWidth(),
-                                  shape = RoundedCornerShape(12.dp)
+                                  shape = RoundedCornerShape(14.dp)
                               )
                           }
 
                           item {
                               Card(
                                   modifier = Modifier.fillMaxWidth(),
-                                  shape = RoundedCornerShape(14.dp),
-                                  colors = CardDefaults.cardColors(containerColor = PrimaryColor.copy(alpha = 0.1f))
+                                  shape = RoundedCornerShape(16.dp),
+                                  colors = CardDefaults.cardColors(containerColor = PrimaryColor.copy(alpha = 0.12f))
                               ) {
                                   Row(
                                       modifier = Modifier
@@ -2661,16 +2878,16 @@ jobs:
                                       verticalAlignment = Alignment.CenterVertically
                                   ) {
                                       Column {
-                                          Text(text = "سعر التوصيل المقدر:", fontSize = 11.sp, color = Color.Gray)
+                                          Text(text = "سعر التوصيل المقدر:", fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
                                           Text(
                                               text = "المسافة التقريبية: ${"%.2f".format(dist)} كم",
                                               fontSize = 10.sp,
-                                              color = Color.Gray
+                                              color = Color.White.copy(alpha = 0.6f)
                                           )
                                       }
                                       Text(
                                           text = "$calculatedPrice دج",
-                                          fontSize = 17.sp,
+                                          fontSize = 18.sp,
                                           fontWeight = FontWeight.Black,
                                           color = PrimaryColor
                                       )
@@ -2699,8 +2916,9 @@ jobs:
                                   },
                                   modifier = Modifier
                                       .fillMaxWidth()
-                                      .height(50.dp),
-                                  shape = RoundedCornerShape(14.dp),
+                                      .height(52.dp)
+                                      .shadow(12.dp, RoundedCornerShape(16.dp)),
+                                  shape = RoundedCornerShape(16.dp),
                                   colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
                               ) {
                                   Text(text = "تأكيد وإرسال الطلب", fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -2724,9 +2942,10 @@ jobs:
                   Card(
                       modifier = Modifier
                           .fillMaxWidth()
-                          .fillMaxHeight(0.7f),
-                      shape = RoundedCornerShape(20.dp),
-                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                          .fillMaxHeight(0.72f)
+                          .border(1.dp, GlassBorderColor, RoundedCornerShape(24.dp)),
+                      shape = RoundedCornerShape(24.dp),
+                      colors = CardDefaults.cardColors(containerColor = GlassDarkSurface)
                   ) {
                       Column(
                           modifier = Modifier
@@ -2738,9 +2957,9 @@ jobs:
                               horizontalArrangement = Arrangement.SpaceBetween,
                               verticalAlignment = Alignment.CenterVertically
                           ) {
-                              Text(text = "محادثة الطلب الفورية", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                              Text(text = "محادثة الطلب الفورية", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
                               IconButton(onClick = onDismiss) {
-                                  Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                                  Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                               }
                           }
 
@@ -2761,7 +2980,7 @@ jobs:
                                           Text(
                                               text = "لا توجد رسائل سابقة. ابدأ المحادثة الآن!",
                                               fontSize = 11.sp,
-                                              color = Color.Gray
+                                              color = Color.White.copy(alpha = 0.5f)
                                           )
                                       }
                                   }
@@ -2775,14 +2994,14 @@ jobs:
                                   ) {
                                       Box(
                                           modifier = Modifier
-                                              .clip(RoundedCornerShape(12.dp))
-                                              .background(if (isMe) PrimaryColor else Color.Gray.copy(alpha = 0.2f))
+                                              .clip(RoundedCornerShape(14.dp))
+                                              .background(if (isMe) PrimaryColor else Color.White.copy(alpha = 0.1f))
                                               .padding(horizontal = 12.dp, vertical = 8.dp)
                                       ) {
                                           Text(
                                               text = msg.text,
                                               fontSize = 12.sp,
-                                              color = if (isMe) Color.White else MaterialTheme.colorScheme.onSurface
+                                              color = Color.White
                                           )
                                       }
                                   }
@@ -2801,7 +3020,7 @@ jobs:
                                   onValueChange = { inputMessage = it },
                                   placeholder = { Text("اكتب رسالتك...", fontSize = 11.sp) },
                                   modifier = Modifier.weight(1f),
-                                  shape = RoundedCornerShape(12.dp)
+                                  shape = RoundedCornerShape(14.dp)
                               )
                               IconButton(
                                   onClick = {
@@ -2831,22 +3050,24 @@ jobs:
 
               Dialog(onDismissRequest = onDismiss) {
                   Card(
-                      modifier = Modifier.fillMaxWidth(),
-                      shape = RoundedCornerShape(20.dp),
-                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .border(1.dp, GlassBorderColor, RoundedCornerShape(22.dp)),
+                      shape = RoundedCornerShape(22.dp),
+                      colors = CardDefaults.cardColors(containerColor = GlassDarkSurface)
                   ) {
                       Column(
-                          modifier = Modifier.padding(20.dp),
-                          verticalArrangement = Arrangement.spacedBy(12.dp)
+                          modifier = Modifier.padding(22.dp),
+                          verticalArrangement = Arrangement.spacedBy(14.dp)
                       ) {
-                          Text(text = "تعديل الملف الشخصي", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PrimaryColor)
+                          Text(text = "تعديل الملف الشخصي", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = PrimaryColor)
 
                           OutlinedTextField(
                               value = editName,
                               onValueChange = { editName = it },
                               label = { Text("الاسم") },
                               modifier = Modifier.fillMaxWidth(),
-                              shape = RoundedCornerShape(10.dp)
+                              shape = RoundedCornerShape(12.dp)
                           )
 
                           OutlinedTextField(
@@ -2855,7 +3076,7 @@ jobs:
                               label = { Text("رقم الهاتف") },
                               keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                               modifier = Modifier.fillMaxWidth(),
-                              shape = RoundedCornerShape(10.dp)
+                              shape = RoundedCornerShape(12.dp)
                           )
 
                           Row(
@@ -2865,14 +3086,14 @@ jobs:
                               OutlinedButton(
                                   onClick = onDismiss,
                                   modifier = Modifier.weight(1f),
-                                  shape = RoundedCornerShape(10.dp)
+                                  shape = RoundedCornerShape(12.dp)
                               ) {
                                   Text("إلغاء")
                               }
                               Button(
                                   onClick = { onSave(editName, editPhone) },
                                   modifier = Modifier.weight(1f),
-                                  shape = RoundedCornerShape(10.dp),
+                                  shape = RoundedCornerShape(12.dp),
                                   colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
                               ) {
                                   Text("حفظ", fontWeight = FontWeight.Bold)
@@ -2892,30 +3113,31 @@ jobs:
                   Card(
                       modifier = Modifier
                           .fillMaxWidth()
-                          .fillMaxHeight(0.6f),
-                      shape = RoundedCornerShape(20.dp),
-                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                          .fillMaxHeight(0.62f)
+                          .border(1.dp, GlassBorderColor, RoundedCornerShape(22.dp)),
+                      shape = RoundedCornerShape(22.dp),
+                      colors = CardDefaults.cardColors(containerColor = GlassDarkSurface)
                   ) {
                       Column(
                           modifier = Modifier
                               .fillMaxSize()
-                              .padding(16.dp)
+                              .padding(18.dp)
                       ) {
                           Row(
                               modifier = Modifier.fillMaxWidth(),
                               horizontalArrangement = Arrangement.SpaceBetween,
                               verticalAlignment = Alignment.CenterVertically
                           ) {
-                              Text(text = "مركز الإشعارات والتنبيهات", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                              Text(text = "مركز الإشعارات والتنبيهات", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
                               IconButton(onClick = onDismiss) {
-                                  Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                                  Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                               }
                           }
 
                           val pendingOrders = orders.filter { it.status == "pending" }
                           if (pendingOrders.isEmpty()) {
                               Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                  Text(text = "لا توجد تنبيهات جديدة في الوقت الحالي", fontSize = 12.sp, color = Color.Gray)
+                                  Text(text = "لا توجد تنبيهات جديدة في الوقت الحالي", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
                               }
                           } else {
                               LazyColumn(
@@ -2925,8 +3147,8 @@ jobs:
                                   items(pendingOrders) { ord ->
                                       Card(
                                           modifier = Modifier.fillMaxWidth(),
-                                          shape = RoundedCornerShape(12.dp),
-                                          colors = CardDefaults.cardColors(containerColor = PrimaryColor.copy(alpha = 0.1f))
+                                          shape = RoundedCornerShape(14.dp),
+                                          colors = CardDefaults.cardColors(containerColor = PrimaryColor.copy(alpha = 0.12f))
                                       ) {
                                           Row(
                                               modifier = Modifier.padding(12.dp),
@@ -2935,8 +3157,8 @@ jobs:
                                           ) {
                                               Icon(imageVector = Icons.Default.NotificationsActive, contentDescription = null, tint = PrimaryColor)
                                               Column {
-                                                  Text(text = "طلب عاجل من ${ord.restaurant}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                                  Text(text = "المبلغ: ${ord.price} دج - المكان: ${ord.customerAddress}", fontSize = 11.sp, color = Color.Gray)
+                                                  Text(text = "طلب عاجل من ${ord.restaurant}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
+                                                  Text(text = "المبلغ: ${ord.price} دج - المكان: ${ord.customerAddress}", fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
                                               }
                                           }
                                       }
@@ -2955,27 +3177,29 @@ jobs:
           ) {
               val (title, content) = when (type) {
                   "about" -> "من نحن" to "العفرون أونلاين ديليفري هي المنصة الرقمية الرائدة في مدينة العفرون لتسهيل وتنسيق طلبات التوصيل السريع بين الزبائن والمطاعم وعمال التوصيل."
-                  "services" -> "خدماتنا والأسعار" to "نقدم خدمة تتبع حية للطلبات على الخارطة، وتوصيل فوري بسعر 50 دج لكل 500 متر بدقة وبأعلى سرعة ممكنة."
+                  "services" -> "خدماتنا والأسعار" to "نقدم خدمة تتبع حية للطلبات على الخارطة، وتوصيل فوري بسعر 50 دج لكل 500 متر بدقة وبأعلى سرعة ممكنة وفق مسارات الطرق الرسمية."
                   "location" -> "موقعنا" to "نغطي كامل أحياء وضواحي مدينة العفرون وضواحيها المجاورة (ولاية البليدة) على مدار الساعة."
                   else -> "اتصل بنا" to "هاتف الدعم الفني: 0555-555-555\nالبريد الإلكتروني: support@elaffroun-delivery.com"
               }
 
               Dialog(onDismissRequest = onDismiss) {
                   Card(
-                      modifier = Modifier.fillMaxWidth(),
-                      shape = RoundedCornerShape(20.dp),
-                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .border(1.dp, GlassBorderColor, RoundedCornerShape(22.dp)),
+                      shape = RoundedCornerShape(22.dp),
+                      colors = CardDefaults.cardColors(containerColor = GlassDarkSurface)
                   ) {
                       Column(
-                          modifier = Modifier.padding(20.dp),
-                          verticalArrangement = Arrangement.spacedBy(12.dp)
+                          modifier = Modifier.padding(22.dp),
+                          verticalArrangement = Arrangement.spacedBy(14.dp)
                       ) {
-                          Text(text = title, fontWeight = FontWeight.Black, fontSize = 16.sp, color = PrimaryColor)
-                          Text(text = content, fontSize = 13.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                          Text(text = title, fontWeight = FontWeight.Black, fontSize = 17.sp, color = PrimaryColor)
+                          Text(text = content, fontSize = 13.sp, lineHeight = 21.sp, color = Color.White.copy(alpha = 0.85f))
                           Button(
                               onClick = onDismiss,
                               modifier = Modifier.fillMaxWidth(),
-                              shape = RoundedCornerShape(10.dp),
+                              shape = RoundedCornerShape(12.dp),
                               colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
                           ) {
                               Text("حسناً")
@@ -2994,29 +3218,30 @@ jobs:
                   Card(
                       modifier = Modifier
                           .fillMaxWidth()
-                          .fillMaxHeight(0.7f),
-                      shape = RoundedCornerShape(20.dp),
-                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                          .fillMaxHeight(0.72f)
+                          .border(1.dp, GlassBorderColor, RoundedCornerShape(24.dp)),
+                      shape = RoundedCornerShape(24.dp),
+                      colors = CardDefaults.cardColors(containerColor = GlassDarkSurface)
                   ) {
                       Column(
                           modifier = Modifier
                               .fillMaxSize()
-                              .padding(16.dp)
+                              .padding(18.dp)
                       ) {
                           Row(
                               modifier = Modifier.fillMaxWidth(),
                               horizontalArrangement = Arrangement.SpaceBetween,
                               verticalAlignment = Alignment.CenterVertically
                           ) {
-                              Text(text = "أرشيف الطلبات والرحلات", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                              Text(text = "أرشيف الطلبات والرحلات", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
                               IconButton(onClick = onDismiss) {
-                                  Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                                  Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                               }
                           }
 
                           if (orders.isEmpty()) {
                               Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                  Text(text = "لا توجد سجلات محفوظة حتى الآن", fontSize = 12.sp, color = Color.Gray)
+                                  Text(text = "لا توجد سجلات محفوظة حتى الآن", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
                               }
                           } else {
                               LazyColumn(
@@ -3026,8 +3251,8 @@ jobs:
                                   items(orders) { o ->
                                       Card(
                                           modifier = Modifier.fillMaxWidth(),
-                                          shape = RoundedCornerShape(12.dp),
-                                          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                          shape = RoundedCornerShape(14.dp),
+                                          colors = CardDefaults.cardColors(containerColor = CardDarkBackground),
                                           border = CardDefaults.outlinedCardBorder()
                                       ) {
                                           Row(
@@ -3038,8 +3263,8 @@ jobs:
                                               verticalAlignment = Alignment.CenterVertically
                                           ) {
                                               Column {
-                                                  Text(text = o.restaurant, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                                  Text(text = o.customerAddress, fontSize = 11.sp, color = Color.Gray)
+                                                  Text(text = o.restaurant, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+                                                  Text(text = o.customerAddress, fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
                                                   Text(
                                                       text = "الحالة: ${o.status}",
                                                       fontSize = 10.sp,
@@ -3071,20 +3296,22 @@ jobs:
 
               Dialog(onDismissRequest = onDismiss) {
                   Card(
-                      modifier = Modifier.fillMaxWidth(),
-                      shape = RoundedCornerShape(20.dp),
-                      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .border(1.dp, GlassBorderColor, RoundedCornerShape(22.dp)),
+                      shape = RoundedCornerShape(22.dp),
+                      colors = CardDefaults.cardColors(containerColor = GlassDarkSurface)
                   ) {
                       Column(
-                          modifier = Modifier.padding(20.dp),
+                          modifier = Modifier.padding(22.dp),
                           horizontalAlignment = Alignment.CenterHorizontally
                       ) {
-                          Text(text = "تقييم عامل التوصيل", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                          Text(text = "تقييم عامل التوصيل", fontWeight = FontWeight.Black, fontSize = 17.sp, color = Color.White)
                           Spacer(modifier = Modifier.height(8.dp))
                           Text(
                               text = "يرجى تقييم تجربة التوصيل وجودة الخدمة المقدمة",
                               fontSize = 12.sp,
-                              color = Color.Gray,
+                              color = Color.White.copy(alpha = 0.6f),
                               textAlign = TextAlign.Center
                           )
 
@@ -3097,7 +3324,7 @@ jobs:
                                           imageVector = if (i <= selectedStars) Icons.Default.Star else Icons.Default.StarBorder,
                                           contentDescription = null,
                                           tint = GoldenStar,
-                                          modifier = Modifier.size(32.dp)
+                                          modifier = Modifier.size(34.dp)
                                       )
                                   }
                               }
@@ -3145,15 +3372,15 @@ jobs:
                           verticalAlignment = Alignment.CenterVertically
                       ) {
                           Column {
-                              Text(text = "لوحة الإدارة والرقابة 🛡️", fontWeight = FontWeight.Black, fontSize = 18.sp, color = PrimaryColor)
-                              Text(text = "إدارة المتاجر وحساب العمولات", fontSize = 11.sp, color = Color.Gray)
+                              Text(text = "لوحة الإدارة والرقابة 🛡️", fontWeight = FontWeight.Black, fontSize = 19.sp, color = PrimaryColor)
+                              Text(text = "إدارة المتاجر وحساب العمولات", fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
                           }
                           Button(
                               onClick = onBackToHome,
                               shape = RoundedCornerShape(10.dp),
-                              colors = ButtonDefaults.buttonColors(containerColor = Color.Gray.copy(alpha = 0.2f))
+                              colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f))
                           ) {
-                              Text(text = "خروج", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+                              Text(text = "خروج", fontSize = 11.sp, color = Color.White)
                           }
                       }
                   }
@@ -3190,19 +3417,19 @@ jobs:
                   item {
                       Card(
                           modifier = Modifier.fillMaxWidth(),
-                          shape = RoundedCornerShape(16.dp),
-                          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                          shape = RoundedCornerShape(18.dp),
+                          colors = CardDefaults.cardColors(containerColor = CardDarkBackground),
                           border = CardDefaults.outlinedCardBorder()
                       ) {
                           Column(modifier = Modifier.padding(16.dp)) {
-                              Text(text = "إضافة متجر جديد لقائمة العفرون", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                              Text(text = "إضافة متجر جديد لقائمة العفرون", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
                               Spacer(modifier = Modifier.height(10.dp))
                               OutlinedTextField(
                                   value = newStoreName,
                                   onValueChange = { newStoreName = it },
                                   label = { Text("اسم المتجر أو المطعم") },
                                   modifier = Modifier.fillMaxWidth(),
-                                  shape = RoundedCornerShape(10.dp)
+                                  shape = RoundedCornerShape(12.dp)
                               )
                               Spacer(modifier = Modifier.height(8.dp))
                               Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -3211,14 +3438,14 @@ jobs:
                                       onValueChange = { newStoreLat = it },
                                       label = { Text("Latitude") },
                                       modifier = Modifier.weight(1f),
-                                      shape = RoundedCornerShape(10.dp)
+                                      shape = RoundedCornerShape(12.dp)
                                   )
                                   OutlinedTextField(
                                       value = newStoreLng,
                                       onValueChange = { newStoreLng = it },
                                       label = { Text("Longitude") },
                                       modifier = Modifier.weight(1f),
-                                      shape = RoundedCornerShape(10.dp)
+                                      shape = RoundedCornerShape(12.dp)
                                   )
                               }
                               Spacer(modifier = Modifier.height(12.dp))
@@ -3232,7 +3459,7 @@ jobs:
                                       }
                                   },
                                   modifier = Modifier.fillMaxWidth(),
-                                  shape = RoundedCornerShape(10.dp),
+                                  shape = RoundedCornerShape(12.dp),
                                   colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
                               ) {
                                   Text(text = "حفظ المتجر", fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -3242,14 +3469,14 @@ jobs:
                   }
 
                   item {
-                      Text(text = "قائمة المتاجر المسجلة حالياً:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                      Text(text = "قائمة المتاجر المسجلة حالياً:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
                   }
 
                   items(stores) { s ->
                       Card(
                           modifier = Modifier.fillMaxWidth(),
-                          shape = RoundedCornerShape(12.dp),
-                          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                          shape = RoundedCornerShape(14.dp),
+                          colors = CardDefaults.cardColors(containerColor = CardDarkBackground),
                           border = CardDefaults.outlinedCardBorder()
                       ) {
                           Row(
@@ -3259,8 +3486,8 @@ jobs:
                               horizontalArrangement = Arrangement.SpaceBetween,
                               verticalAlignment = Alignment.CenterVertically
                           ) {
-                              Text(text = s.name, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                              Text(text = "${s.lat}, ${s.lng}", fontSize = 10.sp, color = Color.Gray)
+                              Text(text = s.name, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
+                              Text(text = "${s.lat}, ${s.lng}", fontSize = 10.sp, color = Color.White.copy(alpha = 0.5f))
                           }
                       }
                   }
@@ -3276,5 +3503,5 @@ jobs:
       - name: Upload Artifact APK
         uses: actions/upload-artifact@v4
         with:
-          name: ElaffrounDelivery-2026-Debug-APK
+          name: ElaffrounDelivery-2026-SuperDesign-APK
           path: app/build/outputs/apk/debug/app-debug.apk
