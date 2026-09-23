@@ -133,8 +133,8 @@ jobs:
                   applicationId = "com.elaffroun.delivery"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 9
-                  versionName = "9.0"
+                  versionCode = 10
+                  versionName = "10.0"
               }
 
               buildTypes {
@@ -217,6 +217,7 @@ jobs:
                   android:label="@string/app_name"
                   android:roundIcon="@android:drawable/sym_def_app_icon"
                   android:supportsRtl="true"
+                  android:usesCleartextTraffic="true"
                   android:theme="@style/Theme.QuickDeliver">
                   <activity
                       android:name=".MainActivity"
@@ -337,18 +338,32 @@ jobs:
           object MapUtils {
               const val MAPTILER_KEY = "ouBpZ2bVkP4wr4vcgzO6"
 
-              val MapTilerStreetsTileSource = object : XYTileSource(
-                  "MapTilerStreets",
-                  0, 20, 512, ".png",
-                  arrayOf(
-                      "https://api.maptiler.com/maps/streets-v2/"
-                  )
+              val MapTilerVectorStreetsTileSource = object : XYTileSource(
+                  "MapTilerStreetsV2",
+                  0, 19, 512, ".png",
+                  arrayOf("https://api.maptiler.com/maps/streets-v2/")
               ) {
                   override fun getTileURLString(pMapTileIndex: Long): String {
                       return baseUrl + MapTileIndex.getZoom(pMapTileIndex) + "/" +
                               MapTileIndex.getX(pMapTileIndex) + "/" +
                               MapTileIndex.getY(pMapTileIndex) +
                               ".png?key=$MAPTILER_KEY"
+                  }
+              }
+
+              val CartoVoyagerBackupSource = object : XYTileSource(
+                  "CartoVoyager",
+                  0, 20, 256, ".png",
+                  arrayOf(
+                      "https://a.basemaps.cartocdn.com/rastertiles/voyager/",
+                      "https://b.basemaps.cartocdn.com/rastertiles/voyager/",
+                      "https://c.basemaps.cartocdn.com/rastertiles/voyager/"
+                  )
+              ) {
+                  override fun getTileURLString(pMapTileIndex: Long): String {
+                      return baseUrl + MapTileIndex.getZoom(pMapTileIndex) + "/" +
+                              MapTileIndex.getX(pMapTileIndex) + "/" +
+                              MapTileIndex.getY(pMapTileIndex) + mImageFilenameEnding
                   }
               }
 
@@ -405,7 +420,7 @@ jobs:
                           connection.connectTimeout = 7000
                           connection.readTimeout = 7000
                           connection.requestMethod = "GET"
-                          connection.setRequestProperty("User-Agent", "QuickDeliver/9.0")
+                          connection.setRequestProperty("User-Agent", "QuickDeliver/10.0")
 
                           if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                               val reader = BufferedReader(InputStreamReader(connection.inputStream))
@@ -455,6 +470,62 @@ jobs:
           import androidx.compose.ui.graphics.drawscope.Fill
           import androidx.compose.ui.unit.Dp
           import androidx.compose.ui.unit.dp
+
+          @Composable
+          fun DeliveryHeroIllustration(size: Dp = 180.dp) {
+              Canvas(modifier = Modifier.size(size)) {
+                  val w = this.size.width
+                  val h = this.size.height
+                  val primaryOrange = Color(0xFFFF5E00.toInt())
+                  val primaryDark = Color(0xFFD64400.toInt())
+
+                  // Background ambient circle
+                  drawCircle(
+                      color = Color(0xFFFFF0E8.toInt()),
+                      radius = w * 0.48f,
+                      center = Offset(w * 0.5f, h * 0.5f)
+                  )
+
+                  // Road line
+                  drawRoundRect(
+                      color = Color(0xFFE5E7EB.toInt()),
+                      topLeft = Offset(w * 0.1f, h * 0.82f),
+                      size = Size(w * 0.8f, h * 0.04f)
+                  )
+
+                  // Delivery backpack
+                  drawRoundRect(
+                      color = primaryDark,
+                      topLeft = Offset(w * 0.32f, h * 0.38f),
+                      size = Size(w * 0.16f, h * 0.22f)
+                  )
+
+                  // Scooter Body
+                  val scooterPath = Path().apply {
+                      moveTo(w * 0.25f, h * 0.72f)
+                      lineTo(w * 0.50f, h * 0.72f)
+                      lineTo(w * 0.65f, h * 0.50f)
+                      lineTo(w * 0.72f, h * 0.50f)
+                      lineTo(w * 0.75f, h * 0.72f)
+                      close()
+                  }
+                  drawPath(scooterPath, primaryOrange, style = Fill)
+
+                  // Wheels
+                  drawCircle(color = Color(0xFF1E2024.toInt()), radius = w * 0.09f, center = Offset(w * 0.28f, h * 0.75f))
+                  drawCircle(color = Color.White, radius = w * 0.04f, center = Offset(w * 0.28f, h * 0.75f))
+                  drawCircle(color = Color(0xFF1E2024.toInt()), radius = w * 0.09f, center = Offset(w * 0.72f, h * 0.75f))
+                  drawCircle(color = Color.White, radius = w * 0.04f, center = Offset(w * 0.72f, h * 0.75f))
+
+                  // Courier Rider
+                  drawCircle(color = Color(0xFF2563EB.toInt()), radius = w * 0.08f, center = Offset(w * 0.55f, h * 0.32f))
+                  drawRoundRect(
+                      color = primaryOrange,
+                      topLeft = Offset(w * 0.44f, h * 0.40f),
+                      size = Size(w * 0.18f, h * 0.24f)
+                  )
+              }
+          }
 
           @Composable
           fun QuickDeliverAppLogo(size: Dp = 80.dp) {
@@ -605,7 +676,7 @@ jobs:
               fun get(key: String, lang: Language): String {
                   val ar = mapOf(
                       "app_name" to "QuickDeliver",
-                      "tagline" to "طلباتك، أولويتنا القصوى!",
+                      "tagline" to "توصيل سريع وموثوق في العفرون وضواحيها",
                       "start_button" to "ابدأ الآن",
                       "login_action" to "تسجيل الدخول",
                       "signup_action" to "إنشاء حساب جديد",
@@ -614,15 +685,15 @@ jobs:
                       "map_tab" to "الخريطة",
                       "profile_tab" to "حسابي",
                       "driver_tab" to "السائق",
-                      "search_placeholder" to "ابحث عن مطعم أو وجبة أو دواء...",
+                      "search_placeholder" to "ابحث عن متجر، وجبة، أو دواء...",
                       "categories" to "التصنيفات",
                       "cat_all" to "الكل",
                       "cat_restaurants" to "مطاعم",
                       "cat_grocery" to "بقالة",
                       "cat_pharmacy" to "صيدلية",
-                      "promo_banner_title" to "أطباقك المفضلة\nفي نقرات معدودة",
+                      "promo_banner_title" to "عروض حصرية وتوصيل سريع\nطلبك يصلك ساخناً وبأمان",
                       "order_now" to "اطلب الآن",
-                      "popular_restaurants" to "مطاعم ومحلات مشهورة",
+                      "popular_restaurants" to "المحلات والمطاعم المعتمدة",
                       "see_all" to "عرض الكل >",
                       "confirm_order" to "تأكيد الطلب",
                       "delivery_address" to "عنوان التوصيل",
@@ -634,7 +705,7 @@ jobs:
                       "delivery_fee" to "سعر التوصيل",
                       "total" to "المجموع الإجمالي",
                       "confirm_command" to "تأكيد وإرسال الطلب",
-                      "tracking_title" to "تتبع مسار الطلب الحقيقي",
+                      "tracking_title" to "تتبع مباشر على الخريطة",
                       "order_on_the_way" to "طلبيتك في الطريق إليك",
                       "driver_nearby" to "عامل التوصيل أصبح قريباً منك",
                       "call" to "اتصال",
@@ -650,6 +721,7 @@ jobs:
                       "saved_addresses" to "العناوين المحفوظة",
                       "add_new_address" to "إضافة عنوان جديد",
                       "my_profile" to "الملف الشخصي",
+                      "edit_profile" to "تعديل الملف ورقم الهاتف",
                       "become_driver" to "الانضمام كعامل توصيل",
                       "driver_login" to "تسجيل دخول كعامل توصيل",
                       "driver_signup" to "تسجيل حساب جديد كعامل توصيل",
@@ -678,7 +750,7 @@ jobs:
 
                   val fr = mapOf(
                       "app_name" to "QuickDeliver",
-                      "tagline" to "Vos commandes,\nnotre priorité !",
+                      "tagline" to "Livraison rapide et fiable à El Affroun",
                       "start_button" to "Commencer",
                       "login_action" to "Se connecter",
                       "signup_action" to "Créer un compte",
@@ -693,7 +765,7 @@ jobs:
                       "cat_restaurants" to "Restaurants",
                       "cat_grocery" to "Épicerie",
                       "cat_pharmacy" to "Pharmacie",
-                      "promo_banner_title" to "Vos plats préférés\nen quelques clics",
+                      "promo_banner_title" to "Offres exclusives & livraison rapide\nVos commandes livrées en toute sécurité",
                       "order_now" to "Commander",
                       "popular_restaurants" to "Restaurants & Commerces",
                       "see_all" to "Voir tout >",
@@ -707,7 +779,7 @@ jobs:
                       "delivery_fee" to "Frais de livraison",
                       "total" to "Total",
                       "confirm_command" to "Confirmer et commander",
-                      "tracking_title" to "Suivi de la commande en temps réel",
+                      "tracking_title" to "Suivi en direct sur la carte",
                       "order_on_the_way" to "Votre commande est en route",
                       "driver_nearby" to "Le livreur est à proximité",
                       "call" to "Appel",
@@ -723,6 +795,7 @@ jobs:
                       "saved_addresses" to "Mes adresses enregistrées",
                       "add_new_address" to "Ajouter une nouvelle adresse",
                       "my_profile" to "Mon profil",
+                      "edit_profile" to "Modifier le profil et téléphone",
                       "become_driver" to "Devenir coursier livreur",
                       "driver_login" to "Connexion Livreur",
                       "driver_signup" to "Créer un compte Livreur",
@@ -814,12 +887,14 @@ jobs:
           import com.google.firebase.firestore.ListenerRegistration
           import com.google.firebase.firestore.ktx.firestore
           import com.google.firebase.ktx.Firebase
+          import kotlinx.coroutines.delay
           import kotlinx.coroutines.launch
           import org.osmdroid.config.Configuration
           import org.osmdroid.util.GeoPoint
           import org.osmdroid.views.MapView
           import org.osmdroid.views.overlay.Marker
           import org.osmdroid.views.overlay.Polyline
+          import java.io.File
           import kotlin.math.*
 
           val QdOrange = Color(0xFFFF5E00.toInt())
@@ -883,6 +958,7 @@ jobs:
           data class ChatMessage(val sender: String = "", val text: String = "", val time: String = "")
 
           enum class AppScreen {
+              SPLASH_ANIMATED_2SEC,
               SPLASH_ONBOARDING,
               AUTH_FLOW,
               HOME_EXPLORE,
@@ -900,8 +976,15 @@ jobs:
           class MainActivity : ComponentActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
-                  Configuration.getInstance().userAgentValue = packageName
+                  try {
+                      val osmConfig = Configuration.getInstance()
+                      osmConfig.load(this, PreferenceManager.getDefaultSharedPreferences(this))
+                      osmConfig.userAgentValue = packageName
+                      osmConfig.osmdroidBasePath = cacheDir
+                      osmConfig.osmdroidTileCache = File(cacheDir, "osm_tiles")
+                  } catch (e: Exception) {
+                      // Handled safely
+                  }
 
                   setContent {
                       QuickDeliverUltimateApp()
@@ -936,15 +1019,42 @@ jobs:
               val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
               var currentLanguage by remember { mutableStateOf(Language.AR) }
-              var currentScreen by remember { mutableStateOf(AppScreen.SPLASH_ONBOARDING) }
+              var currentScreen by remember { mutableStateOf(AppScreen.SPLASH_ANIMATED_2SEC) }
               var authUserType by remember { mutableStateOf(AuthUserType.CUSTOMER) }
               var isDriverAuthRegister by remember { mutableStateOf(false) }
 
-              var currentUserName by remember { mutableStateOf("أحمد العفروني") }
+              // Persistent User Session
+              var currentUserName by remember { mutableStateOf("مستخدم QuickDeliver") }
               var currentUserPhone by remember { mutableStateOf("0555555555") }
               var currentUserUid by remember { mutableStateOf(auth.currentUser?.uid ?: "") }
               var isDriverSession by remember { mutableStateOf(false) }
 
+              // 2-Second Animated Splash with Delivery Man Illustration
+              LaunchedEffect(Unit) {
+                  delay(2000)
+                  if (auth.currentUser != null) {
+                      currentUserUid = auth.currentUser!!.uid
+                      db.collection("users").document(currentUserUid).get()
+                          .addOnSuccessListener { doc ->
+                              if (doc.exists()) {
+                                  currentUserName = doc.getString("name") ?: "مستخدم"
+                                  currentUserPhone = doc.getString("phoneNumber") ?: "0555555555"
+                                  val role = doc.getString("role") ?: "customer"
+                                  isDriverSession = (role == "driver")
+                                  currentScreen = if (isDriverSession) AppScreen.DRIVER_DASHBOARD else AppScreen.HOME_EXPLORE
+                              } else {
+                                  currentScreen = AppScreen.HOME_EXPLORE
+                              }
+                          }
+                          .addOnFailureListener {
+                              currentScreen = AppScreen.HOME_EXPLORE
+                          }
+                  } else {
+                      currentScreen = AppScreen.SPLASH_ONBOARDING
+                  }
+              }
+
+              // Coordinates
               var userLat by remember { mutableStateOf(36.4686) }
               var userLng by remember { mutableStateOf(2.6288) }
               var selectedAddress by remember { mutableStateOf("حي النصر، العفرون (GPS)") }
@@ -981,8 +1091,7 @@ jobs:
                           menu = listOf(
                               MenuItem("s1", "صحن مشاوي مشكل فاخر", "Assiette Grillades Mixtes", "شيش طاووق، كباب وكفتة مع البطاطا", "Brochettes, kefta avec frites", 1100, "🥩", "Plats"),
                               MenuItem("s2", "نصف دجاجة محمرة بالفرن", "Demi Poulet Rôti", "متبلة على الطريقة الجزائرية الخاصة", "Poulet mariné rôti aux épices", 700, "🍗", "Plats"),
-                              MenuItem("s3", "ساندويتش كباب لحم طازج", "Sandwich Kebab Viande", "خبز تقليدي مع صلصة ثومية وبطاطا", "Pain maison, sauce à l'ail et frites", 450, "🌯", "Sandwiches"),
-                              MenuItem("s4", "سلطة مشوية تقليدية", "Salade Mechouia", "فلفل مشوي مع زيت زيتون طبيعي", "Poivrons grillés à l'huile d'olive", 300, "🥗", "Entrées")
+                              MenuItem("s3", "ساندويتش كباب لحم طازج", "Sandwich Kebab Viande", "خبز تقليدي مع صلصة ثومية وبطاطا", "Pain maison, sauce à l'ail et frites", 450, "🌯", "Sandwiches")
                           )
                       ),
                       StoreItem(
@@ -997,8 +1106,7 @@ jobs:
                           lng = 2.6250,
                           menu = listOf(
                               MenuItem("t1", "طاكوس دبل لارج ميكس", "Tacos Double Mixte L", "دجاج متبل ولحم مفروم مع صلصة الجبن", "Poulet, viande hachée, sauce fromagère", 650, "🌮", "Tacos"),
-                              MenuItem("t2", "طاكوس إكس إكس لارج", "Tacos Géant XXL", "3 لحوم مع بطاطا وجبن غرويير", "3 viandes au choix et fromage gruyère", 950, "🌮", "Tacos"),
-                              MenuItem("t3", "علبة بطاطا مقلية صوص شيدر", "Frites Sauce Cheddar", "بطاطا مقرمشة ساخنة", "Frites croustillantes sauce cheddar", 250, "🍟", "Sides")
+                              MenuItem("t2", "طاكوس إكس إكس لارج", "Tacos Géant XXL", "3 لحوم مع بطاطا وجبن غرويير", "3 viandes au choix et fromage gruyère", 950, "🌮", "Tacos")
                           )
                       ),
                       StoreItem(
@@ -1013,8 +1121,7 @@ jobs:
                           lng = 2.6310,
                           menu = listOf(
                               MenuItem("g1", "علبة حليب بودرة 500غ", "Lait en poudre 500g", "حليب عالي الجودة ومغذي", "Lait entier de qualité", 420, "🥛", "Épicerie"),
-                              MenuItem("g2", "زيت نباتي صافي 2 لتر", "Huile de table 2L", "زيت قلي وطبخ ممتاز", "Huile de cuisson raffinée", 350, "🌻", "Épicerie"),
-                              MenuItem("g3", "بسكويت وشوكولاتة متنوعة", "Pack Biscuits & Chocolat", "مجموعة سناكات لذيذة", "Assortiment goûter gourmand", 400, "🍫", "Snacks")
+                              MenuItem("g2", "زيت نباتي صافي 2 لتر", "Huile de table 2L", "زيت قلي وطبخ ممتاز", "Huile de cuisson raffinée", 350, "🌻", "Épicerie")
                           )
                       ),
                       StoreItem(
@@ -1029,11 +1136,39 @@ jobs:
                           lng = 2.6270,
                           menu = listOf(
                               MenuItem("m1", "باراسيتامول 1000 ملغ", "Paracétamol 1000mg", "مسكن ومضاد للحمى والصداع", "Antalgique et antipyrétique", 180, "💊", "Médicaments"),
-                              MenuItem("m2", "فيتامين سي فوار 1000 ملغ", "Vitamine C Effervescente", "معزز مناعة وطاقة يومية", "Booste le système immunitaire", 350, "🍊", "Vitamines"),
-                              MenuItem("m3", "كمامات طبية ومعقم أيدي", "Kit Masques + Gel Désinfectant", "حماية ونظافة كاملة", "Protection et désinfection", 250, "🧴", "Soins")
+                              MenuItem("m2", "فيتامين سي فوار 1000 ملغ", "Vitamine C Effervescente", "معزز مناعة وطاقة يومية", "Booste le système immunitaire", 350, "🍊", "Vitamines")
                           )
                       )
                   )
+              }
+
+              // Firestore sync for additional stores added by Admin
+              LaunchedEffect(Unit) {
+                  db.collection("stores").addSnapshotListener { snap, _ ->
+                      if (snap != null && !snap.isEmpty) {
+                          for (doc in snap.documents) {
+                              val exists = allStores.any { it.id == doc.id }
+                              if (!exists) {
+                                  allStores.add(
+                                      StoreItem(
+                                          id = doc.id,
+                                          nameAr = doc.getString("name") ?: "متجر جديد",
+                                          nameFr = doc.getString("name") ?: "Nouveau magasin",
+                                          category = "restaurant",
+                                          rating = "4.8",
+                                          time = "20-30 min",
+                                          emoji = "🍲",
+                                          lat = doc.getDouble("lat") ?: 36.4686,
+                                          lng = doc.getDouble("lng") ?: 2.6288,
+                                          menu = listOf(
+                                              MenuItem("m_def", "وجبة خاصة بالمتجر", "Plat Spécial", "وجبة شهية ومميزة", "Repas délicieux", 500, "🍲", "Plats")
+                                          )
+                                      )
+                                  )
+                              }
+                          }
+                      }
+                  }
               }
 
               var currentSelectedStore by remember { mutableStateOf(allStores.first()) }
@@ -1049,12 +1184,14 @@ jobs:
               var showRatingModal by remember { mutableStateOf(false) }
               var showReportModal by remember { mutableStateOf(false) }
               var showPolicyModal by remember { mutableStateOf<String?>(null) }
+              var showEditPhoneDialog by remember { mutableStateOf(false) }
 
               var driverEarnings by remember { mutableStateOf(0) }
               var driverCompletedCount by remember { mutableStateOf(0) }
               var driverDebt by remember { mutableStateOf(0) }
               var incomingDriverAlertOrder by remember { mutableStateOf<ActiveOrder?>(null) }
 
+              // Location Provider
               val fusedClient = remember { LocationServices.getFusedLocationProviderClient(context) }
               val permLauncher = rememberLauncherForActivityResult(
                   contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -1085,6 +1222,7 @@ jobs:
                   permLauncher.launch(permissionsNeeded.toTypedArray())
               }
 
+              // Realtime Orders Sync with Firestore (Persistent connection across app restarts)
               DisposableEffect(currentUserUid, isDriverSession) {
                   var listener: ListenerRegistration? = null
                   val ordersQuery = if (isDriverSession) {
@@ -1152,7 +1290,7 @@ jobs:
               ) {
                   ModalNavigationDrawer(
                       drawerState = drawerState,
-                      gesturesEnabled = true,
+                      gesturesEnabled = (currentScreen != AppScreen.SPLASH_ANIMATED_2SEC),
                       drawerContent = {
                           ModalDrawerSheet(
                               modifier = Modifier.width(310.dp),
@@ -1318,56 +1456,58 @@ jobs:
                       Scaffold(
                           containerColor = QdBackground,
                           topBar = {
-                              TopAppBar(
-                                  navigationIcon = {
-                                      IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                          Icon(Icons.Default.Menu, contentDescription = "Menu", tint = QdTextDark)
-                                      }
-                                  },
-                                  title = {
-                                      Row(
-                                          verticalAlignment = Alignment.CenterVertically,
-                                          horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                      ) {
-                                          QuickDeliverAppLogo(size = 34.dp)
-                                          Text(
-                                              text = AppStrings.get("app_name", currentLanguage),
-                                              fontSize = 18.sp,
-                                              fontWeight = FontWeight.Black,
-                                              color = QdOrange
-                                          )
-                                      }
-                                  },
-                                  actions = {
-                                      TextButton(onClick = {
-                                          currentLanguage = if (currentLanguage == Language.AR) Language.FR else Language.AR
-                                      }) {
-                                          Text(
-                                              text = if (currentLanguage == Language.AR) "FR" else "عربي",
-                                              fontWeight = FontWeight.Black,
-                                              color = QdOrange
-                                          )
-                                      }
-                                      if (currentUserUid.isNotEmpty()) {
-                                          IconButton(
-                                              onClick = {
-                                                  auth.signOut()
-                                                  currentUserUid = ""
-                                                  isDriverSession = false
-                                                  currentScreen = AppScreen.SPLASH_ONBOARDING
-                                              },
-                                              modifier = Modifier
-                                                  .padding(end = 4.dp)
-                                                  .size(38.dp)
-                                                  .clip(CircleShape)
-                                                  .background(QdRed.copy(alpha = 0.12f))
-                                          ) {
-                                              Icon(Icons.Default.PowerSettingsNew, contentDescription = "Logout", tint = QdRed, modifier = Modifier.size(20.dp))
+                              if (currentScreen != AppScreen.SPLASH_ANIMATED_2SEC && currentScreen != AppScreen.SPLASH_ONBOARDING) {
+                                  TopAppBar(
+                                      navigationIcon = {
+                                          IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                              Icon(Icons.Default.Menu, contentDescription = "Menu", tint = QdTextDark)
                                           }
-                                      }
-                                  },
-                                  colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-                              )
+                                      },
+                                      title = {
+                                          Row(
+                                              verticalAlignment = Alignment.CenterVertically,
+                                              horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                          ) {
+                                              QuickDeliverAppLogo(size = 34.dp)
+                                              Text(
+                                                  text = AppStrings.get("app_name", currentLanguage),
+                                                  fontSize = 18.sp,
+                                                  fontWeight = FontWeight.Black,
+                                                  color = QdOrange
+                                              )
+                                          }
+                                      },
+                                      actions = {
+                                          TextButton(onClick = {
+                                              currentLanguage = if (currentLanguage == Language.AR) Language.FR else Language.AR
+                                          }) {
+                                              Text(
+                                                  text = if (currentLanguage == Language.AR) "FR" else "عربي",
+                                                  fontWeight = FontWeight.Black,
+                                                  color = QdOrange
+                                              )
+                                          }
+                                          if (currentUserUid.isNotEmpty()) {
+                                              IconButton(
+                                                  onClick = {
+                                                      auth.signOut()
+                                                      currentUserUid = ""
+                                                      isDriverSession = false
+                                                      currentScreen = AppScreen.SPLASH_ONBOARDING
+                                                  },
+                                                  modifier = Modifier
+                                                      .padding(end = 4.dp)
+                                                      .size(38.dp)
+                                                      .clip(CircleShape)
+                                                      .background(QdRed.copy(alpha = 0.12f))
+                                              ) {
+                                                  Icon(Icons.Default.PowerSettingsNew, contentDescription = "Logout", tint = QdRed, modifier = Modifier.size(20.dp))
+                                              }
+                                          }
+                                      },
+                                      colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                                  )
+                              }
                           },
                           bottomBar = {
                               if (currentScreen in listOf(AppScreen.HOME_EXPLORE, AppScreen.ORDERS_LIST, AppScreen.PROFILE, AppScreen.DRIVER_DASHBOARD)) {
@@ -1448,6 +1588,9 @@ jobs:
                                   label = "ScreenTransition"
                               ) { screen ->
                                   when (screen) {
+                                      AppScreen.SPLASH_ANIMATED_2SEC -> {
+                                          SplashAnimated2SecScreen()
+                                      }
                                       AppScreen.SPLASH_ONBOARDING -> {
                                           SplashScreen(
                                               lang = currentLanguage,
@@ -1625,6 +1768,7 @@ jobs:
                                               lang = currentLanguage,
                                               name = currentUserName,
                                               phone = currentUserPhone,
+                                              onEditPhone = { showEditPhoneDialog = true },
                                               onBecomeDriver = {
                                                   authUserType = AuthUserType.DRIVER
                                                   isDriverAuthRegister = true
@@ -1728,6 +1872,108 @@ jobs:
                                       onDismiss = { showPolicyModal = null }
                                   )
                               }
+
+                              if (showEditPhoneDialog) {
+                                  EditPhoneDialog(
+                                      currentPhone = currentUserPhone,
+                                      onDismiss = { showEditPhoneDialog = false },
+                                      onSave = { newPhone ->
+                                          currentUserPhone = newPhone
+                                          if (currentUserUid.isNotEmpty()) {
+                                              db.collection("users").document(currentUserUid)
+                                                  .update("phoneNumber", newPhone)
+                                          }
+                                          showEditPhoneDialog = false
+                                      }
+                                  )
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun SplashAnimated2SecScreen() {
+              val pulseTransition = rememberInfiniteTransition(label = "SplashDeliveryGuyPulse")
+              val animatedScale by pulseTransition.animateFloat(
+                  initialValue = 0.95f,
+                  targetValue = 1.05f,
+                  animationSpec = infiniteRepeatable(
+                      animation = tween(900, easing = FastOutSlowInEasing),
+                      repeatMode = RepeatMode.Reverse
+                  ),
+                  label = "Scale"
+              )
+
+              Column(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(Color.White),
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  verticalArrangement = Arrangement.Center
+              ) {
+                  Box(modifier = Modifier.scale(animatedScale)) {
+                      DeliveryHeroIllustration(size = 220.dp)
+                  }
+                  Spacer(modifier = Modifier.height(24.dp))
+                  Text(
+                      text = "QuickDeliver",
+                      fontSize = 32.sp,
+                      fontWeight = FontWeight.Black,
+                      color = QdOrange
+                  )
+                  Spacer(modifier = Modifier.height(6.dp))
+                  Text(
+                      text = "جاري فتح التطبيق والتوصيل...",
+                      fontSize = 14.sp,
+                      color = QdTextMuted
+                  )
+              }
+          }
+
+          @Composable
+          fun EditPhoneDialog(
+              currentPhone: String,
+              onDismiss: () -> Unit,
+              onSave: (String) -> Unit
+          ) {
+              var phoneInput by remember { mutableStateOf(currentPhone) }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Card(
+                      modifier = Modifier.fillMaxWidth(),
+                      shape = RoundedCornerShape(22.dp),
+                      colors = CardDefaults.cardColors(containerColor = Color.White)
+                  ) {
+                      Column(
+                          modifier = Modifier.padding(20.dp),
+                          verticalArrangement = Arrangement.spacedBy(14.dp)
+                      ) {
+                          Text(text = "تعديل رقم الهاتف", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = QdOrange)
+                          OutlinedTextField(
+                              value = phoneInput,
+                              onValueChange = { phoneInput = it },
+                              label = { Text("رقم الهاتف الجديد") },
+                              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(12.dp)
+                          )
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                          ) {
+                              OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) {
+                                  Text("إلغاء", color = QdTextDark)
+                              }
+                              Button(
+                                  onClick = { onSave(phoneInput.trim()) },
+                                  modifier = Modifier.weight(1f),
+                                  shape = RoundedCornerShape(10.dp),
+                                  colors = ButtonDefaults.buttonColors(containerColor = QdOrange)
+                              ) {
+                                  Text("حفظ", fontWeight = FontWeight.Bold)
+                              }
                           }
                       }
                   }
@@ -1784,7 +2030,11 @@ jobs:
                   modifier = modifier.fillMaxSize(),
                   factory = { ctx ->
                       MapView(ctx).apply {
-                          setTileSource(MapUtils.MapTilerStreetsTileSource)
+                          try {
+                              setTileSource(MapUtils.MapTilerVectorStreetsTileSource)
+                          } catch (e: Exception) {
+                              setTileSource(MapUtils.CartoVoyagerBackupSource)
+                          }
                           setMultiTouchControls(true)
                           controller.setZoom(15.2)
                           controller.setCenter(GeoPoint(centerLat, centerLng))
@@ -1902,7 +2152,7 @@ jobs:
                           .background(Color(0xFFFFF6F0.toInt())),
                       contentAlignment = Alignment.Center
                   ) {
-                      Text(text = "🛵", fontSize = 110.sp)
+                      DeliveryHeroIllustration(size = 180.dp)
                   }
 
                   Column(
@@ -1972,14 +2222,14 @@ jobs:
                                       val userMap = hashMapOf(
                                           "name" to (account.displayName ?: "Google User"),
                                           "email" to (account.email ?: ""),
-                                          "phoneNumber" to "",
+                                          "phoneNumber" to "0555555555",
                                           "role" to "customer",
                                           "debt" to 0
                                       )
                                       db.collection("users").document(uid).set(userMap)
                                           .addOnSuccessListener {
                                               isLoading = false
-                                              onSuccess(account.displayName ?: "Google User", "", uid, false)
+                                              onSuccess(account.displayName ?: "Google User", "0555555555", uid, false)
                                           }
                                   }
                                   .addOnFailureListener { e ->
@@ -2047,7 +2297,7 @@ jobs:
                                                   val user = authResult.user
                                                   val uid = user?.uid ?: ""
                                                   val fbName = user?.displayName ?: "Facebook User"
-                                                  onSuccess(fbName, "", uid, false)
+                                                  onSuccess(fbName, "0555555555", uid, false)
                                               }
                                               .addOnFailureListener { e ->
                                                   errorMessage = e.localizedMessage ?: "Facebook Auth Error"
@@ -2336,7 +2586,8 @@ jobs:
                                       text = AppStrings.get("promo_banner_title", lang),
                                       color = Color.White,
                                       fontWeight = FontWeight.Bold,
-                                      fontSize = 16.sp
+                                      fontSize = 15.sp,
+                                      lineHeight = 22.sp
                                   )
                                   Spacer(modifier = Modifier.height(10.dp))
                                   Button(
@@ -2348,7 +2599,7 @@ jobs:
                                       Text(text = AppStrings.get("order_now", lang), color = QdOrange, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                   }
                               }
-                              Text(text = "🍔", fontSize = 54.sp)
+                              Text(text = "🛵", fontSize = 54.sp)
                           }
                       }
                   }
@@ -3265,6 +3516,7 @@ jobs:
               lang: Language,
               name: String,
               phone: String,
+              onEditPhone: () -> Unit,
               onBecomeDriver: () -> Unit,
               onOpenPolicy: (String) -> Unit,
               onOpenReport: () -> Unit,
@@ -3297,14 +3549,18 @@ jobs:
                       ) {
                           Icon(Icons.Default.Person, contentDescription = null, tint = QdOrange, modifier = Modifier.size(38.dp))
                       }
-                      Column {
+                      Column(modifier = Modifier.weight(1f)) {
                           Text(text = name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                           Text(text = phone, fontSize = 12.sp, color = QdTextMuted)
+                      }
+                      IconButton(onClick = onEditPhone) {
+                          Icon(Icons.Default.Edit, contentDescription = "Edit Phone", tint = QdOrange)
                       }
                   }
 
                   Spacer(modifier = Modifier.height(10.dp))
 
+                  ProfileMenuRow(icon = Icons.Default.Phone, title = AppStrings.get("edit_profile", lang), onClick = onEditPhone)
                   ProfileMenuRow(icon = Icons.Default.TwoWheeler, title = AppStrings.get("become_driver", lang), onClick = onBecomeDriver)
                   ProfileMenuRow(icon = Icons.Default.VerifiedUser, title = AppStrings.get("privacy_policy", lang), onClick = { onOpenPolicy("privacy") })
                   ProfileMenuRow(icon = Icons.Default.LocalShipping, title = AppStrings.get("shipping_policy", lang), onClick = { onOpenPolicy("shipping") })
@@ -3739,5 +3995,5 @@ jobs:
       - name: Upload Artifact APK
         uses: actions/upload-artifact@v4
         with:
-          name: QuickDeliver-CompleteFinal-APK
+          name: QuickDeliver-Production-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
