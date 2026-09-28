@@ -71,7 +71,6 @@ jobs:
           <resources>
               <string name="app_name">QuickDeliver</string>
               <string name="default_web_client_id">703541527613-webclient.apps.googleusercontent.com</string>
-              <string name="maptiler_api_key">ouBpZ2bVkP4wr4vcgzO6</string>
           </resources>
           EOF
 
@@ -133,8 +132,8 @@ jobs:
                   applicationId = "com.elaffroun.delivery"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 11
-                  versionName = "11.0"
+                  versionCode = 12
+                  versionName = "12.0"
               }
 
               buildTypes {
@@ -232,18 +231,70 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+                  <receiver android:name=".NotificationActionReceiver" android:exported="false" />
               </application>
 
           </manifest>
           EOF
 
           mkdir -p app/src/main/java/com/elaffroun/delivery
+          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/NotificationActionReceiver.kt
+          package com.elaffroun.delivery
+
+          import android.app.NotificationManager
+          import android.content.BroadcastReceiver
+          import android.content.Context
+          import android.content.Intent
+          import com.google.firebase.auth.ktx.auth
+          import com.google.firebase.firestore.ktx.firestore
+          import com.google.firebase.ktx.Firebase
+
+          class NotificationActionReceiver : BroadcastReceiver() {
+              override fun onReceive(context: Context, intent: Intent) {
+                  val orderId = intent.getStringExtra("order_id") ?: return
+                  val action = intent.action
+                  val notificationId = intent.getIntExtra("notification_id", 1001)
+
+                  val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                  notificationManager.cancel(notificationId)
+
+                  if (action == "ACTION_ACCEPT_ORDER") {
+                      val auth = Firebase.auth
+                      val db = Firebase.firestore
+                      val currentUid = auth.currentUser?.uid ?: ""
+
+                      if (currentUid.isNotEmpty()) {
+                          db.collection("users").document(currentUid).get().addOnSuccessListener { doc ->
+                              val dName = doc.getString("name") ?: "عامل توصيل"
+                              val dPhone = doc.getString("phoneNumber") ?: ""
+                              db.collection("orders").document(orderId).update(
+                                  mapOf(
+                                      "status" to "accepted",
+                                      "driverName" to dName,
+                                      "driverPhone" to dPhone
+                                  )
+                              )
+                          }
+                      }
+
+                      val launchIntent = Intent(context, MainActivity::class.java).apply {
+                          flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                          putExtra("open_order_id", orderId)
+                      }
+                      context.startActivity(launchIntent)
+                  }
+              }
+          }
+          EOF
+
           cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/SoundHelper.kt
           package com.elaffroun.delivery
 
           import android.app.NotificationChannel
           import android.app.NotificationManager
+          import android.app.PendingIntent
           import android.content.Context
+          import android.content.Intent
           import android.media.AudioAttributes
           import android.media.AudioFormat
           import android.media.AudioTrack
@@ -258,44 +309,86 @@ jobs:
 
           object SoundHelper {
 
-              fun triggerBackgroundNotification(context: Context, title: String, message: String) {
+              fun triggerBackgroundNotification(
+                  context: Context,
+                  orderId: String,
+                  restaurant: String,
+                  price: Int,
+                  address: String
+              ) {
                   val channelId = "quickdeliver_channel_urgent"
                   val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       val channel = NotificationChannel(
                           channelId,
-                          "QuickDeliver Orders",
+                          "طلب توصيل عاجل",
                           NotificationManager.IMPORTANCE_HIGH
                       ).apply {
-                          description = "Urgent Delivery Alerts"
+                          description = "طلبات التوصيل الجديدة لعمال التوصيل"
                           enableVibration(true)
+                          vibrationPattern = longArrayOf(0, 500, 200, 500)
                       }
                       notificationManager.createNotificationChannel(channel)
                   }
 
+                  val notifId = (orderId.hashCode() and 0xfffffff)
+
+                  val contentIntent = Intent(context, MainActivity::class.java).apply {
+                      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                      putExtra("open_order_id", orderId)
+                  }
+                  val contentPendingIntent = PendingIntent.getActivity(
+                      context, notifId, contentIntent,
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+
+                  val acceptIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+                      action = "ACTION_ACCEPT_ORDER"
+                      putExtra("order_id", orderId)
+                      putExtra("notification_id", notifId)
+                  }
+                  val acceptPendingIntent = PendingIntent.getBroadcast(
+                      context, notifId + 1, acceptIntent,
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+
+                  val cancelIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+                      action = "ACTION_DISMISS_ORDER"
+                      putExtra("order_id", orderId)
+                      putExtra("notification_id", notifId)
+                  }
+                  val cancelPendingIntent = PendingIntent.getBroadcast(
+                      context, notifId + 2, cancelIntent,
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+
                   val notification = NotificationCompat.Builder(context, channelId)
                       .setSmallIcon(android.R.drawable.ic_dialog_info)
-                      .setContentTitle(title)
-                      .setContentText(message)
+                      .setContentTitle("🛵 طلب توصيل جديد ($price DA)")
+                      .setContentText("$restaurant • $address")
+                      .setStyle(NotificationCompat.BigTextStyle().bigText("المحل: $restaurant\nالوجهة: $address\nالسعر: $price DA\nاضغط قبول لبدء التوصيل فوراً."))
                       .setPriority(NotificationCompat.PRIORITY_MAX)
+                      .setCategory(NotificationCompat.CATEGORY_CALL)
+                      .setContentIntent(contentPendingIntent)
                       .setAutoCancel(true)
+                      .addAction(android.R.drawable.ic_media_play, "✅ قبول الطلب", acceptPendingIntent)
+                      .addAction(android.R.drawable.ic_menu_close_clear_cancel, "❌ إلغاء", cancelPendingIntent)
                       .build()
 
-                  notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+                  notificationManager.notify(notifId, notification)
               }
 
-              // Apple iPhone Tri-tone Style chime repeating smoothly for ~3.0 seconds
               fun playUrgentIphoneLikeTone() {
                   CoroutineScope(Dispatchers.IO).launch {
                       val startTime = System.currentTimeMillis()
                       while (System.currentTimeMillis() - startTime < 3000) {
-                          playHarmonicChime(784.0, 180)  // G5
-                          delay(25)
-                          playHarmonicChime(1046.5, 180) // C6
-                          delay(25)
-                          playHarmonicChime(1318.5, 300) // E6
-                          delay(180)
+                          playHarmonicChime(784.0, 180)
+                          delay(30)
+                          playHarmonicChime(1046.5, 180)
+                          delay(30)
+                          playHarmonicChime(1318.5, 320)
+                          delay(220)
                       }
                   }
               }
@@ -370,45 +463,15 @@ jobs:
           import kotlinx.coroutines.Dispatchers
           import kotlinx.coroutines.withContext
           import org.json.JSONObject
-          import org.osmdroid.tileprovider.tilesource.XYTileSource
+          import org.osmdroid.tileprovider.tilesource.TileSourceFactory
           import org.osmdroid.util.GeoPoint
-          import org.osmdroid.util.MapTileIndex
           import java.io.BufferedReader
           import java.io.InputStreamReader
           import java.net.HttpURLConnection
           import java.net.URL
 
           object MapUtils {
-              const val MAPTILER_KEY = "ouBpZ2bVkP4wr4vcgzO6"
-
-              val MapTilerVectorStreetsTileSource = object : XYTileSource(
-                  "MapTilerStreetsV2",
-                  0, 19, 512, ".png",
-                  arrayOf("https://api.maptiler.com/maps/streets-v2/")
-              ) {
-                  override fun getTileURLString(pMapTileIndex: Long): String {
-                      return baseUrl + MapTileIndex.getZoom(pMapTileIndex) + "/" +
-                              MapTileIndex.getX(pMapTileIndex) + "/" +
-                              MapTileIndex.getY(pMapTileIndex) +
-                              ".png?key=$MAPTILER_KEY"
-                  }
-              }
-
-              val CartoVoyagerBackupSource = object : XYTileSource(
-                  "CartoVoyager",
-                  0, 20, 256, ".png",
-                  arrayOf(
-                      "https://a.basemaps.cartocdn.com/rastertiles/voyager/",
-                      "https://b.basemaps.cartocdn.com/rastertiles/voyager/",
-                      "https://c.basemaps.cartocdn.com/rastertiles/voyager/"
-                  )
-              ) {
-                  override fun getTileURLString(pMapTileIndex: Long): String {
-                      return baseUrl + MapTileIndex.getZoom(pMapTileIndex) + "/" +
-                              MapTileIndex.getX(pMapTileIndex) + "/" +
-                              MapTileIndex.getY(pMapTileIndex) + mImageFilenameEnding
-                  }
-              }
+              val FreeOfficialMapnikTileSource = TileSourceFactory.MAPNIK
 
               fun createCustomPin(
                   context: Context,
@@ -420,7 +483,7 @@ jobs:
                   val canvas = Canvas(bitmap)
 
                   val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                      color = android.graphics.Color.parseColor("#35000000")
+                      color = android.graphics.Color.parseColor("#45000000")
                   }
                   canvas.drawCircle(sizePx / 2f, sizePx / 2f + 4f, sizePx / 2f - 4f, shadowPaint)
 
@@ -463,7 +526,7 @@ jobs:
                           connection.connectTimeout = 7000
                           connection.readTimeout = 7000
                           connection.requestMethod = "GET"
-                          connection.setRequestProperty("User-Agent", "QuickDeliver/11.0")
+                          connection.setRequestProperty("User-Agent", "QuickDeliver-App/12.0 (Android; OpenStreetMap)")
 
                           if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                               val reader = BufferedReader(InputStreamReader(connection.inputStream))
@@ -508,6 +571,7 @@ jobs:
           import androidx.compose.ui.geometry.Offset
           import androidx.compose.ui.geometry.Rect
           import androidx.compose.ui.geometry.Size
+          import androidx.compose.ui.graphics.Brush
           import androidx.compose.ui.graphics.Color
           import androidx.compose.ui.graphics.Path
           import androidx.compose.ui.graphics.drawscope.Fill
@@ -515,48 +579,80 @@ jobs:
           import androidx.compose.ui.unit.dp
 
           @Composable
-          fun DeliveryHeroIllustration(size: Dp = 180.dp) {
+          fun DeliveryHeroIllustration(size: Dp = 190.dp) {
               Canvas(modifier = Modifier.size(size)) {
                   val w = this.size.width
                   val h = this.size.height
-                  val primaryOrange = Color(0xFFFF5E00.toInt())
-                  val primaryDark = Color(0xFFD64400.toInt())
 
                   drawCircle(
-                      color = Color(0xFFFFF0E8.toInt()),
+                      brush = Brush.radialGradient(
+                          colors = listOf(Color(0xFFFFE8DC.toInt()), Color(0xFFFFF6F0.toInt()), Color.Transparent),
+                          center = Offset(w * 0.5f, h * 0.5f),
+                          radius = w * 0.5f
+                      ),
                       radius = w * 0.48f,
                       center = Offset(w * 0.5f, h * 0.5f)
                   )
+
                   drawRoundRect(
-                      color = Color(0xFFE5E7EB.toInt()),
-                      topLeft = Offset(w * 0.1f, h * 0.82f),
-                      size = Size(w * 0.8f, h * 0.04f)
+                      color = Color(0xFFFF5E00.toInt()).copy(alpha = 0.25f),
+                      topLeft = Offset(w * 0.08f, h * 0.42f),
+                      size = Size(w * 0.22f, h * 0.035f)
                   )
                   drawRoundRect(
-                      color = primaryDark,
-                      topLeft = Offset(w * 0.32f, h * 0.38f),
-                      size = Size(w * 0.16f, h * 0.22f)
+                      color = Color(0xFFFF5E00.toInt()).copy(alpha = 0.40f),
+                      topLeft = Offset(w * 0.04f, h * 0.54f),
+                      size = Size(w * 0.28f, h * 0.035f)
                   )
+                  drawRoundRect(
+                      color = Color(0xFFFF5E00.toInt()).copy(alpha = 0.25f),
+                      topLeft = Offset(w * 0.10f, h * 0.66f),
+                      size = Size(w * 0.20f, h * 0.035f)
+                  )
+
+                  drawRoundRect(
+                      color = Color(0xFFE2E8F0.toInt()),
+                      topLeft = Offset(w * 0.05f, h * 0.82f),
+                      size = Size(w * 0.90f, h * 0.045f)
+                  )
+
+                  drawRoundRect(
+                      color = Color(0xFFD64400.toInt()),
+                      topLeft = Offset(w * 0.30f, h * 0.36f),
+                      size = Size(w * 0.17f, h * 0.24f)
+                  )
+
                   val scooterPath = Path().apply {
-                      moveTo(w * 0.25f, h * 0.72f)
+                      moveTo(w * 0.24f, h * 0.72f)
                       lineTo(w * 0.50f, h * 0.72f)
-                      lineTo(w * 0.65f, h * 0.50f)
-                      lineTo(w * 0.72f, h * 0.50f)
-                      lineTo(w * 0.75f, h * 0.72f)
+                      lineTo(w * 0.66f, h * 0.48f)
+                      lineTo(w * 0.75f, h * 0.48f)
+                      lineTo(w * 0.78f, h * 0.72f)
                       close()
                   }
-                  drawPath(scooterPath, primaryOrange, style = Fill)
+                  drawPath(
+                      scooterPath,
+                      brush = Brush.linearGradient(
+                          colors = listOf(Color(0xFFFF7A00.toInt()), Color(0xFFFF4500.toInt())),
+                          start = Offset(w * 0.2f, h * 0.5f),
+                          end = Offset(w * 0.8f, h * 0.7f)
+                      ),
+                      style = Fill
+                  )
 
-                  drawCircle(color = Color(0xFF1E2024.toInt()), radius = w * 0.09f, center = Offset(w * 0.28f, h * 0.75f))
-                  drawCircle(color = Color.White, radius = w * 0.04f, center = Offset(w * 0.28f, h * 0.75f))
-                  drawCircle(color = Color(0xFF1E2024.toInt()), radius = w * 0.09f, center = Offset(w * 0.72f, h * 0.75f))
-                  drawCircle(color = Color.White, radius = w * 0.04f, center = Offset(w * 0.72f, h * 0.75f))
+                  drawCircle(color = Color(0xFF1E2024.toInt()), radius = w * 0.095f, center = Offset(w * 0.27f, h * 0.75f))
+                  drawCircle(color = Color.White, radius = w * 0.045f, center = Offset(w * 0.27f, h * 0.75f))
+                  drawCircle(color = Color(0xFFFF5E00.toInt()), radius = w * 0.02f, center = Offset(w * 0.27f, h * 0.75f))
 
-                  drawCircle(color = Color(0xFF2563EB.toInt()), radius = w * 0.08f, center = Offset(w * 0.55f, h * 0.32f))
+                  drawCircle(color = Color(0xFF1E2024.toInt()), radius = w * 0.095f, center = Offset(w * 0.73f, h * 0.75f))
+                  drawCircle(color = Color.White, radius = w * 0.045f, center = Offset(w * 0.73f, h * 0.75f))
+                  drawCircle(color = Color(0xFFFF5E00.toInt()), radius = w * 0.02f, center = Offset(w * 0.73f, h * 0.75f))
+
+                  drawCircle(color = Color(0xFF1E293B.toInt()), radius = w * 0.085f, center = Offset(w * 0.56f, h * 0.30f))
                   drawRoundRect(
-                      color = primaryOrange,
-                      topLeft = Offset(w * 0.44f, h * 0.40f),
-                      size = Size(w * 0.18f, h * 0.24f)
+                      color = Color(0xFFFF5E00.toInt()),
+                      topLeft = Offset(w * 0.44f, h * 0.38f),
+                      size = Size(w * 0.20f, h * 0.25f)
                   )
               }
           }
@@ -566,43 +662,46 @@ jobs:
               Canvas(modifier = Modifier.size(size)) {
                   val w = this.size.width
                   val h = this.size.height
-                  val primaryOrange = Color(0xFFFF5E00.toInt())
 
                   drawCircle(
-                      color = primaryOrange,
+                      brush = Brush.radialGradient(
+                          colors = listOf(Color(0xFFFF7E2E.toInt()), Color(0xFFFF5E00.toInt()), Color(0xFFD43800.toInt())),
+                          center = Offset(w * 0.38f, h * 0.34f),
+                          radius = w * 0.55f
+                      ),
                       radius = w * 0.46f,
                       center = Offset(w * 0.50f, h * 0.50f)
                   )
 
                   drawRoundRect(
-                      color = Color.White.copy(alpha = 0.85f),
-                      topLeft = Offset(w * 0.14f, h * 0.34f),
-                      size = Size(w * 0.18f, h * 0.05f)
+                      color = Color.White.copy(alpha = 0.90f),
+                      topLeft = Offset(w * 0.12f, h * 0.34f),
+                      size = Size(w * 0.20f, h * 0.055f)
                   )
                   drawRoundRect(
-                      color = Color.White.copy(alpha = 0.95f),
-                      topLeft = Offset(w * 0.08f, h * 0.48f),
-                      size = Size(w * 0.24f, h * 0.05f)
+                      color = Color.White,
+                      topLeft = Offset(w * 0.06f, h * 0.48f),
+                      size = Size(w * 0.27f, h * 0.06f)
                   )
                   drawRoundRect(
-                      color = Color.White.copy(alpha = 0.85f),
-                      topLeft = Offset(w * 0.16f, h * 0.62f),
-                      size = Size(w * 0.16f, h * 0.05f)
+                      color = Color.White.copy(alpha = 0.90f),
+                      topLeft = Offset(w * 0.14f, h * 0.62f),
+                      size = Size(w * 0.18f, h * 0.055f)
                   )
 
                   val p = Path().apply {
-                      addOval(Rect(w * 0.52f, h * 0.24f, w * 0.64f, h * 0.36f))
+                      addOval(Rect(w * 0.52f, h * 0.22f, w * 0.66f, h * 0.36f))
                   }
                   drawPath(p, Color.White, style = Fill)
 
-                  drawCircle(color = Color.White, radius = w * 0.09f, center = Offset(w * 0.44f, h * 0.66f))
-                  drawCircle(color = Color.White, radius = w * 0.09f, center = Offset(w * 0.74f, h * 0.66f))
+                  drawCircle(color = Color.White, radius = w * 0.095f, center = Offset(w * 0.45f, h * 0.66f))
+                  drawCircle(color = Color.White, radius = w * 0.095f, center = Offset(w * 0.75f, h * 0.66f))
 
                   val bodyPath = Path().apply {
-                      moveTo(w * 0.44f, h * 0.66f)
-                      lineTo(w * 0.54f, h * 0.50f)
-                      lineTo(w * 0.66f, h * 0.50f)
-                      lineTo(w * 0.74f, h * 0.66f)
+                      moveTo(w * 0.45f, h * 0.66f)
+                      lineTo(w * 0.55f, h * 0.48f)
+                      lineTo(w * 0.68f, h * 0.48f)
+                      lineTo(w * 0.75f, h * 0.66f)
                       close()
                   }
                   drawPath(bodyPath, Color.White, style = Fill)
@@ -622,50 +721,13 @@ jobs:
                   val green = Color(0xFF34A853.toInt())
                   val yellow = Color(0xFFFBBC05.toInt())
 
-                  drawArc(
-                      color = red,
-                      startAngle = 180f,
-                      sweepAngle = 90f,
-                      useCenter = true,
-                      size = Size(radius * 2f, radius * 2f),
-                      topLeft = Offset(center.x - radius, center.y - radius)
-                  )
-                  drawArc(
-                      color = yellow,
-                      startAngle = 90f,
-                      sweepAngle = 90f,
-                      useCenter = true,
-                      size = Size(radius * 2f, radius * 2f),
-                      topLeft = Offset(center.x - radius, center.y - radius)
-                  )
-                  drawArc(
-                      color = green,
-                      startAngle = 0f,
-                      sweepAngle = 90f,
-                      useCenter = true,
-                      size = Size(radius * 2f, radius * 2f),
-                      topLeft = Offset(center.x - radius, center.y - radius)
-                  )
-                  drawArc(
-                      color = blue,
-                      startAngle = 270f,
-                      sweepAngle = 90f,
-                      useCenter = true,
-                      size = Size(radius * 2f, radius * 2f),
-                      topLeft = Offset(center.x - radius, center.y - radius)
-                  )
+                  drawArc(color = red, startAngle = 180f, sweepAngle = 90f, useCenter = true, size = Size(radius * 2f, radius * 2f), topLeft = Offset(center.x - radius, center.y - radius))
+                  drawArc(color = yellow, startAngle = 90f, sweepAngle = 90f, useCenter = true, size = Size(radius * 2f, radius * 2f), topLeft = Offset(center.x - radius, center.y - radius))
+                  drawArc(color = green, startAngle = 0f, sweepAngle = 90f, useCenter = true, size = Size(radius * 2f, radius * 2f), topLeft = Offset(center.x - radius, center.y - radius))
+                  drawArc(color = blue, startAngle = 270f, sweepAngle = 90f, useCenter = true, size = Size(radius * 2f, radius * 2f), topLeft = Offset(center.x - radius, center.y - radius))
 
-                  drawCircle(
-                      color = Color.White,
-                      radius = radius * 0.58f,
-                      center = center
-                  )
-
-                  drawRect(
-                      color = blue,
-                      topLeft = Offset(center.x, center.y - (radius * 0.22f)),
-                      size = Size(radius * 0.95f, radius * 0.44f)
-                  )
+                  drawCircle(color = Color.White, radius = radius * 0.58f, center = center)
+                  drawRect(color = blue, topLeft = Offset(center.x, center.y - (radius * 0.22f)), size = Size(radius * 0.95f, radius * 0.44f))
               }
           }
 
@@ -675,7 +737,6 @@ jobs:
                   val w = this.size.width
                   val h = this.size.height
                   val blue = Color(0xFF1877F2.toInt())
-                  val white = Color.White
 
                   drawCircle(color = blue, radius = w / 2f)
 
@@ -696,7 +757,7 @@ jobs:
                       lineTo(w * 0.42f, h * 0.90f)
                       close()
                   }
-                  drawPath(path = path, color = white, style = Fill)
+                  drawPath(path = path, color = Color.White, style = Fill)
               }
           }
           EOF
@@ -729,7 +790,9 @@ jobs:
                       "cat_veggies" to "خضر وفواكه",
                       "promo_banner_title" to "عروض حصرية وتوصيل سريع\nطلبك يصلك ساخناً وبأمان",
                       "order_now" to "اطلب الآن ⚡",
-                      "custom_order_btn" to "+ طلب مخصص من اختيارك",
+                      "custom_order_title" to "طلب مخصص حسب رغبتك",
+                      "custom_order_sub" to "اكتب اسم المنتجات والكمية وسنقوم بشرائها وتوصيلها فوراً",
+                      "custom_order_btn" to "+ إضافة طلب مخصص الآن",
                       "popular_restaurants" to "المحلات والمتاجر المعتمدة",
                       "see_all" to "عرض الكل >",
                       "confirm_order" to "تأكيد الطلب",
@@ -808,7 +871,9 @@ jobs:
                       "cat_veggies" to "Fruits & Légumes",
                       "promo_banner_title" to "Offres exclusives & livraison rapide\nVos commandes livrées en toute sécurité",
                       "order_now" to "Commander ⚡",
-                      "custom_order_btn" to "+ Commande personnalisée",
+                      "custom_order_title" to "Commande personnalisée",
+                      "custom_order_sub" to "Indiquez ce dont vous avez besoin, nous l'achetons et vous le livrons",
+                      "custom_order_btn" to "+ Ajouter une commande personnalisée",
                       "popular_restaurants" to "Restaurants & Commerces",
                       "see_all" to "Voir tout >",
                       "confirm_order" to "Confirmer la commande",
@@ -952,8 +1017,8 @@ jobs:
           val QdGreen = Color(0xFF22C55E.toInt())
           val QdRed = Color(0xFFEF4444.toInt())
 
-          const val REMOTE_APP_LOGO = "https://ibb.co/6c0GHwMg"
-          const val REMOTE_SPLASH_IMG = "https://ibb.co/cVrbF2M"
+          const val REMOTE_APP_LOGO = "https://i.ibb.co/6c0GHwMg/logo.png"
+          const val REMOTE_SPLASH_IMG = "https://i.ibb.co/cVrbF2M/splash.png"
 
           data class MenuItem(
               val id: String,
@@ -1003,7 +1068,12 @@ jobs:
               val custLng: Double = 2.6288
           )
 
-          data class ChatMessage(val sender: String = "", val text: String = "", val time: String = "")
+          data class ChatMessage(
+              val sender: String = "",
+              val senderName: String = "",
+              val text: String = "",
+              val time: String = ""
+          )
 
           data class AdminBanner(
               val id: String = "",
@@ -1036,11 +1106,11 @@ jobs:
                   try {
                       val osmConfig = Configuration.getInstance()
                       osmConfig.load(this, PreferenceManager.getDefaultSharedPreferences(this))
-                      osmConfig.userAgentValue = packageName
+                      osmConfig.userAgentValue = "QuickDeliver/12.0 (Linux; Android ${Build.VERSION.RELEASE})"
                       osmConfig.osmdroidBasePath = cacheDir
                       osmConfig.osmdroidTileCache = File(cacheDir, "osm_tiles")
                   } catch (e: Exception) {
-                      // Safe
+                      // Handled
                   }
 
                   setContent {
@@ -1085,7 +1155,6 @@ jobs:
               var currentUserUid by remember { mutableStateOf(auth.currentUser?.uid ?: "") }
               var isDriverSession by remember { mutableStateOf(false) }
 
-              // 2-Second Animated Splash Screen
               LaunchedEffect(Unit) {
                   delay(2000)
                   if (auth.currentUser != null) {
@@ -1112,7 +1181,7 @@ jobs:
 
               var userLat by remember { mutableStateOf(36.4686) }
               var userLng by remember { mutableStateOf(2.6288) }
-              var selectedAddress by remember { mutableStateOf("العفرون (GPS)") }
+              var selectedAddress by remember { mutableStateOf("حي النصر، العفرون") }
 
               val allStores = remember {
                   mutableStateListOf(
@@ -1194,7 +1263,6 @@ jobs:
                   )
               }
 
-              // Firestore sync for stores added by Admin
               LaunchedEffect(Unit) {
                   db.collection("stores").addSnapshotListener { snap, _ ->
                       if (snap != null && !snap.isEmpty) {
@@ -1213,7 +1281,7 @@ jobs:
                                           lat = doc.getDouble("lat") ?: 36.4686,
                                           lng = doc.getDouble("lng") ?: 2.6288,
                                           menu = listOf(
-                                              MenuItem("m_${doc.id}", "منتج متاح", "Produit Disponible", "متوفر عند الطلب", "Disponible sur demande", 300, "📦", "Général")
+                                              MenuItem("m_${doc.id}", "منتج متوفر", "Produit Disponible", "متوفر عند الطلب", "Disponible", 300, "📦", "Général")
                                           )
                                       )
                                   )
@@ -1230,7 +1298,8 @@ jobs:
               var activeCategoryFilter by remember { mutableStateOf("all") }
 
               val activeOrders = remember { mutableStateListOf<ActiveOrder>() }
-              val chatMessages = remember { mutableStateListOf<ChatMessage>() }
+              var currentChatOrderId by remember { mutableStateOf("") }
+              val liveChatMessages = remember { mutableStateListOf<ChatMessage>() }
 
               var showChatModal by remember { mutableStateOf(false) }
               var showRatingModal by remember { mutableStateOf(false) }
@@ -1277,14 +1346,13 @@ jobs:
                   }
                   permLauncher.launch(permissionsNeeded.toTypedArray())
 
-                  // Check Admin Banners
                   db.collection("banners").whereEqualTo("enabled", true).limit(1).get()
                       .addOnSuccessListener { snp ->
                           val doc = snp.documents.firstOrNull()
                           if (doc != null && doc.getBoolean("isInterstitial") == true) {
                               adminInterstitialBanner = AdminBanner(
                                   id = doc.id,
-                                  title = doc.getString("title") ?: "إعلان خاص",
+                                  title = doc.getString("title") ?: "إعلان حصري",
                                   imageUrl = doc.getString("imageUrl") ?: "",
                                   enabled = true,
                                   isInterstitial = true,
@@ -1294,7 +1362,6 @@ jobs:
                       }
               }
 
-              // Realtime Orders Sync with Single Acceptance Logic
               DisposableEffect(currentUserUid, isDriverSession) {
                   var listener: ListenerRegistration? = null
                   val ordersQuery = if (isDriverSession) {
@@ -1329,14 +1396,13 @@ jobs:
                           )
                           activeOrders.add(order)
 
-                          // If order is taken by another driver, dismiss popup for others
                           if (isDriverSession && incomingDriverAlertOrder?.id == order.id && order.status != "pending") {
                               incomingDriverAlertOrder = null
                           }
 
                           if (isDriverSession && order.status == "pending" && incomingDriverAlertOrder == null) {
                               incomingDriverAlertOrder = order
-                              SoundHelper.triggerBackgroundNotification(context, "طلب توصيل جديد 🛵", "${order.restaurant} - ${order.price} DA")
+                              SoundHelper.triggerBackgroundNotification(context, order.id, order.restaurant, order.price, order.address)
                               SoundHelper.playUrgentIphoneLikeTone()
                           }
                           if (!isDriverSession && order.status == "received") {
@@ -1354,6 +1420,32 @@ jobs:
                   }
 
                   onDispose { listener?.remove() }
+              }
+
+              // Realtime Chat Messages Sync
+              DisposableEffect(currentChatOrderId) {
+                  var chatListener: ListenerRegistration? = null
+                  if (currentChatOrderId.isNotBlank()) {
+                      chatListener = db.collection("orders").document(currentChatOrderId)
+                          .collection("messages")
+                          .orderBy("timestamp")
+                          .addSnapshotListener { snap, _ ->
+                              if (snap != null) {
+                                  liveChatMessages.clear()
+                                  for (mDoc in snap.documents) {
+                                      liveChatMessages.add(
+                                          ChatMessage(
+                                              sender = mDoc.getString("sender") ?: "",
+                                              senderName = mDoc.getString("senderName") ?: "",
+                                              text = mDoc.getString("text") ?: "",
+                                              time = mDoc.getString("time") ?: ""
+                                          )
+                                      )
+                                  }
+                              }
+                          }
+                  }
+                  onDispose { chatListener?.remove() }
               }
 
               MaterialTheme(
@@ -1814,7 +1906,10 @@ jobs:
                                               lang = currentLanguage,
                                               order = runningOrder,
                                               onBack = { currentScreen = AppScreen.HOME_EXPLORE },
-                                              onOpenChat = { showChatModal = true },
+                                              onOpenChat = {
+                                                  currentChatOrderId = runningOrder.id
+                                                  showChatModal = true
+                                              },
                                               onConfirmDelivered = {
                                                   if (runningOrder.id.isNotBlank()) {
                                                       db.collection("orders").document(runningOrder.id).update("status", "completed")
@@ -1886,7 +1981,10 @@ jobs:
                                                   db.collection("orders").document(ord.id).update("status", "delivered")
                                                   SoundHelper.playArrivalTone()
                                               },
-                                              onOpenChat = { showChatModal = true },
+                                              onOpenChat = { ord ->
+                                                  currentChatOrderId = ord.id
+                                                  showChatModal = true
+                                              },
                                               onPayDebtClick = { showPayDebtDialog = true },
                                               onSwitchToCustomer = {
                                                   isDriverSession = false
@@ -1897,7 +1995,6 @@ jobs:
                                   }
                               }
 
-                              // Interstitial Banner with Countdown
                               adminInterstitialBanner?.let { banner ->
                                   InterstitialBannerDialog(
                                       banner = banner,
@@ -1905,7 +2002,6 @@ jobs:
                                   )
                               }
 
-                              // Custom Order Dialog
                               if (showCustomOrderDialog) {
                                   CustomOrderDialog(
                                       onDismiss = { showCustomOrderDialog = false },
@@ -1930,7 +2026,6 @@ jobs:
                                   )
                               }
 
-                              // Pay Platform Debt Dialog
                               if (showPayDebtDialog) {
                                   PayDebtDialog(
                                       debtAmount = driverDebt,
@@ -1938,13 +2033,11 @@ jobs:
                                   )
                               }
 
-                              // Driver Urgent Incoming Order Alert
                               incomingDriverAlertOrder?.let { incOrder ->
                                   DriverIncomingOrderDialog(
                                       lang = currentLanguage,
                                       order = incOrder,
                                       onAccept = {
-                                          // Update Firestore so first driver claiming it takes it immediately
                                           db.collection("orders").document(incOrder.id).update(
                                               mapOf(
                                                   "status" to "accepted",
@@ -1960,16 +2053,26 @@ jobs:
                                   )
                               }
 
-                              // Auth Failure Modern Modal
                               if (showAuthFailDialog) {
                                   AuthFailureModernDialog(onDismiss = { showAuthFailDialog = false })
                               }
 
                               if (showChatModal) {
                                   ChatModalDialog(
-                                      messages = chatMessages,
+                                      currentUserId = currentUserUid,
+                                      messages = liveChatMessages,
                                       onSendMessage = { text ->
-                                          chatMessages.add(ChatMessage(if (isDriverSession) "driver" else "customer", text, "12:00"))
+                                          if (currentChatOrderId.isNotBlank()) {
+                                              val msgMap = hashMapOf(
+                                                  "sender" to currentUserUid,
+                                                  "senderName" to (if (isDriverSession) "عامل التوصيل" else currentUserName),
+                                                  "text" to text,
+                                                  "time" to java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date()),
+                                                  "timestamp" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                                              )
+                                              db.collection("orders").document(currentChatOrderId)
+                                                  .collection("messages").add(msgMap)
+                                          }
                                       },
                                       onDismiss = { showChatModal = false }
                                   )
@@ -2059,10 +2162,8 @@ jobs:
                           model = REMOTE_SPLASH_IMG,
                           contentDescription = "QuickDeliver Splash",
                           contentScale = ContentScale.Fit,
-                          modifier = Modifier.fillMaxSize(),
-                          fallback = null
+                          modifier = Modifier.fillMaxSize()
                       )
-                      // Fallback illustration
                       DeliveryHeroIllustration(size = 200.dp)
                   }
                   Spacer(modifier = Modifier.height(24.dp))
@@ -2074,7 +2175,7 @@ jobs:
                   )
                   Spacer(modifier = Modifier.height(6.dp))
                   Text(
-                      text = "جاري فتح التطبيق والتوصيل...",
+                      text = "توصيل سريع وموثوق في العفرون...",
                       fontSize = 14.sp,
                       color = QdTextMuted
                   )
@@ -2403,11 +2504,7 @@ jobs:
                   modifier = modifier.fillMaxSize(),
                   factory = { ctx ->
                       MapView(ctx).apply {
-                          try {
-                              setTileSource(MapUtils.MapTilerVectorStreetsTileSource)
-                          } catch (e: Exception) {
-                              setTileSource(MapUtils.CartoVoyagerBackupSource)
-                          }
+                          setTileSource(MapUtils.FreeOfficialMapnikTileSource)
                           setMultiTouchControls(true)
                           controller.setZoom(15.2)
                           controller.setCenter(GeoPoint(centerLat, centerLng))
@@ -2454,7 +2551,7 @@ jobs:
                           val bikeMarker = Marker(mapView).apply {
                               position = midPoint
                               setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                              title = "Livreur"
+                              title = "عامل التوصيل"
                               icon = bikePin
                           }
                           mapView.overlays.add(bikeMarker)
@@ -2859,12 +2956,12 @@ jobs:
               onPromoClick: () -> Unit,
               onCustomOrderClick: () -> Unit
           ) {
-              val pulseAnim = rememberInfiniteTransition(label = "OrderNowPulse")
-              val orderBtnScale by pulseAnim.animateFloat(
-                  initialValue = 0.96f,
-                  targetValue = 1.05f,
+              val pulseAnim = rememberInfiniteTransition(label = "CustomOrderPulse")
+              val customBtnScale by pulseAnim.animateFloat(
+                  initialValue = 0.98f,
+                  targetValue = 1.03f,
                   animationSpec = infiniteRepeatable(
-                      animation = tween(800, easing = FastOutSlowInEasing),
+                      animation = tween(900, easing = FastOutSlowInEasing),
                       repeatMode = RepeatMode.Reverse
                   ),
                   label = "Scale"
@@ -2906,19 +3003,10 @@ jobs:
                               Text(text = selectedCity, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                               Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = QdTextMuted, modifier = Modifier.size(18.dp))
                           }
-                          Button(
-                              onClick = onCustomOrderClick,
-                              colors = ButtonDefaults.buttonColors(containerColor = QdOrangeSoft),
-                              contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                              shape = RoundedCornerShape(10.dp)
-                          ) {
-                              Text(AppStrings.get("custom_order_btn", lang), color = QdOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                          }
                       }
                   }
 
                   item {
-                      // Sleek compact search bar
                       OutlinedTextField(
                           value = searchQuery,
                           onValueChange = onSearchQueryChange,
@@ -2944,6 +3032,66 @@ jobs:
                           ),
                           singleLine = true
                       )
+                  }
+
+                  // Large Animated Custom Order Banner
+                  item {
+                      Card(
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .scale(customBtnScale)
+                              .shadow(8.dp, RoundedCornerShape(20.dp))
+                              .clickable { onCustomOrderClick() },
+                          shape = RoundedCornerShape(20.dp),
+                          colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                      ) {
+                          Box(
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .background(
+                                      Brush.horizontalGradient(
+                                          colors = listOf(Color(0xFFFF5E00), Color(0xFFFF8A00))
+                                      )
+                                  )
+                                  .padding(18.dp)
+                          ) {
+                              Row(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  verticalAlignment = Alignment.CenterVertically,
+                                  horizontalArrangement = Arrangement.SpaceBetween
+                              ) {
+                                  Column(modifier = Modifier.weight(1f)) {
+                                      Text(
+                                          text = AppStrings.get("custom_order_title", lang),
+                                          color = Color.White,
+                                          fontWeight = FontWeight.Black,
+                                          fontSize = 16.sp
+                                      )
+                                      Spacer(modifier = Modifier.height(4.dp))
+                                      Text(
+                                          text = AppStrings.get("custom_order_sub", lang),
+                                          color = Color.White.copy(alpha = 0.9f),
+                                          fontSize = 11.sp,
+                                          lineHeight = 16.sp
+                                      )
+                                  }
+                                  Spacer(modifier = Modifier.width(10.dp))
+                                  Box(
+                                      modifier = Modifier
+                                          .clip(RoundedCornerShape(12.dp))
+                                          .background(Color.White)
+                                          .padding(horizontal = 12.dp, vertical = 8.dp)
+                                  ) {
+                                      Text(
+                                          text = AppStrings.get("custom_order_btn", lang),
+                                          color = QdOrange,
+                                          fontWeight = FontWeight.Black,
+                                          fontSize = 11.sp
+                                      )
+                                  }
+                              }
+                          }
+                      }
                   }
 
                   item {
@@ -2989,7 +3137,6 @@ jobs:
                                       onClick = onPromoClick,
                                       colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                                       shape = RoundedCornerShape(10.dp),
-                                      modifier = Modifier.scale(orderBtnScale),
                                       contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                                   ) {
                                       Text(text = AppStrings.get("order_now", lang), color = QdOrange, fontWeight = FontWeight.Black, fontSize = 12.sp)
@@ -3112,7 +3259,7 @@ jobs:
                           Spacer(modifier = Modifier.height(4.dp))
                           Row(verticalAlignment = Alignment.CenterVertically) {
                               Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFBBF24.toInt()), modifier = Modifier.size(14.dp))
-                              Text(text = " ${store.rating}  •  ${store.time}", fontSize = 11.sp, color = QdTextMuted)
+                              Text(text = " ${store.rating} • ${store.time}", fontSize = 11.sp, color = QdTextMuted)
                           }
                       }
                       Icon(Icons.Default.ChevronRight, contentDescription = null, tint = QdTextMuted)
@@ -3240,7 +3387,7 @@ jobs:
                                       Spacer(modifier = Modifier.height(4.dp))
                                       Row(verticalAlignment = Alignment.CenterVertically) {
                                           Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFBBF24.toInt()), modifier = Modifier.size(14.dp))
-                                          Text(text = " ${store.rating}  •  ${store.time}", fontSize = 12.sp, color = QdTextMuted)
+                                          Text(text = " ${store.rating} • ${store.time}", fontSize = 12.sp, color = QdTextMuted)
                                       }
                                       Spacer(modifier = Modifier.height(4.dp))
                                       Text(text = "50 DA / 500m (Tarif officiel)", fontSize = 11.sp, color = QdOrange, fontWeight = FontWeight.SemiBold)
@@ -3628,7 +3775,6 @@ jobs:
                       }
                   }
 
-                  // Driver Details Only appear IF a real driver accepted the order
                   if (isDriverAssigned) {
                       Card(
                           modifier = Modifier
@@ -3685,7 +3831,7 @@ jobs:
                                           .size(42.dp)
                                           .clip(CircleShape)
                                           .background(QdOrange)
-                                      ) {
+                                  ) {
                                       Icon(Icons.Default.ChatBubble, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                                   }
                               }
@@ -4020,7 +4166,6 @@ jobs:
               }
           }
 
-          // 3D Elevated Dashboard for Delivery Courier
           @Composable
           fun DriverDashboardScreen(
               lang: Language,
@@ -4033,7 +4178,7 @@ jobs:
               activeOrders: List<ActiveOrder>,
               onUpdateStatus: (ActiveOrder, String) -> Unit,
               onFinishOrder: (ActiveOrder) -> Unit,
-              onOpenChat: () -> Unit,
+              onOpenChat: (ActiveOrder) -> Unit,
               onPayDebtClick: () -> Unit,
               onSwitchToCustomer: () -> Unit
           ) {
@@ -4068,13 +4213,11 @@ jobs:
                       }
                   }
 
-                  // 3D Stat Cards with Rich High-Contrast Gradients
                   item {
                       Row(
                           modifier = Modifier.fillMaxWidth(),
                           horizontalArrangement = Arrangement.spacedBy(10.dp)
                       ) {
-                          // Earnings 3D Card (Dark Gradient -> Light text)
                           Card(
                               modifier = Modifier
                                   .weight(1f)
@@ -4097,7 +4240,6 @@ jobs:
                               }
                           }
 
-                          // Completed 3D Card (Orange Gradient -> Light text)
                           Card(
                               modifier = Modifier
                                   .weight(1f)
@@ -4120,7 +4262,6 @@ jobs:
                               }
                           }
 
-                          // Debt 3D Card (Crimson Gradient -> Light text)
                           Card(
                               modifier = Modifier
                                   .weight(1f)
@@ -4183,7 +4324,6 @@ jobs:
 
                   if (currentDelivery != null) {
                       item {
-                          // Realtime Map tracking for driver
                           Card(
                               modifier = Modifier
                                   .fillMaxWidth()
@@ -4221,7 +4361,6 @@ jobs:
                                       Text("الطلبات: ${currentDelivery.itemsSummary}", fontSize = 11.sp, color = QdTextDark)
                                   }
 
-                                  // Only show customer phone & chat when order is actively accepted
                                   if (currentDelivery.customerPhone.isNotBlank()) {
                                       Row(
                                           modifier = Modifier
@@ -4247,7 +4386,7 @@ jobs:
                                                   Icon(Icons.Default.Phone, contentDescription = "Appeler", tint = Color.White, modifier = Modifier.size(16.dp))
                                               }
                                               IconButton(
-                                                  onClick = onOpenChat,
+                                                  onClick = { onOpenChat(currentDelivery) },
                                                   modifier = Modifier.size(34.dp).clip(CircleShape).background(QdOrange)
                                               ) {
                                                   Icon(Icons.Default.ChatBubble, contentDescription = "Chat", tint = Color.White, modifier = Modifier.size(16.dp))
@@ -4311,7 +4450,6 @@ jobs:
               }
           }
 
-          // Urgent Incoming Order Dialog for Delivery Guys
           @Composable
           fun DriverIncomingOrderDialog(
               lang: Language,
@@ -4384,6 +4522,7 @@ jobs:
 
           @Composable
           fun ChatModalDialog(
+              currentUserId: String,
               messages: List<ChatMessage>,
               onSendMessage: (String) -> Unit,
               onDismiss: () -> Unit
@@ -4408,8 +4547,9 @@ jobs:
 
                           LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                               items(messages) { msg ->
-                                  val isMe = msg.sender == "customer"
+                                  val isMe = msg.sender == currentUserId
                                   Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = if (isMe) Alignment.End else Alignment.Start) {
+                                      Text(msg.senderName, fontSize = 10.sp, color = QdTextMuted, modifier = Modifier.padding(horizontal = 4.dp))
                                       Box(
                                           modifier = Modifier
                                               .clip(RoundedCornerShape(12.dp))
