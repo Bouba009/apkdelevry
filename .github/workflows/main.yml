@@ -374,7 +374,7 @@ jobs:
               val nameAr: String = "",
               val nameFr: String = "",
               val category: String = "restaurant",
-              val emoji: String = "ðŸ´",
+              val emoji: String = "🍽️",
               val rating: Double = 4.9,
               val time: String = "20-30 Ø¯Ù‚ÙŠÙ‚Ø©",
               val lat: Double = 36.4719,
@@ -390,7 +390,7 @@ jobs:
               val deliveryFee: Int = 300,
               val totalPrice: Int = 0,
               val distanceKm: Double = 3.5,
-              val address: String = "Ø§Ù„Ø¹ÙØ±ÙˆÙ†ØŒ Ø§Ù„Ø¨Ù„ÙŠØ¯Ø©",
+              val address: String = "Ø§Ù„Ø¹Ù Ø±ÙˆÙ†ØŒ Ø§Ù„Ø¨Ù„ÙŠØ¯Ø©",
               val custLat: Double = 36.4735,
               val custLng: Double = 2.6250,
               val storeLat: Double = 36.4700,
@@ -531,7 +531,7 @@ jobs:
 
                   val totalAmount = goodsPrice + deliveryFee
                   val distanceFormatted = "%.1f".format(distanceKm)
-                  val detailedText = "Ø§Ù„Ù…ØªØ¬Ø±: $restaurant\nØ§Ù„ÙˆØ¬Ù‡Ø©: $address\nØ§Ù„Ù…Ø³Ø§ÙØ©: $distanceFormatted ÙƒÙ…\nØ³Ø¹Ø± Ø§Ù„ØªÙˆØµÙŠÙ„: $deliveryFee DA | Ø§Ù„Ø·Ù„Ø¨Ø§Øª: $goodsPrice DA\nØ§Ù„Ù…Ø¬Ù…ÙˆØ¹: $totalAmount DA"
+                  val detailedText = "Ø§Ù„Ù…ØªØ¬Ø±: $restaurant\nØ§Ù„ÙˆØ¬Ù‡Ø©: $address\nØ§Ù„Ù…Ø³Ø§Ù Ø©: $distanceFormatted ÙƒÙ…\nØ³Ø¹Ø± Ø§Ù„ØªÙˆØµÙŠÙ„: $deliveryFee DA | Ø§Ù„Ø·Ù„Ø¨Ø§Øª: $goodsPrice DA\nØ§Ù„Ù…Ø¬Ù…ÙˆØ¹: $totalAmount DA"
 
                   val notification = NotificationCompat.Builder(context, channelId)
                       .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -543,7 +543,7 @@ jobs:
                       .setContentIntent(contentPendingIntent)
                       .setAutoCancel(true)
                       .addAction(android.R.drawable.checkbox_on_background, "âœ” Ù‚Ø¨ÙˆÙ„ Ø§Ù„Ø·Ù„Ø¨", acceptPendingIntent)
-                      .addAction(android.R.drawable.ic_delete, "âœ– Ø±ÙØ¶ Ø§Ù„Ø·Ù„Ø¨", cancelPendingIntent)
+                      .addAction(android.R.drawable.ic_delete, "âœ– Ø±Ù Ø¶ Ø§Ù„Ø·Ù„Ø¨", cancelPendingIntent)
                       .build()
 
                   notificationManager.notify(notifId, notification)
@@ -868,7 +868,7 @@ jobs:
               fun get(key: String, lang: Language): String {
                   val ar = mapOf(
                       "app_name" to "QuickDeliver",
-                      "tagline" to "ØªÙˆØµÙŠÙ„ ÙØ§Ø¦Ù‚ Ø§Ù„Ø³Ø±Ø¹Ø© ÙˆØ§Ù„Ù…ÙˆØ«ÙˆÙ‚ÙŠØ© ÙÙŠ Ø§Ù„Ø¹ÙØ±ÙˆÙ† ÙˆØ¶ÙˆØ§Ø­ÙŠÙ‡Ø§",
+                      "tagline" to "ØªÙˆØµÙŠÙ„ Ù Ø§Ø¦Ù‚ Ø§Ù„Ø³Ø±Ø¹Ø© ÙˆØ§Ù„Ù…ÙˆØ«ÙˆÙ‚ÙŠØ© Ù ÙŠ Ø§Ù„Ø¹Ù Ø±ÙˆÙ† ÙˆØ¶ÙˆØ§Ø­ÙŠÙ‡Ø§",
                       "start_button" to "Ø§Ø¨Ø¯Ø£ Ø§Ù„Ø¢Ù† ðŸš€",
                       "login_action" to "ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„",
                       "signup_action" to "Ø¥Ù†Ø´Ø§Ø¡ Ø­Ø³Ø§Ø¨ Ø¬Ø¯ÙŠØ¯",
@@ -878,30 +878,30 @@ jobs:
                       "profile_tab" to "Ø­Ø³Ø§Ø¨ÙŠ",
                       "driver_tab" to "Ø§Ù„Ø³Ø§Ø¦Ù‚",
                       "search_placeholder" to "Ø§Ø¨Ø­Ø« Ø¹Ù† Ù…ØªØ¬Ø±ØŒ ÙˆØ¬Ø¨Ø©ØŒ Ø£Ùˆ Ø¯ÙˆØ§Ø¡...",
-                      "categories" to "Ø§Ù„ØªØµÙ†ÙŠÙØ§Øª Ø§Ù„Ù…Ù…ÙŠØ²Ø©",
+                      "categories" to "Ø§Ù„ØªØµÙ†ÙŠÙ Ø§Øª Ø§Ù„Ù…Ù…ÙŠØ²Ø©",
                       "cat_all" to "Ø§Ù„ÙƒÙ„",
                       "cat_restaurants" to "Ù…Ø·Ø§Ø¹Ù…",
                       "cat_grocery" to "Ø¨Ù‚Ø§Ù„Ø©",
                       "cat_pharmacy" to "ØµÙŠØ¯Ù„ÙŠØ©",
                       "promo_banner_title" to "Ø¹Ø±ÙˆØ¶ Ø­ØµØ±ÙŠØ© ÙˆØªÙˆØµÙŠÙ„ ØµØ§Ø±ÙˆØ®ÙŠ âš¡\nØ·Ù„Ø¨Ùƒ ÙŠØµÙ„Ùƒ Ø³Ø§Ø®Ù†Ø§Ù‹ ÙˆØ¨Ø£Ù…Ø§Ù† ØªØ§Ù…",
                       "order_now" to "Ø§Ø·Ù„Ø¨ Ø§Ù„Ø¢Ù† âš¡",
-                      "custom_order_title" to "Ø·Ù„Ø¨ Ù…Ø®ØµØµ Ø­Ø³Ø¨ Ø±ØºØ¨ØªÙƒ âœï¸",
-                      "custom_order_sub" to "Ø³Ø¬Ù„ Ù…ØªØ¬Ø±Ùƒ ÙˆØ§Ø­ØªÙŠØ§Ø¬Ø§ØªÙƒ Ø¨Ø¯Ù‚Ø© ÙˆØ³Ù†Ù‚ÙˆÙ… Ø¨Ø´Ø±Ø§Ø¦Ù‡Ø§ ÙˆØªÙˆØµÙŠÙ„Ù‡Ø§ ÙÙˆØ±Ø§Ù‹",
-                      "custom_order_btn" to "+ Ø¥Ø¶Ø§ÙØ© Ø·Ù„Ø¨ Ù…Ø®ØµØµ Ø§Ù„Ø¢Ù†",
+                      "custom_order_title" to "Ø·Ù„Ø¨ Ù…Ø®ØµØµ Ø­Ø³Ø¨ Ø±ØºØ¨ØªÙƒ âœ ï¸ ",
+                      "custom_order_sub" to "Ø³Ø¬Ù„ Ù…ØªØ¬Ø±Ùƒ ÙˆØ§Ø­ØªÙŠØ§Ø¬Ø§ØªÙƒ Ø¨Ø¯Ù‚Ø© ÙˆØ³Ù†Ù‚ÙˆÙ… Ø¨Ø´Ø±Ø§Ø¦Ù‡Ø§ ÙˆØªÙˆØµÙŠÙ„Ù‡Ø§ Ù ÙˆØ±Ø§Ù‹",
+                      "custom_order_btn" to "+ Ø¥Ø¶Ø§Ù Ø© Ø·Ù„Ø¨ Ù…Ø®ØµØµ Ø§Ù„Ø¢Ù†",
                       "popular_restaurants" to "Ø§Ù„Ù…Ø­Ù„Ø§Øª ÙˆØ§Ù„Ù…ØªØ§Ø¬Ø± Ø§Ù„Ù…Ø¹ØªÙ…Ø¯Ø©",
                       "confirm_order" to "ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø·Ù„Ø¨",
                       "delivery_address" to "Ø¹Ù†ÙˆØ§Ù† Ø§Ù„ØªÙˆØµÙŠÙ„",
                       "modify" to "ØªØ¹Ø¯ÙŠÙ„",
-                      "payment_method" to "Ø·Ø±ÙŠÙ‚Ø© Ø§Ù„Ø¯ÙØ¹",
-                      "cash_on_delivery" to "Ø§Ù„Ø¯ÙØ¹ Ø¹Ù†Ø¯ Ø§Ù„Ø§Ø³ØªÙ„Ø§Ù… (Ù†Ù‚Ø¯Ø§Ù‹)",
+                      "payment_method" to "Ø·Ø±ÙŠÙ‚Ø© Ø§Ù„Ø¯Ù Ø¹",
+                      "cash_on_delivery" to "Ø§Ù„Ø¯Ù Ø¹ Ø¹Ù†Ø¯ Ø§Ù„Ø§Ø³ØªÙ„Ø§Ù… (Ù†Ù‚Ø¯Ø§Ù‹)",
                       "note_placeholder" to "Ù…Ù„Ø§Ø­Ø¸Ø© Ù„Ø¹Ø§Ù…Ù„ Ø§Ù„ØªÙˆØµÙŠÙ„...",
                       "subtotal_meals" to "Ù…Ø¬Ù…ÙˆØ¹ Ø§Ù„Ø·Ù„Ø¨Ø§Øª",
                       "delivery_fee" to "Ø³Ø¹Ø± Ø§Ù„ØªÙˆØµÙŠÙ„",
-                      "distance" to "Ø§Ù„Ù…Ø³Ø§ÙØ©",
+                      "distance" to "Ø§Ù„Ù…Ø³Ø§Ù Ø©",
                       "total" to "Ø§Ù„Ù…Ø¬Ù…ÙˆØ¹ Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ",
                       "confirm_command" to "ØªØ£ÙƒÙŠØ¯ ÙˆØ¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø·Ù„Ø¨",
                       "tracking_title" to "ØªØªØ¨Ø¹ Ù…Ø¨Ø§Ø´Ø± Ø¹Ù„Ù‰ Ø§Ù„Ø®Ø±ÙŠØ·Ø©",
-                      "order_on_the_way" to "Ø·Ù„Ø¨ÙŠØªÙƒ ÙÙŠ Ø§Ù„Ø·Ø±ÙŠÙ‚ Ø¥Ù„ÙŠÙƒ ðŸ›µ",
+                      "order_on_the_way" to "Ø·Ù„Ø¨ÙŠØªÙƒ Ù ÙŠ Ø§Ù„Ø·Ø±ÙŠÙ‚ Ø¥Ù„ÙŠÙƒ ðŸ›µ",
                       "order_waiting_driver" to "Ø¬Ø§Ø±ÙŠ Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† Ø£Ù‚Ø±Ø¨ Ø¹Ø§Ù…Ù„ ØªÙˆØµÙŠÙ„...",
                       "call" to "Ø§ØªØµØ§Ù„",
                       "chat" to "Ù…Ø­Ø§Ø¯Ø«Ø©",
@@ -912,8 +912,8 @@ jobs:
                       "filter_completed" to "Ù…ÙƒØªÙ…Ù„Ø©",
                       "filter_cancelled" to "Ù…Ù„ØºØ§Ø©",
                       "choose_address" to "Ø§Ø®ØªÙŠØ§Ø± Ø¹Ù†ÙˆØ§Ù†",
-                      "my_profile" to "Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ",
-                      "edit_profile" to "ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ù…Ù„Ù ÙˆØ±Ù‚Ù… Ø§Ù„Ù‡Ø§ØªÙ",
+                      "my_profile" to "Ø§Ù„Ù…Ù„Ù  Ø§Ù„Ø´Ø®ØµÙŠ",
+                      "edit_profile" to "ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ù…Ù„Ù  ÙˆØ±Ù‚Ù… Ø§Ù„Ù‡Ø§ØªÙ ",
                       "driver_login" to "ØªØ³Ø¬ÙŠÙ„ Ø¯Ø®ÙˆÙ„ ÙƒØ¹Ø§Ù…Ù„ ØªÙˆØµÙŠÙ„",
                       "driver_signup" to "ØªØ³Ø¬ÙŠÙ„ Ø­Ø³Ø§Ø¨ Ø¬Ø¯ÙŠØ¯ ÙƒØ¹Ø§Ù…Ù„ ØªÙˆØµÙŠÙ„",
                       "logout" to "ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø®Ø±ÙˆØ¬",
@@ -921,10 +921,10 @@ jobs:
                       "earnings" to "Ø£Ø±Ø¨Ø§Ø­ Ø§Ù„ØªÙˆØµÙŠÙ„",
                       "completed" to "Ø§Ù„Ù…ÙƒØªÙ…Ù„Ø©",
                       "platform_debt" to "Ø¯ÙŠÙˆÙ†ÙŠ Ù„Ù„Ù…Ù†ØµØ© (10Ø¯Ø¬/ÙƒÙ…)",
-                      "pay_debt_btn" to "Ø¯ÙØ¹ Ø¯ÙŠÙˆÙ†ÙŠ",
+                      "pay_debt_btn" to "Ø¯Ù Ø¹ Ø¯ÙŠÙˆÙ†ÙŠ",
                       "debt_warning" to "ØªÙ†Ø¨ÙŠÙ‡: ØªØ¬Ø§ÙˆØ²Øª Ø¯ÙŠÙˆÙ† Ø§Ù„Ù…Ù†ØµØ© 1000 Ø¯Ø¬ØŒ ÙŠØ±Ø¬Ù‰ Ø§Ù„ØªØ³Ø¯ÙŠØ¯.",
                       "active_delivery" to "Ø§Ù„Ø·Ù„Ø¨ Ø§Ù„Ø¬Ø§Ø±ÙŠ ØªÙˆØµÙŠÙ„Ù‡:",
-                      "status_to_store" to "Ø£Ù†Ø§ ÙÙŠ Ø§Ù„Ø·Ø±ÙŠÙ‚ Ù„Ù„Ù…ØªØ¬Ø±",
+                      "status_to_store" to "Ø£Ù†Ø§ Ù ÙŠ Ø§Ù„Ø·Ø±ÙŠÙ‚ Ù„Ù„Ù…ØªØ¬Ø±",
                       "status_received" to "Ø§Ø³ØªÙ„Ù…Øª ÙˆØ¨Ø·Ø±ÙŠÙ‚ÙŠ Ù„Ù„Ø²Ø¨ÙˆÙ†",
                       "status_delivered" to "ØªÙ… Ø§Ù„ØªØ³Ù„ÙŠÙ… Ø¨Ù†Ø¬Ø§Ø­",
                       "view_cart" to "Ø¹Ø±Ø¶ Ø§Ù„Ø³Ù„Ø©"
@@ -948,7 +948,7 @@ jobs:
                       "cat_pharmacy" to "Pharmacie",
                       "promo_banner_title" to "Offres exclusives et livraison Ã©clair âš¡\nVotre commande livrÃ©e en sÃ©curitÃ©",
                       "order_now" to "Commander âš¡",
-                      "custom_order_title" to "Commande personnalisÃ©e âœï¸",
+                      "custom_order_title" to "Commande personnalisÃ©e âœ ï¸ ",
                       "custom_order_sub" to "Indiquez votre magasin et vos besoins, on livre !",
                       "custom_order_btn" to "+ Ajouter commande",
                       "popular_restaurants" to "Commerces certifiÃ©s",
@@ -1063,7 +1063,7 @@ jobs:
                           color = Color.White
                       )
                       Text(
-                          text = "ØªÙˆØµÙŠÙ„ ÙØ§Ø¦Ù‚ Ø§Ù„Ø³Ø±Ø¹Ø© ÙˆØ§Ù„Ù…ÙˆØ«ÙˆÙ‚ÙŠØ©",
+                          text = "ØªÙˆØµÙŠÙ„ Ù Ø§Ø¦Ù‚ Ø§Ù„Ø³Ø±Ø¹Ø© ÙˆØ§Ù„Ù…ÙˆØ«ÙˆÙ‚ÙŠØ©",
                           fontSize = 13.sp,
                           color = QdOrangeLight,
                           fontWeight = FontWeight.Medium
@@ -1094,12 +1094,12 @@ jobs:
                       val userMarker = Marker(mapView).apply {
                           position = GeoPoint(centerLat, centerLng)
                           setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                          icon = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#0F172A"), "ðŸ ")
+                          icon = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#0F172A"), "ðŸ  ")
                       }
                       val storeMarker = Marker(mapView).apply {
                           position = GeoPoint(destinationLat, destinationLng)
                           setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                          icon = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#FF6B00"), "ðŸ´")
+                          icon = MapUtils.createCustomPin(context, android.graphics.Color.parseColor("#FF6B00"), "🍽️")
                       }
                       mapView.overlays.add(userMarker)
                       mapView.overlays.add(storeMarker)
@@ -1521,7 +1521,7 @@ jobs:
                                   modifier = Modifier.fillMaxWidth(),
                                   horizontalArrangement = Arrangement.SpaceBetween
                               ) {
-                                  Text("Ø§Ù„Ù…Ø³Ø§ÙØ©: ${"%.1f".format(order.distanceKm)} ÙƒÙ…", fontSize = 12.sp, color = QdTextMuted)
+                                  Text("Ø§Ù„Ù…Ø³Ø§Ù Ø©: ${"%.1f".format(order.distanceKm)} ÙƒÙ…", fontSize = 12.sp, color = QdTextMuted)
                                   Text("Ø§Ù„ØªÙˆØµÙŠÙ„: ${order.deliveryFee} DA", fontSize = 12.sp, color = QdOrange, fontWeight = FontWeight.Bold)
                                   Text("Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ: ${order.totalPrice} DA", fontSize = 13.sp, fontWeight = FontWeight.Black)
                               }
@@ -1732,7 +1732,7 @@ jobs:
                           ) {
                               Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                   Text(cur.restaurant, fontWeight = FontWeight.Black, fontSize = 16.sp, color = QdTextDark)
-                                  Text("Ø§Ù„Ù…Ø³Ø§ÙØ©: ${"%.1f".format(cur.distanceKm)} ÙƒÙ… | Ø±Ø¨Ø­ Ø§Ù„ØªÙˆØµÙŠÙ„: ${cur.deliveryFee} DA | Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ù„Ù„ØªØ­ØµÙŠÙ„: ${cur.totalPrice} DA", fontSize = 12.sp, color = QdOrange, fontWeight = FontWeight.Bold)
+                                  Text("Ø§Ù„Ù…Ø³Ø§Ù Ø©: ${"%.1f".format(cur.distanceKm)} ÙƒÙ… | Ø±Ø¨Ø­ Ø§Ù„ØªÙˆØµÙŠÙ„: ${cur.deliveryFee} DA | Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ù„Ù„ØªØ­ØµÙŠÙ„: ${cur.totalPrice} DA", fontSize = 12.sp, color = QdOrange, fontWeight = FontWeight.Bold)
                                   if (cur.customerPhone.isNotBlank()) {
                                       Row(
                                           modifier = Modifier
@@ -1797,7 +1797,7 @@ jobs:
                               colors = CardDefaults.cardColors(containerColor = Color.White)
                           ) {
                               Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                  Text("ÙÙŠ Ø§Ù†ØªØ¸Ø§Ø± Ø·Ù„Ø¨Ø§Øª ØªÙˆØµÙŠÙ„ Ø¬Ø¯ÙŠØ¯Ø©...", color = QdTextMuted, fontSize = 13.sp)
+                                  Text("Ù ÙŠ Ø§Ù†ØªØ¸Ø§Ø± Ø·Ù„Ø¨Ø§Øª ØªÙˆØµÙŠÙ„ Ø¬Ø¯ÙŠØ¯Ø©...", color = QdTextMuted, fontSize = 13.sp)
                               }
                           }
                       }
@@ -1831,7 +1831,7 @@ jobs:
                       colors = CardDefaults.cardColors(containerColor = Color.White)
                   ) {
                       Column(modifier = Modifier.padding(22.dp)) {
-                          Text("Ø·Ù„Ø¨ Ù…Ø®ØµØµ Ø­Ø³Ø¨ Ø±ØºØ¨ØªÙƒ âœï¸", fontWeight = FontWeight.Black, fontSize = 18.sp, color = QdOrange)
+                          Text("Ø·Ù„Ø¨ Ù…Ø®ØµØµ Ø­Ø³Ø¨ Ø±ØºØ¨ØªÙƒ âœ ï¸ ", fontWeight = FontWeight.Black, fontSize = 18.sp, color = QdOrange)
                           Spacer(modifier = Modifier.height(12.dp))
                           OutlinedTextField(
                               value = storeName,
@@ -1877,7 +1877,7 @@ jobs:
                           ) {
                               Icon(Icons.Default.AddCircle, null, tint = QdOrange)
                               Spacer(modifier = Modifier.width(6.dp))
-                              Text("Ø¥Ø¶Ø§ÙØ© Ù…Ù†ØªØ¬ Ø¢Ø®Ø± (+)", color = QdOrange, fontWeight = FontWeight.Black)
+                              Text("Ø¥Ø¶Ø§Ù Ø© Ù…Ù†ØªØ¬ Ø¢Ø®Ø± (+)", color = QdOrange, fontWeight = FontWeight.Black)
                           }
 
                           Spacer(modifier = Modifier.height(12.dp))
@@ -1946,7 +1946,7 @@ jobs:
                           Text("Ø·Ù„Ø¨ ØªÙˆØµÙŠÙ„ Ø¬Ø¯ÙŠØ¯ Ù…ØªØ§Ø­ Ø§Ù„Ø¢Ù† !", fontWeight = FontWeight.Black, color = QdOrange, fontSize = 18.sp)
                           Text("Ø§Ù„Ù…ØªØ¬Ø±: ${order.restaurant}", fontWeight = FontWeight.Black, fontSize = 15.sp, color = QdTextDark)
                           Text("Ø§Ù„ÙˆØ¬Ù‡Ø©: ${order.address}", color = QdTextMuted, fontSize = 13.sp)
-                          Text("Ø§Ù„Ù…Ø³Ø§ÙØ©: ${"%.1f".format(order.distanceKm)} ÙƒÙ…", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                          Text("Ø§Ù„Ù…Ø³Ø§Ù Ø©: ${"%.1f".format(order.distanceKm)} ÙƒÙ…", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                           Text("Ø±Ø¨Ø­ Ø§Ù„ØªÙˆØµÙŠÙ„: ${order.deliveryFee} DA", fontWeight = FontWeight.Black, fontSize = 18.sp, color = QdGreen)
                           Spacer(modifier = Modifier.height(4.dp))
 
@@ -1957,7 +1957,7 @@ jobs:
                                   shape = RoundedCornerShape(14.dp),
                                   colors = ButtonDefaults.buttonColors(containerColor = QdRed)
                               ) {
-                                  Text("Ø±ÙØ¶ âœ–", color = Color.White, fontWeight = FontWeight.Black)
+                                  Text("Ø±Ù Ø¶ âœ–", color = Color.White, fontWeight = FontWeight.Black)
                               }
                               Button(
                                   onClick = onAccept,
@@ -2007,7 +2007,7 @@ jobs:
           fun QuickDeliverMainApp() {
               var isSplashVisible by remember { mutableStateOf(true) }
               var currentLanguage by remember { mutableStateOf(Language.AR) }
-              var selectedCity by remember { mutableStateOf("Ø§Ù„Ø¹ÙØ±ÙˆÙ†ØŒ Ø§Ù„Ø¨Ù„ÙŠØ¯Ø©") }
+              var selectedCity by remember { mutableStateOf("Ø§Ù„Ø¹Ù Ø±ÙˆÙ†ØŒ Ø§Ù„Ø¨Ù„ÙŠØ¯Ø©") }
               var currentTab by remember { mutableStateOf("home") }
               var searchQuery by remember { mutableStateOf("") }
               var activeCategory by remember { mutableStateOf("all") }
@@ -2024,11 +2024,11 @@ jobs:
                           nameAr = "Ù…Ø·Ø¹Ù… Ø§Ù„Ø³Ù„Ø·Ø§Ù† Ù„Ù„Ø´ÙˆØ§Ø¡",
                           nameFr = "Restaurant Le Sultan",
                           category = "restaurant",
-                          emoji = "ðŸ—",
+                          emoji = "ðŸ —",
                           rating = 4.9,
                           time = "15-25 Ø¯",
                           menu = listOf(
-                              MenuItem("m1", "Ø´ÙˆØ§Ø¡ Ù…Ø´ÙƒÙ„ ÙØ§Ø®Ø±", 1200, "Ù„Ø­Ù… Ø·Ø§Ø²Ø¬ Ù…ØªØ¨Ù„ Ù…Ø¹ Ø¨Ø·Ø§Ø·Ø§ ÙˆØ³Ù„Ø·Ø©"),
+                              MenuItem("m1", "Ø´ÙˆØ§Ø¡ Ù…Ø´ÙƒÙ„ Ù Ø§Ø®Ø±", 1200, "Ù„Ø­Ù… Ø·Ø§Ø²Ø¬ Ù…ØªØ¨Ù„ Ù…Ø¹ Ø¨Ø·Ø§Ø·Ø§ ÙˆØ³Ù„Ø·Ø©"),
                               MenuItem("m2", "Ø³Ù†Ø¯ÙˆÙŠØ´ Ø´Ø§ÙˆØ±Ù…Ø§ Ø¯Ø¬Ø§Ø¬", 350, "Ø´Ø§ÙˆØ±Ù…Ø§ Ø³ÙˆØ±ÙŠØ© Ù…Ø¹ ØµÙ„ØµØ© Ø«ÙˆÙ…")
                           )
                       ),
@@ -2037,11 +2037,11 @@ jobs:
                           nameAr = "Ø¨ÙŠØªØ²Ø§ Ù†Ø§Ø¨ÙˆÙ„ÙŠ Ø§Ù„Ø¥ÙŠØ·Ø§Ù„ÙŠØ©",
                           nameFr = "Pizzeria Napoli",
                           category = "restaurant",
-                          emoji = "ðŸ•",
+                          emoji = "🍕",
                           rating = 4.8,
                           time = "20-30 Ø¯",
                           menu = listOf(
-                              MenuItem("m3", "Ø¨ÙŠØªØ²Ø§ ÙÙˆØ± ØªØ´ÙŠØ²", 800, "Ø¬Ø¨Ù†Ø© Ù…ÙˆØªØ²Ø§Ø±ÙŠÙ„Ø§ØŒ Ø´ÙŠØ¯Ø±ØŒ Ø¨Ø§Ø±Ù…ÙŠØ²Ø§Ù†ØŒ Ø¬Ø¨Ù† Ø£Ø²Ø±Ù‚"),
+                              MenuItem("m3", "Ø¨ÙŠØªØ²Ø§ Ù ÙˆØ± ØªØ´ÙŠØ²", 800, "Ø¬Ø¨Ù†Ø© Ù…ÙˆØªØ²Ø§Ø±ÙŠÙ„Ø§ØŒ Ø´ÙŠØ¯Ø±ØŒ Ø¨Ø§Ø±Ù…ÙŠØ²Ø§Ù†ØŒ Ø¬Ø¨Ù† Ø£Ø²Ø±Ù‚"),
                               MenuItem("m4", "Ø¨ÙŠØªØ²Ø§ Ø¯Ø¬Ø§Ø¬ Ø¨Ø§Ø±Ø¨ÙƒÙŠÙˆ", 750, "Ø¯Ø¬Ø§Ø¬ØŒ ØµÙˆØµ Ø¨Ø§Ø±Ø¨ÙƒÙŠÙˆØŒ Ø¨ØµÙ„ Ù…ÙƒØ±Ù…Ù„")
                           )
                       ),
@@ -2054,20 +2054,20 @@ jobs:
                           rating = 4.7,
                           time = "10-20 Ø¯",
                           menu = listOf(
-                              MenuItem("m5", "Ø³Ù„Ø© Ø®Ø¶Ø§Ø± ÙˆÙÙˆØ§ÙƒÙ‡ Ø·Ø§Ø²Ø¬Ø©", 900, "ØªØ´ÙƒÙŠÙ„Ø© Ù…ÙˆØ³Ù…ÙŠØ© Ù…Ø®ØªØ§Ø±Ø© Ø¨Ø¹Ù†Ø§ÙŠØ©"),
+                              MenuItem("m5", "Ø³Ù„Ø© Ø®Ø¶Ø§Ø± ÙˆÙ ÙˆØ§ÙƒÙ‡ Ø·Ø§Ø²Ø¬Ø©", 900, "ØªØ´ÙƒÙŠÙ„Ø© Ù…ÙˆØ³Ù…ÙŠØ© Ù…Ø®ØªØ§Ø±Ø© Ø¨Ø¹Ù†Ø§ÙŠØ©"),
                               MenuItem("m6", "Ù…Ø´Ø±ÙˆØ¨Ø§Øª ÙˆÙ…ÙŠØ§Ù‡ Ù…Ø¹Ø¯Ù†ÙŠØ©", 200, "Ù…ÙŠØ§Ù‡ Ù†Ù‚ÙŠØ© ÙˆÙ…Ø´Ø±ÙˆØ¨Ø§Øª ØºØ§Ø²ÙŠØ©")
                           )
                       ),
                       StoreItem(
                           id = "4",
-                          nameAr = "ØµÙŠØ¯Ù„ÙŠØ© Ø§Ù„Ø´ÙØ§Ø¡ Ø§Ù„Ù…Ø±ÙƒØ²ÙŠØ©",
+                          nameAr = "ØµÙŠØ¯Ù„ÙŠØ© Ø§Ù„Ø´Ù Ø§Ø¡ Ø§Ù„Ù…Ø±ÙƒØ²ÙŠØ©",
                           nameFr = "Pharmacie Chifa",
                           category = "pharmacy",
                           emoji = "ðŸ’Š",
                           rating = 5.0,
                           time = "10-15 Ø¯",
                           menu = listOf(
-                              MenuItem("m7", "Ø­Ù‚ÙŠØ¨Ø© Ø¥Ø³Ø¹Ø§ÙØ§Øª Ø£ÙˆÙ„ÙŠØ©", 1500, "Ù…Ø³ØªÙ„Ø²Ù…Ø§Øª Ø·Ø¨ÙŠØ© ÙˆÙ…Ø¹Ù‚Ù…Ø§Øª ÙˆÙ…Ø³ÙƒÙ†Ø§Øª")
+                              MenuItem("m7", "Ø­Ù‚ÙŠØ¨Ø© Ø¥Ø³Ø¹Ø§Ù Ø§Øª Ø£ÙˆÙ„ÙŠØ©", 1500, "Ù…Ø³ØªÙ„Ø²Ù…Ø§Øª Ø·Ø¨ÙŠØ© ÙˆÙ…Ø¹Ù‚Ù…Ø§Øª ÙˆÙ…Ø³ÙƒÙ†Ø§Øª")
                           )
                       )
                   )
@@ -2176,7 +2176,7 @@ jobs:
                                               deliveryFee = 250,
                                               totalPrice = 1100,
                                               distanceKm = 2.4,
-                                              address = "Ø§Ù„Ø¹ÙØ±ÙˆÙ†ØŒ ÙˆØ³Ø· Ø§Ù„Ù…Ø¯ÙŠÙ†Ø©",
+                                              address = "Ø§Ù„Ø¹Ù Ø±ÙˆÙ†ØŒ ÙˆØ³Ø· Ø§Ù„Ù…Ø¯ÙŠÙ†Ø©",
                                               driverName = "ÙƒØ±ÙŠÙ… Ø¨Ù† Ø¹Ù„ÙŠ",
                                               driverPhone = "0555123456"
                                           )
@@ -2199,7 +2199,7 @@ jobs:
                                           deliveryFee = 300,
                                           totalPrice = total + 300,
                                           distanceKm = 3.1,
-                                          address = "Ø§Ù„Ø¹ÙØ±ÙˆÙ†ØŒ Ø­ÙŠ Ø§Ù„Ù†ØµØ±",
+                                          address = "Ø§Ù„Ø¹Ù Ø±ÙˆÙ†ØŒ Ø­ÙŠ Ø§Ù„Ù†ØµØ±",
                                           items = items
                                       )
                                   }
