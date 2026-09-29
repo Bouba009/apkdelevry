@@ -531,11 +531,7 @@ jobs:
 
                   val totalAmount = goodsPrice + deliveryFee
                   val distanceFormatted = "%.1f".format(distanceKm)
-                  val detailedText = "Ø§Ù„Ù…ØªØ¬Ø±: $restaurant
-Ø§Ù„ÙˆØ¬Ù‡Ø©: $address
-Ø§Ù„Ù…Ø³Ø§ÙØ©: $distanceFormatted ÙƒÙ…
-Ø³Ø¹Ø± Ø§Ù„ØªÙˆØµÙŠÙ„: $deliveryFee DA | Ø§Ù„Ø·Ù„Ø¨Ø§Øª: $goodsPrice DA
-Ø§Ù„Ù…Ø¬Ù…ÙˆØ¹: $totalAmount DA"
+                  val detailedText = "Ø§Ù„Ù…ØªØ¬Ø±: $restaurant\nØ§Ù„ÙˆØ¬Ù‡Ø©: $address\nØ§Ù„Ù…Ø³Ø§ÙØ©: $distanceFormatted ÙƒÙ…\nØ³Ø¹Ø± Ø§Ù„ØªÙˆØµÙŠÙ„: $deliveryFee DA | Ø§Ù„Ø·Ù„Ø¨Ø§Øª: $goodsPrice DA\nØ§Ù„Ù…Ø¬Ù…ÙˆØ¹: $totalAmount DA"
 
                   val notification = NotificationCompat.Builder(context, channelId)
                       .setSmallIcon(android.R.drawable.ic_dialog_info)
