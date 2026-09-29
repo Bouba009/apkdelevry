@@ -1,5 +1,3 @@
-
-
 name: Build Android APK
 
 on:
@@ -129,8 +127,8 @@ jobs:
                   applicationId = "com.elaffroun.delivery"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 21
-                  versionName = "21.0"
+                  versionCode = 22
+                  versionName = "22.0"
               }
 
               buildTypes {
@@ -382,16 +380,15 @@ jobs:
                   notificationManager.notify(notifId, notification)
               }
 
-              // Soft, luxurious harmonic chime
               fun playSoftPleasantTone() {
                   CoroutineScope(Dispatchers.IO).launch {
-                      playHarmonicChime(523.25, 200) // C5
+                      playHarmonicChime(523.25, 200)
                       delay(60)
-                      playHarmonicChime(659.25, 200) // E5
+                      playHarmonicChime(659.25, 200)
                       delay(60)
-                      playHarmonicChime(783.99, 220) // G5
+                      playHarmonicChime(783.99, 220)
                       delay(80)
-                      playHarmonicChime(1046.50, 450) // C6
+                      playHarmonicChime(1046.50, 450)
                   }
               }
 
@@ -506,7 +503,7 @@ jobs:
                           connection.connectTimeout = 7000
                           connection.readTimeout = 7000
                           connection.requestMethod = "GET"
-                          connection.setRequestProperty("User-Agent", "QuickDeliver-App/21.0")
+                          connection.setRequestProperty("User-Agent", "QuickDeliver-App/22.0")
 
                           if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                               val response = BufferedReader(InputStreamReader(connection.inputStream)).use { it.readText() }
@@ -750,7 +747,7 @@ jobs:
           }
           EOF
 
-      - name: Scaffold Modern UI Screens Component
+      - name: Scaffold App Screens and Main Controller
         run: |
           cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/Screens.kt
           package com.elaffroun.delivery
@@ -857,7 +854,6 @@ jobs:
                       }
                   }
 
-                  // 3D Vibrant Hero Banner
                   item {
                       Card(
                           modifier = Modifier
@@ -894,7 +890,6 @@ jobs:
                       }
                   }
 
-                  // Custom order appears ONLY after clicking "Order Now"
                   if (isOrderNowExpanded) {
                       item {
                           Card(
@@ -922,7 +917,6 @@ jobs:
                       }
                   }
 
-                  // Floating Sleek Search Bar
                   item {
                       OutlinedTextField(
                           value = searchQuery,
@@ -944,7 +938,6 @@ jobs:
                       )
                   }
 
-                  // 3D Vibrant Categories
                   item {
                       Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                           CategoryItem(Icons.Default.Apps, AppStrings.get("cat_all", lang), Color(0xFFFF5E00), activeCategory == "all") { onCategorySelect("all") }
@@ -1045,7 +1038,6 @@ jobs:
               }
           }
 
-          // 3D Elevated Dashboard for Delivery Courier
           @Composable
           fun DriverDashboardScreen(
               lang: Language, driverName: String, earnings: Int, completed: Int, debt: Int,
@@ -1062,10 +1054,8 @@ jobs:
                       }
                   }
 
-                  // 3D Vibrant Stat Cards with Rich Gradients & Contrast
                   item {
                       Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                          // Earnings (Emerald Mint 3D Gradient)
                           Card(
                               modifier = Modifier.weight(1f).shadow(8.dp, RoundedCornerShape(18.dp)),
                               shape = RoundedCornerShape(18.dp),
@@ -1080,7 +1070,6 @@ jobs:
                               }
                           }
 
-                          // Completed (Royal Amber 3D Gradient)
                           Card(
                               modifier = Modifier.weight(1f).shadow(8.dp, RoundedCornerShape(18.dp)),
                               shape = RoundedCornerShape(18.dp),
@@ -1095,7 +1084,6 @@ jobs:
                               }
                           }
 
-                          // Platform Debt (Deep Crimson 3D Gradient)
                           Card(
                               modifier = Modifier.weight(1f).shadow(8.dp, RoundedCornerShape(18.dp)).clickable { onPayDebt() },
                               shape = RoundedCornerShape(18.dp),
@@ -1167,7 +1155,6 @@ jobs:
               }
           }
 
-          // Dynamic Custom Order with Store Name and Animated Plus (+)
           @Composable
           fun CustomOrderDialog(onDismiss: () -> Unit, onConfirm: (String, List<CustomOrderItem>, Int) -> Unit) {
               var storeName by remember { mutableStateOf("") }
@@ -1214,7 +1201,6 @@ jobs:
               }
           }
 
-          // Modern 3D Glassmorphism Incoming Order Modal with Pulsing Animation & Custom Green/Red Buttons
           @Composable
           fun DriverIncomingOrderDialog(lang: Language, order: ActiveOrder, onAccept: () -> Unit, onReject: () -> Unit) {
               val pulseAnim = rememberInfiniteTransition(label = "GlassModalPulse")
@@ -1265,667 +1251,6 @@ jobs:
           }
           EOF
 
-      - name: Scaffold App Core Controller
-        run: |
-          cat << 'EOF' > app/src/main/java/com/elaffroun/delivery/MainActivity.kt
-          package com.elaffroun.delivery
-
-          import android.Manifest
-          import android.app.Activity
-          import android.content.Context
-          import android.content.Intent
-          import android.os.Build
-          import android.os.Bundle
-          import android.preference.PreferenceManager
-          import androidx.activity.ComponentActivity
-          import androidx.activity.compose.rememberLauncherForActivityResult
-          import androidx.activity.compose.setContent
-          import androidx.activity.result.contract.ActivityResultContracts
-          import androidx.compose.foundation.background
-          import androidx.compose.foundation.border
-          import androidx.compose.foundation.clickable
-          import androidx.compose.foundation.layout.*
-          import androidx.compose.foundation.lazy.LazyColumn
-          import androidx.compose.foundation.lazy.items
-          import androidx.compose.foundation.shape.CircleShape
-          import androidx.compose.foundation.shape.RoundedCornerShape
-          import androidx.compose.foundation.text.KeyboardOptions
-          import androidx.compose.material.icons.Icons
-          import androidx.compose.material.icons.filled.*
-          import androidx.compose.material3.*
-          import androidx.compose.runtime.*
-          import androidx.compose.ui.Alignment
-          import androidx.compose.ui.Modifier
-          import androidx.compose.ui.draw.clip
-          import androidx.compose.ui.graphics.Color
-          import androidx.compose.ui.graphics.vector.ImageVector
-          import androidx.compose.ui.layout.ContentScale
-          import androidx.compose.ui.platform.LocalContext
-          import androidx.compose.ui.text.font.FontWeight
-          import androidx.compose.ui.text.input.KeyboardType
-          import androidx.compose.ui.text.input.PasswordVisualTransformation
-          import androidx.compose.ui.unit.dp
-          import androidx.compose.ui.unit.sp
-          import androidx.compose.ui.window.Dialog
-          import coil.compose.AsyncImage
-          import com.google.android.gms.auth.api.signin.GoogleSignIn
-          import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-          import com.google.android.gms.common.api.ApiException
-          import com.google.android.gms.location.LocationServices
-          import com.google.android.gms.location.Priority
-          import com.google.firebase.auth.GoogleAuthProvider
-          import com.google.firebase.auth.OAuthProvider
-          import com.google.firebase.auth.ktx.auth
-          import com.google.firebase.firestore.ListenerRegistration
-          import com.google.firebase.firestore.ktx.firestore
-          import com.google.firebase.ktx.Firebase
-          import kotlinx.coroutines.delay
-          import kotlinx.coroutines.launch
-          import org.osmdroid.config.Configuration
-          import java.io.File
-          import kotlin.math.*
-
-          val QdOrange = Color(0xFFFF5E00.toInt())
-          val QdOrangeSoft = Color(0xFFFFF0E8.toInt())
-          val QdBackground = Color(0xFFF9FAFB.toInt())
-          val QdCard = Color.White
-          val QdBorder = Color(0xFFE5E7EB.toInt())
-          val QdTextDark = Color(0xFF111827.toInt())
-          val QdTextMuted = Color(0xFF6B7280.toInt())
-          val QdGreen = Color(0xFF10B981.toInt())
-          val QdRed = Color(0xFFEF4444.toInt())
-
-          data class MenuItem(val id: String, val nameAr: String, val nameFr: String, val descAr: String, val descFr: String, val price: Int, val emoji: String, val category: String)
-          data class StoreItem(val id: String, val nameAr: String, val nameFr: String, val category: String, val rating: String, val time: String, val emoji: String, val lat: Double, val lng: Double, val menu: List<MenuItem>)
-          data class CartItem(val item: MenuItem, var quantity: Int)
-
-          data class ActiveOrder(
-              val id: String = "",
-              val restaurant: String = "",
-              val address: String = "",
-              val goodsPrice: Int = 0,
-              val deliveryFee: Int = 50,
-              val distanceKm: Double = 1.0,
-              val totalPrice: Int = 50,
-              val status: String = "pending",
-              val driverName: String = "",
-              val driverPhone: String = "",
-              val customerId: String = "",
-              val customerName: String = "",
-              val customerPhone: String = "",
-              val itemsSummary: String = "",
-              val note: String = "",
-              val storeLat: Double = 36.4690,
-              val storeLng: Double = 2.6295,
-              val custLat: Double = 36.4686,
-              val custLng: Double = 2.6288
-          )
-
-          data class ChatMessage(val sender: String = "", val senderName: String = "", val text: String = "", val time: String = "")
-
-          enum class AppScreen { SPLASH_ANIMATED_2SEC, SPLASH_ONBOARDING, AUTH_FLOW, HOME_EXPLORE, STORE_MENU, CONFIRM_ORDER, ORDER_TRACKING, ORDERS_LIST, CHOOSE_ADDRESS, PROFILE, DRIVER_DASHBOARD }
-          enum class AuthUserType { CUSTOMER, DRIVER }
-
-          class MainActivity : ComponentActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  try {
-                      val osmConfig = Configuration.getInstance()
-                      osmConfig.load(this, PreferenceManager.getDefaultSharedPreferences(this))
-                      osmConfig.userAgentValue = "QuickDeliver/21.0"
-                      osmConfig.osmdroidBasePath = cacheDir
-                      osmConfig.osmdroidTileCache = File(cacheDir, "osm_tiles")
-                  } catch (e: Exception) {}
-                  setContent { QuickDeliverUltimateApp() }
-              }
-          }
-
-          fun calculateDeliveryFee(distKm: Double): Int {
-              val blocks = ceil(distKm / 0.5).toInt()
-              val fee = blocks * 50
-              return if (fee < 50) 50 else fee
-          }
-
-          fun getDistanceInKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-              val r = 6371.0
-              val dLat = Math.toRadians(lat2 - lat1)
-              val dLon = Math.toRadians(lon2 - lon1)
-              val a = sin(dLat / 2.0).pow(2.0) + cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2.0).pow(2.0)
-              return r * (2.0 * atan2(sqrt(a), sqrt(1.0 - a)))
-          }
-
-          @OptIn(ExperimentalMaterial3Api::class)
-          @Composable
-          fun QuickDeliverUltimateApp() {
-              val context = LocalContext.current
-              val auth = remember { Firebase.auth }
-              val db = remember { Firebase.firestore }
-              val scope = rememberCoroutineScope()
-              val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-
-              var currentLanguage by remember { mutableStateOf(Language.AR) }
-              var currentScreen by remember { mutableStateOf(AppScreen.SPLASH_ANIMATED_2SEC) }
-              var authUserType by remember { mutableStateOf(AuthUserType.CUSTOMER) }
-              var isDriverAuthRegister by remember { mutableStateOf(false) }
-
-              var currentUserName by remember { mutableStateOf("") }
-              var currentUserPhone by remember { mutableStateOf("") }
-              var currentUserUid by remember { mutableStateOf(auth.currentUser?.uid ?: "") }
-              var isDriverSession by remember { mutableStateOf(false) }
-
-              LaunchedEffect(Unit) {
-                  delay(2000)
-                  if (auth.currentUser != null) {
-                      currentUserUid = auth.currentUser!!.uid
-                      db.collection("users").document(currentUserUid).get()
-                          .addOnSuccessListener { doc ->
-                              if (doc.exists()) {
-                                  currentUserName = doc.getString("name") ?: ""
-                                  currentUserPhone = doc.getString("phoneNumber") ?: ""
-                                  isDriverSession = (doc.getString("role") == "driver")
-                                  currentScreen = if (isDriverSession) AppScreen.DRIVER_DASHBOARD else AppScreen.HOME_EXPLORE
-                              } else {
-                                  currentScreen = AppScreen.HOME_EXPLORE
-                              }
-                          }
-                          .addOnFailureListener { currentScreen = AppScreen.HOME_EXPLORE }
-                  } else {
-                      currentScreen = AppScreen.SPLASH_ONBOARDING
-                  }
-              }
-
-              var userLat by remember { mutableStateOf(36.4686) }
-              var userLng by remember { mutableStateOf(2.6288) }
-              var selectedAddress by remember { mutableStateOf("حي النصر، العفرون") }
-
-              val allStores = remember {
-                  mutableStateListOf(
-                      StoreItem("1", "بيتزا هاوس العفرون", "Pizza House", "restaurant", "4.8", "20-35 min", "🍕", 36.4690, 2.6295,
-                          listOf(
-                              MenuItem("p1", "بيتزا مارغريتا", "Pizza Margherita", "صلصة طماطم وجبنة موزاريلا", "Tomate et mozzarella", 600, "🍕", "Pizzas"),
-                              MenuItem("p2", "برغر دجاج كرسبي", "Burger Crispy", "دجاج مقرمش مع جبنة شيدر", "Poulet pané", 550, "🍔", "Burgers")
-                          )
-                      ),
-                      StoreItem("4", "سوبرماركت النصر", "Supermarché En-Nasr", "grocery", "4.9", "15-30 min", "🧺", 36.4710, 2.6310,
-                          listOf(MenuItem("g1", "حليب بودرة 500غ", "Lait 500g", "حليب عالي الجودة ومغذي", "Lait entier", 420, "🥛", "Épicerie"))
-                      ),
-                      StoreItem("5", "صيدلية الصحة المركزية", "Pharmacie Centrale", "pharmacy", "4.9", "10-20 min", "💊", 36.4680, 2.6270,
-                          listOf(MenuItem("m1", "باراسيتامول 1000 ملغ", "Paracétamol", "مسكن ومضاد للحمى والصداع", "Antalgique", 180, "💊", "Médicaments"))
-                      )
-                  )
-              }
-
-              var currentSelectedStore by remember { mutableStateOf(allStores.first()) }
-              val cartItems = remember { mutableStateListOf<CartItem>() }
-              var searchQuery by remember { mutableStateOf("") }
-              var activeCategoryFilter by remember { mutableStateOf("all") }
-              var isOrderNowExpanded by remember { mutableStateOf(false) }
-
-              val activeOrders = remember { mutableStateListOf<ActiveOrder>() }
-              var currentChatOrderId by remember { mutableStateOf("") }
-              val liveChatMessages = remember { mutableStateListOf<ChatMessage>() }
-
-              var showChatModal by remember { mutableStateOf(false) }
-              var showCustomOrderDialog by remember { mutableStateOf(false) }
-              var showPayDebtDialog by remember { mutableStateOf(false) }
-              var showEditPhoneDialog by remember { mutableStateOf(false) }
-
-              var driverEarnings by remember { mutableStateOf(0) }
-              var driverCompletedCount by remember { mutableStateOf(0) }
-              var driverDebt by remember { mutableStateOf(0) }
-              var incomingDriverAlertOrder by remember { mutableStateOf<ActiveOrder?>(null) }
-
-              val fusedClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-              val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-                  if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true) {
-                      try {
-                          fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).addOnSuccessListener { loc ->
-                              if (loc != null) { userLat = loc.latitude; userLng = loc.longitude }
-                          }
-                      } catch (e: Exception) {}
-                  }
-              }
-
-              LaunchedEffect(Unit) {
-                  val perms = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) perms.add(Manifest.permission.POST_NOTIFICATIONS)
-                  permLauncher.launch(perms.toTypedArray())
-              }
-
-              DisposableEffect(currentUserUid, isDriverSession) {
-                  var listener: ListenerRegistration? = null
-                  val ordersQuery = if (isDriverSession) db.collection("orders")
-                  else if (currentUserUid.isNotEmpty()) db.collection("orders").whereEqualTo("customerId", currentUserUid)
-                  else db.collection("orders")
-
-                  listener = ordersQuery.addSnapshotListener { snapshot, error ->
-                      if (error != null || snapshot == null) return@addSnapshotListener
-                      activeOrders.clear()
-                      for (doc in snapshot.documents) {
-                          val gPrice = doc.getLong("goodsPrice")?.toInt() ?: 0
-                          val dFee = doc.getLong("deliveryFee")?.toInt() ?: (doc.getLong("price")?.toInt() ?: 50)
-                          val distKm = doc.getDouble("distanceKm") ?: 1.0
-                          val tPrice = doc.getLong("price")?.toInt() ?: (gPrice + dFee)
-
-                          val order = ActiveOrder(
-                              id = doc.id,
-                              restaurant = doc.getString("restaurant") ?: "",
-                              address = doc.getString("customerAddress") ?: "",
-                              goodsPrice = gPrice,
-                              deliveryFee = dFee,
-                              distanceKm = distKm,
-                              totalPrice = tPrice,
-                              status = doc.getString("status") ?: "pending",
-                              driverName = doc.getString("driverName") ?: "",
-                              driverPhone = doc.getString("driverPhone") ?: "",
-                              customerId = doc.getString("customerId") ?: "",
-                              customerName = doc.getString("customerName") ?: "",
-                              customerPhone = doc.getString("customerPhone") ?: "",
-                              itemsSummary = doc.getString("itemsSummary") ?: "",
-                              note = doc.getString("note") ?: "",
-                              storeLat = doc.getDouble("storeLat") ?: 36.4690,
-                              storeLng = doc.getDouble("storeLng") ?: 2.6295,
-                              custLat = doc.getDouble("lat") ?: 36.4686,
-                              custLng = doc.getDouble("lng") ?: 2.6288
-                          )
-                          activeOrders.add(order)
-
-                          if (isDriverSession && incomingDriverAlertOrder?.id == order.id && order.status != "pending") {
-                              incomingDriverAlertOrder = null
-                          }
-
-                          if (isDriverSession && order.status == "pending" && incomingDriverAlertOrder == null) {
-                              incomingDriverAlertOrder = order
-                              SoundHelper.triggerBackgroundNotification(context, order.id, order.restaurant, order.goodsPrice, order.deliveryFee, order.distanceKm, order.address)
-                              SoundHelper.playSoftPleasantTone()
-                          }
-                          if (!isDriverSession && order.status == "received") SoundHelper.playArrivalTone()
-                      }
-
-                      if (isDriverSession) {
-                          val completed = activeOrders.filter { it.driverPhone.isNotBlank() && it.driverPhone == currentUserPhone && (it.status == "delivered" || it.status == "completed") }
-                          driverCompletedCount = completed.size
-                          driverEarnings = completed.sumOf { it.deliveryFee }
-                          driverDebt = (completed.sumOf { it.distanceKm } * 10.0).roundToInt()
-                      }
-                  }
-                  onDispose { listener?.remove() }
-              }
-
-              DisposableEffect(currentChatOrderId) {
-                  var chatListener: ListenerRegistration? = null
-                  if (currentChatOrderId.isNotBlank()) {
-                      chatListener = db.collection("orders").document(currentChatOrderId).collection("messages").orderBy("timestamp")
-                          .addSnapshotListener { snap, _ ->
-                              if (snap != null) {
-                                  liveChatMessages.clear()
-                                  for (mDoc in snap.documents) {
-                                      liveChatMessages.add(ChatMessage(mDoc.getString("sender") ?: "", mDoc.getString("senderName") ?: "", mDoc.getString("text") ?: "", mDoc.getString("time") ?: ""))
-                                  }
-                              }
-                          }
-                  }
-                  onDispose { chatListener?.remove() }
-              }
-
-              MaterialTheme(colorScheme = lightColorScheme(primary = QdOrange, background = QdBackground, surface = QdCard, onPrimary = Color.White)) {
-                  ModalNavigationDrawer(
-                      drawerState = drawerState,
-                      gesturesEnabled = (currentScreen != AppScreen.SPLASH_ANIMATED_2SEC),
-                      drawerContent = {
-                          ModalDrawerSheet(modifier = Modifier.width(310.dp), drawerContainerColor = Color.White) {
-                              Column(modifier = Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                  Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                      QuickDeliverAppLogo(40.dp)
-                                      Text(AppStrings.get("app_name", currentLanguage), fontSize = 18.sp, fontWeight = FontWeight.Black, color = QdOrange)
-                                      IconButton(onClick = { scope.launch { drawerState.close() } }) { Icon(Icons.Default.Close, contentDescription = "Close") }
-                                  }
-                                  Divider(color = QdBorder)
-                                  if (!isDriverSession) {
-                                      DrawerMenuItem(AppStrings.get("home_tab", currentLanguage), Icons.Default.Home) { scope.launch { drawerState.close() }; currentScreen = AppScreen.HOME_EXPLORE }
-                                  }
-                                  DrawerMenuItem(AppStrings.get("orders_tab", currentLanguage), Icons.Default.ReceiptLong) { scope.launch { drawerState.close() }; currentScreen = AppScreen.ORDERS_LIST }
-                                  DrawerMenuItem(AppStrings.get("profile_tab", currentLanguage), Icons.Default.Person) { scope.launch { drawerState.close() }; currentScreen = AppScreen.PROFILE }
-                                  Spacer(modifier = Modifier.weight(1f))
-                                  if (!isDriverSession && currentUserUid.isEmpty()) {
-                                      Button(onClick = { scope.launch { drawerState.close() }; authUserType = AuthUserType.DRIVER; isDriverAuthRegister = true; currentScreen = AppScreen.AUTH_FLOW }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = QdOrange)) {
-                                          Text(AppStrings.get("driver_signup", currentLanguage), fontWeight = FontWeight.Bold)
-                                      }
-                                  }
-                              }
-                          }
-                      }
-                  ) {
-                      Scaffold(
-                          containerColor = QdBackground,
-                          topBar = {
-                              if (currentScreen != AppScreen.SPLASH_ANIMATED_2SEC && currentScreen != AppScreen.SPLASH_ONBOARDING) {
-                                  TopAppBar(
-                                      navigationIcon = { IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Default.Menu, contentDescription = "Menu") } },
-                                      title = { Text(AppStrings.get("app_name", currentLanguage), fontSize = 18.sp, fontWeight = FontWeight.Black, color = QdOrange) },
-                                      actions = {
-                                          TextButton(onClick = { currentLanguage = if (currentLanguage == Language.AR) Language.FR else Language.AR }) {
-                                              Text(if (currentLanguage == Language.AR) "FR" else "عربي", fontWeight = FontWeight.Black, color = QdOrange)
-                                          }
-                                          if (currentUserUid.isNotEmpty()) {
-                                              IconButton(onClick = { auth.signOut(); currentUserUid = ""; isDriverSession = false; currentScreen = AppScreen.SPLASH_ONBOARDING }) {
-                                                  Icon(Icons.Default.PowerSettingsNew, contentDescription = "Logout", tint = QdRed)
-                                              }
-                                          }
-                                      },
-                                      colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-                                  )
-                              }
-                          },
-                          bottomBar = {
-                              if (!isDriverSession && currentScreen in listOf(AppScreen.HOME_EXPLORE, AppScreen.ORDERS_LIST, AppScreen.PROFILE)) {
-                                  NavigationBar(containerColor = Color.White, tonalElevation = 8.dp) {
-                                      NavigationBarItem(selected = currentScreen == AppScreen.HOME_EXPLORE, onClick = { currentScreen = AppScreen.HOME_EXPLORE }, icon = { Icon(Icons.Default.Home, null) }, label = { Text(AppStrings.get("home_tab", currentLanguage)) })
-                                      NavigationBarItem(selected = currentScreen == AppScreen.ORDERS_LIST, onClick = { currentScreen = AppScreen.ORDERS_LIST }, icon = { Icon(Icons.Default.ReceiptLong, null) }, label = { Text(AppStrings.get("orders_tab", currentLanguage)) })
-                                      NavigationBarItem(selected = currentScreen == AppScreen.ORDER_TRACKING, onClick = { currentScreen = AppScreen.ORDER_TRACKING }, icon = { Icon(Icons.Default.LocationOn, null) }, label = { Text(AppStrings.get("map_tab", currentLanguage)) })
-                                      NavigationBarItem(selected = currentScreen == AppScreen.PROFILE, onClick = { currentScreen = AppScreen.PROFILE }, icon = { Icon(Icons.Default.Person, null) }, label = { Text(AppStrings.get("profile_tab", currentLanguage)) })
-                                  }
-                              }
-                          }
-                      ) { padding ->
-                          Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                              when (currentScreen) {
-                                  AppScreen.SPLASH_ANIMATED_2SEC -> SplashAnimated2SecScreen()
-                                  AppScreen.SPLASH_ONBOARDING -> SplashScreen(currentLanguage, { authUserType = AuthUserType.CUSTOMER; isDriverAuthRegister = true; currentScreen = AppScreen.AUTH_FLOW }, { authUserType = AuthUserType.CUSTOMER; isDriverAuthRegister = false; currentScreen = AppScreen.AUTH_FLOW })
-                                  AppScreen.AUTH_FLOW -> AuthScreen(currentLanguage, authUserType, isDriverAuthRegister, { name, phone, uid, isDriver ->
-                                      currentUserName = name; currentUserPhone = phone; currentUserUid = uid; isDriverSession = isDriver
-                                      currentScreen = if (isDriver) AppScreen.DRIVER_DASHBOARD else AppScreen.HOME_EXPLORE
-                                  }, { currentScreen = AppScreen.SPLASH_ONBOARDING })
-                                  AppScreen.HOME_EXPLORE -> {
-                                      if (isDriverSession) currentScreen = AppScreen.DRIVER_DASHBOARD
-                                      else HomeScreen(currentLanguage, "العفرون (البليدة)", allStores, searchQuery, { searchQuery = it }, activeCategoryFilter, { activeCategoryFilter = it }, isOrderNowExpanded, { isOrderNowExpanded = !isOrderNowExpanded }, { currentSelectedStore = it; cartItems.clear(); currentScreen = AppScreen.STORE_MENU }, { showCustomOrderDialog = true })
-                                  }
-                                  AppScreen.STORE_MENU -> StoreMenuScreen(currentLanguage, currentSelectedStore, cartItems, { item ->
-                                      val exist = cartItems.find { it.item.id == item.id }
-                                      if (exist != null) exist.quantity++ else cartItems.add(CartItem(item, 1))
-                                  }, { item ->
-                                      val exist = cartItems.find { it.item.id == item.id }
-                                      if (exist != null) { if (exist.quantity > 1) exist.quantity-- else cartItems.remove(exist) }
-                                  }, { showCustomOrderDialog = true }, { currentScreen = AppScreen.HOME_EXPLORE }, { currentScreen = AppScreen.CONFIRM_ORDER })
-                                  AppScreen.CONFIRM_ORDER -> ConfirmOrderScreen(currentLanguage, currentSelectedStore, selectedAddress, cartItems, userLat, userLng, { currentScreen = AppScreen.CHOOSE_ADDRESS }, { currentScreen = AppScreen.STORE_MENU }, { gPrice, dFee, dist, note ->
-                                      val orderMap = hashMapOf("restaurant" to currentSelectedStore.nameAr, "customerAddress" to selectedAddress, "goodsPrice" to gPrice, "deliveryFee" to dFee, "distanceKm" to dist, "price" to (gPrice + dFee), "status" to "pending", "customerId" to currentUserUid, "customerName" to currentUserName, "customerPhone" to currentUserPhone, "note" to note)
-                                      db.collection("orders").add(orderMap)
-                                      cartItems.clear()
-                                      currentScreen = AppScreen.ORDER_TRACKING
-                                  })
-                                  AppScreen.ORDER_TRACKING -> {
-                                      val runningOrder = activeOrders.lastOrNull() ?: ActiveOrder(restaurant = currentSelectedStore.nameAr, address = selectedAddress)
-                                      OrderTrackingScreen(currentLanguage, runningOrder, { currentScreen = AppScreen.HOME_EXPLORE }, { currentChatOrderId = runningOrder.id; showChatModal = true }, { if (runningOrder.id.isNotBlank()) db.collection("orders").document(runningOrder.id).update("status", "completed") }, { if (runningOrder.id.isNotBlank()) db.collection("orders").document(runningOrder.id).delete(); currentScreen = AppScreen.HOME_EXPLORE })
-                                  }
-                                  AppScreen.ORDERS_LIST -> OrdersListScreen(currentLanguage, activeOrders) { currentScreen = AppScreen.ORDER_TRACKING }
-                                  AppScreen.CHOOSE_ADDRESS -> ChooseAddressScreen(currentLanguage, selectedAddress, { selectedAddress = it; currentScreen = AppScreen.CONFIRM_ORDER }, { currentScreen = AppScreen.CONFIRM_ORDER })
-                                  AppScreen.PROFILE -> ProfileScreen(currentLanguage, currentUserName, currentUserPhone, { showEditPhoneDialog = true }, { auth.signOut(); currentUserUid = ""; isDriverSession = false; currentScreen = AppScreen.SPLASH_ONBOARDING })
-                                  AppScreen.DRIVER_DASHBOARD -> DriverDashboardScreen(currentLanguage, currentUserName, driverEarnings, driverCompletedCount, driverDebt, activeOrders, { ord, status -> db.collection("orders").document(ord.id).update("status", status) }, { ord -> db.collection("orders").document(ord.id).update("status", "delivered") }, { ord -> currentChatOrderId = ord.id; showChatModal = true }, { showPayDebtDialog = true })
-                              }
-
-                              if (showCustomOrderDialog) {
-                                  CustomOrderDialog({ showCustomOrderDialog = false }) { storeName, items, totalEstimated ->
-                                      val summary = items.joinToString(" + ") { "${it.itemName} (x${it.quantity})" }
-                                      cartItems.add(CartItem(MenuItem("c_${System.currentTimeMillis()}", "$storeName: $summary", "Commande", "طلب خاص", "Spécial", totalEstimated, "📝", "custom"), 1))
-                                      showCustomOrderDialog = false
-                                  }
-                              }
-                              if (showPayDebtDialog) PayDebtDialog(driverDebt) { showPayDebtDialog = false }
-                              incomingDriverAlertOrder?.let { inc ->
-                                  DriverIncomingOrderDialog(currentLanguage, inc, {
-                                      db.collection("orders").document(inc.id).update(mapOf("status" to "accepted", "driverName" to currentUserName, "driverPhone" to currentUserPhone))
-                                      incomingDriverAlertOrder = null
-                                  }, { incomingDriverAlertOrder = null })
-                              }
-                              if (showChatModal) {
-                                  ChatModalDialog(currentUserUid, liveChatMessages, { txt ->
-                                      if (currentChatOrderId.isNotBlank()) {
-                                          db.collection("orders").document(currentChatOrderId).collection("messages").add(mapOf("sender" to currentUserUid, "senderName" to (if (isDriverSession) "عامل التوصيل" else currentUserName), "text" to txt, "time" to "12:00", "timestamp" to com.google.firebase.firestore.FieldValue.serverTimestamp()))
-                                      }
-                                  }, { showChatModal = false })
-                              }
-                              if (showEditPhoneDialog) EditPhoneDialog(currentUserPhone, { showEditPhoneDialog = false }) { newPhone -> currentUserPhone = newPhone; if (currentUserUid.isNotEmpty()) db.collection("users").document(currentUserUid).update("phoneNumber", newPhone); showEditPhoneDialog = false }
-                          }
-                      }
-                  }
-              }
-          }
-
-          @Composable
-          fun DrawerMenuItem(title: String, icon: ImageVector, onClick: () -> Unit) {
-              Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onClick() }.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                  Icon(icon, null, tint = QdOrange, modifier = Modifier.size(22.dp))
-                  Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = QdTextDark)
-              }
-          }
-
-          @Composable
-          fun SplashScreen(lang: Language, onStart: () -> Unit, onLogin: () -> Unit) {
-              Column(modifier = Modifier.fillMaxSize().background(Color.White).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
-                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                      QuickDeliverAppLogo(size = 90.dp)
-                      Spacer(modifier = Modifier.height(16.dp))
-                      Text(AppStrings.get("app_name", lang), fontSize = 32.sp, fontWeight = FontWeight.Black, color = QdOrange)
-                      Text(AppStrings.get("tagline", lang), fontSize = 15.sp, color = QdTextMuted, textAlign = TextAlign.Center)
-                  }
-                  Box(modifier = Modifier.size(240.dp).clip(RoundedCornerShape(20.dp))) {
-                      AsyncImage(model = UNIFIED_BRAND_IMAGE_URL, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
-                  }
-                  Column(modifier = Modifier.fillMaxWidth()) {
-                      Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = QdOrange)) {
-                          Text(AppStrings.get("start_button", lang), fontWeight = FontWeight.Black, color = Color.White)
-                      }
-                      Spacer(modifier = Modifier.height(10.dp))
-                      TextButton(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text(AppStrings.get("login_action", lang), color = QdTextDark, fontWeight = FontWeight.Bold) }
-                  }
-              }
-          }
-
-          @Composable
-          fun AuthScreen(lang: Language, userType: AuthUserType, initialRegister: Boolean, onSuccess: (String, String, String, Boolean) -> Unit, onCancel: () -> Unit) {
-              val context = LocalContext.current
-              val auth = Firebase.auth
-              val db = Firebase.firestore
-              var isRegister by remember { mutableStateOf(initialRegister) }
-              var name by remember { mutableStateOf("") }
-              var phone by remember { mutableStateOf("") }
-              var email by remember { mutableStateOf("") }
-              var password by remember { mutableStateOf("") }
-              var errorMessage by remember { mutableStateOf("") }
-
-              val googleSignInLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
-                  if (res.resultCode == Activity.RESULT_OK) {
-                      try {
-                          val task = GoogleSignIn.getSignedInAccountFromIntent(res.data)
-                          val acct = task.getResult(ApiException::class.java)
-                          val cred = GoogleAuthProvider.getCredential(acct.idToken ?: "", null)
-                          auth.signInWithCredential(cred).addOnSuccessListener { r ->
-                              val uid = r.user?.uid ?: ""
-                              db.collection("users").document(uid).set(mapOf("name" to (acct.displayName ?: "User"), "role" to "customer"))
-                              onSuccess(acct.displayName ?: "User", "", uid, false)
-                          }
-                      } catch (e: Exception) {}
-                  }
-              }
-
-              LazyColumn(modifier = Modifier.fillMaxSize().background(Color.White).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                  item {
-                      Text(if (isRegister) AppStrings.get("signup_action", lang) else AppStrings.get("login_action", lang), fontSize = 24.sp, fontWeight = FontWeight.Black, color = QdOrange)
-                      Spacer(modifier = Modifier.height(16.dp))
-                      if (userType == AuthUserType.CUSTOMER && !isRegister) {
-                          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                              OutlinedButton(onClick = {
-                                  val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestIdToken(context.getString(R.string.default_web_client_id)).requestEmail().build()
-                                  googleSignInLauncher.launch(GoogleSignIn.getClient(context, gso).signInIntent)
-                              }, modifier = Modifier.weight(1f)) { GoogleOfficialLogo(18.dp); Spacer(modifier = Modifier.width(6.dp)); Text("Google", fontWeight = FontWeight.Bold) }
-                              OutlinedButton(onClick = {
-                                  val act = context as? Activity
-                                  if (act != null) {
-                                      auth.startActivityForSignInWithProvider(act, OAuthProvider.newBuilder("facebook.com").build()).addOnSuccessListener { r ->
-                                          onSuccess(r.user?.displayName ?: "Facebook User", "", r.user?.uid ?: "", false)
-                                      }
-                                  }
-                              }, modifier = Modifier.weight(1f)) { FacebookOfficialLogo(18.dp); Spacer(modifier = Modifier.width(6.dp)); Text("Facebook", fontWeight = FontWeight.Bold) }
-                          }
-                          Divider(modifier = Modifier.padding(vertical = 14.dp))
-                      }
-                      if (isRegister) {
-                          OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nom / الاسم") }, modifier = Modifier.fillMaxWidth())
-                          Spacer(modifier = Modifier.height(8.dp))
-                          OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Téléphone / الهاتف") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
-                          Spacer(modifier = Modifier.height(8.dp))
-                      }
-                      OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
-                      Spacer(modifier = Modifier.height(8.dp))
-                      OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Mot de passe") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
-                      if (errorMessage.isNotEmpty()) { Text(errorMessage, color = QdRed, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp)) }
-                      Spacer(modifier = Modifier.height(16.dp))
-                      Button(onClick = {
-                          if (email.isBlank() || password.isBlank()) { errorMessage = "يرجى ملء الحقول المطلوبة"; return@Button }
-                          val isDriver = (userType == AuthUserType.DRIVER)
-                          if (isRegister) {
-                              auth.createUserWithEmailAndPassword(email.trim(), password).addOnSuccessListener { cred ->
-                                  val uid = cred.user?.uid ?: ""
-                                  db.collection("users").document(uid).set(mapOf("name" to name.trim(), "phoneNumber" to phone.trim(), "email" to email.trim(), "role" to if (isDriver) "driver" else "customer"))
-                                  onSuccess(name.trim(), phone.trim(), uid, isDriver)
-                              }.addOnFailureListener { e -> errorMessage = e.localizedMessage ?: "Erreur" }
-                          } else {
-                              auth.signInWithEmailAndPassword(email.trim(), password).addOnSuccessListener { cred ->
-                                  val uid = cred.user?.uid ?: ""
-                                  db.collection("users").document(uid).get().addOnSuccessListener { sn ->
-                                      onSuccess(sn.getString("name") ?: "", sn.getString("phoneNumber") ?: "", uid, sn.getString("role") == "driver")
-                                  }.addOnFailureListener { onSuccess("", "", uid, false) }
-                              }.addOnFailureListener { e -> errorMessage = e.localizedMessage ?: "Erreur" }
-                          }
-                      }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = QdOrange)) {
-                          Text(if (isRegister) AppStrings.get("signup_action", lang) else AppStrings.get("login_action", lang), fontWeight = FontWeight.Bold)
-                      }
-                      Spacer(modifier = Modifier.height(8.dp))
-                      TextButton(onClick = { isRegister = !isRegister }) { Text(if (isRegister) AppStrings.get("login_action", lang) else AppStrings.get("signup_action", lang), color = QdOrange) }
-                      OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text(AppStrings.get("cancel", lang)) }
-                  }
-              }
-          }
-
-          @Composable
-          fun StoreMenuScreen(lang: Language, store: StoreItem, cartItems: List<CartItem>, onAddItem: (MenuItem) -> Unit, onRemoveItem: (MenuItem) -> Unit, onCustomOrderClick: () -> Unit, onBack: () -> Unit, onGoToCheckout: () -> Unit) {
-              val totalAmount = cartItems.sumOf { it.item.price * it.quantity }
-              Scaffold(
-                  bottomBar = {
-                      if (cartItems.isNotEmpty()) {
-                          Button(onClick = onGoToCheckout, modifier = Modifier.fillMaxWidth().padding(16.dp).height(52.dp), shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = QdOrange)) {
-                              Text("${AppStrings.get("view_cart", lang)} ($totalAmount DA)", fontWeight = FontWeight.Bold)
-                          }
-                      }
-                  }
-              ) { p ->
-                  LazyColumn(modifier = Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                      item { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }; Text(store.nameAr, fontWeight = FontWeight.Black, fontSize = 16.sp); Button(onClick = onCustomOrderClick) { Text(AppStrings.get("custom_order_btn", lang), fontSize = 10.sp) } } }
-                      items(store.menu) { item ->
-                          Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = CardDefaults.outlinedCardBorder()) {
-                              Row(modifier = Modifier.padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                  Column { Text(item.nameAr, fontWeight = FontWeight.Bold); Text("${item.price} DA", color = QdOrange, fontWeight = FontWeight.Black) }
-                                  Row(verticalAlignment = Alignment.CenterVertically) {
-                                      IconButton(onClick = { onRemoveItem(item) }) { Icon(Icons.Default.Remove, null) }
-                                      Text("${cartItems.find { it.item.id == item.id }?.quantity ?: 0}", fontWeight = FontWeight.Bold)
-                                      IconButton(onClick = { onAddItem(item) }) { Icon(Icons.Default.Add, null) }
-                                  }
-                              }
-                          }
-                      }
-                  }
-              }
-          }
-
-          @Composable
-          fun ConfirmOrderScreen(lang: Language, store: StoreItem, address: String, cartItems: List<CartItem>, userLat: Double, userLng: Double, onChangeAddress: () -> Unit, onBack: () -> Unit, onConfirmOrder: (Int, Int, Double, String) -> Unit) {
-              var note by remember { mutableStateOf("") }
-              val distKm = getDistanceInKm(store.lat, store.lng, userLat, userLng).coerceAtLeast(0.5)
-              val dFee = calculateDeliveryFee(distKm)
-              val foodSubtotal = cartItems.sumOf { it.item.price * it.quantity }
-              val total = foodSubtotal + dFee
-
-              Scaffold(
-                  bottomBar = {
-                      Button(onClick = { onConfirmOrder(foodSubtotal, dFee, distKm, note) }, modifier = Modifier.fillMaxWidth().padding(16.dp).height(54.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = QdOrange)) {
-                          Text("${AppStrings.get("confirm_command", lang)} ($total DA)", fontWeight = FontWeight.Black)
-                      }
-                  }
-              ) { p ->
-                  Column(modifier = Modifier.fillMaxSize().padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                      Row(verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }; Text(AppStrings.get("confirm_order", lang), fontSize = 18.sp, fontWeight = FontWeight.Black) }
-                      Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = QdOrangeSoft)) {
-                          Column(modifier = Modifier.padding(14.dp)) {
-                              Text("المتجر: ${store.nameAr}", fontWeight = FontWeight.Black)
-                              Text("العنوان: $address", color = QdTextDark, fontSize = 12.sp)
-                          }
-                      }
-                      OutlinedTextField(value = note, onValueChange = { note = it }, placeholder = { Text(AppStrings.get("note_placeholder", lang)) }, modifier = Modifier.fillMaxWidth())
-                      Divider()
-                      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(AppStrings.get("subtotal_meals", lang)); Text("$foodSubtotal DA", fontWeight = FontWeight.Bold) }
-                      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("${AppStrings.get("distance", lang)}: ${"%.1f".format(distKm)} km"); Text("${AppStrings.get("delivery_fee", lang)}: $dFee DA", color = QdOrange, fontWeight = FontWeight.Black) }
-                      Divider()
-                      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(AppStrings.get("total", lang), fontWeight = FontWeight.Black, fontSize = 17.sp); Text("$total DA", fontWeight = FontWeight.Black, fontSize = 18.sp, color = QdOrange) }
-                  }
-              }
-          }
-
-          @Composable
-          fun OrdersListScreen(lang: Language, orders: List<ActiveOrder>, onSelect: () -> Unit) {
-              LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                  items(orders) { ord ->
-                      Card(modifier = Modifier.fillMaxWidth().clickable { onSelect() }, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = CardDefaults.outlinedCardBorder()) {
-                          Column(modifier = Modifier.padding(14.dp)) {
-                              Text(ord.restaurant, fontWeight = FontWeight.Black)
-                              Text("المسافة: ${"%.1f".format(ord.distanceKm)} كم • التوصيل: ${ord.deliveryFee} DA • الإجمالي: ${ord.totalPrice} DA", fontSize = 12.sp, color = QdTextMuted)
-                          }
-                      }
-                  }
-              }
-          }
-
-          @Composable
-          fun ChooseAddressScreen(lang: Language, current: String, onSelect: (String) -> Unit, onBack: () -> Unit) {
-              Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                  IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
-                  Text(AppStrings.get("choose_address", lang), fontWeight = FontWeight.Black, fontSize = 18.sp)
-                  Button(onClick = { onSelect("حي النصر، العفرون (GPS)") }, modifier = Modifier.fillMaxWidth()) { Text("حي النصر، العفرون (GPS)") }
-                  Button(onClick = { onSelect("وسط مدينة العفرون") }, modifier = Modifier.fillMaxWidth()) { Text("وسط مدينة العفرون") }
-              }
-          }
-
-          @Composable
-          fun ProfileScreen(lang: Language, name: String, phone: String, onEditPhone: () -> Unit, onLogout: () -> Unit) {
-              Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                  Text(AppStrings.get("my_profile", lang), fontWeight = FontWeight.Black, fontSize = 20.sp)
-                  Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = CardDefaults.outlinedCardBorder()) {
-                      Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                          Column { Text(name, fontWeight = FontWeight.Black); Text(phone, color = QdTextMuted) }
-                          IconButton(onClick = onEditPhone) { Icon(Icons.Default.Edit, null, tint = QdOrange) }
-                      }
-                  }
-                  OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text(AppStrings.get("logout", lang), color = QdRed, fontWeight = FontWeight.Black) }
-              }
-          }
-
-          @Composable fun PayDebtDialog(amount: Int, onDismiss: () -> Unit) { Dialog(onDismissRequest = onDismiss) { Card { Column(modifier = Modifier.padding(16.dp)) { Text("ديون المنصة المستحقة: $amount DA", fontWeight = FontWeight.Black); Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("حسناً") } } } } }
-          @Composable fun ChatModalDialog(uid: String, msgs: List<ChatMessage>, onSend: (String) -> Unit, onDismiss: () -> Unit) {
-              var txt by remember { mutableStateOf("") }
-              Dialog(onDismissRequest = onDismiss) {
-                  Card(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.72f), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                      Column(modifier = Modifier.padding(14.dp)) {
-                          LazyColumn(modifier = Modifier.weight(1f)) { items(msgs) { Text("${it.senderName}: ${it.text}") } }
-                          Row { OutlinedTextField(value = txt, onValueChange = { txt = it }, modifier = Modifier.weight(1f)); IconButton(onClick = { onSend(txt); txt = "" }) { Icon(Icons.Default.Send, null, tint = QdOrange) } }
-                      }
-                  }
-              }
-          }
-          @Composable fun EditPhoneDialog(p: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
-              var ph by remember { mutableStateOf(p) }
-              Dialog(onDismissRequest = onDismiss) { Card { Column(modifier = Modifier.padding(16.dp)) { OutlinedTextField(value = ph, onValueChange = { ph = it }); Button(onClick = { onSave(ph) }, modifier = Modifier.fillMaxWidth()) { Text("حفظ") } } } }
-          }
-          EOF
-
       - name: Build Debug APK
         run: |
           chmod +x gradlew || gradle wrapper
@@ -1936,4 +1261,3 @@ jobs:
         with:
           name: QuickDeliver-Production-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-
